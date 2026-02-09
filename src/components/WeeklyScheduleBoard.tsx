@@ -73,7 +73,18 @@ function MiniJobCard({ job }: { job: Job }) {
 
 export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyScheduleBoardProps) {
   const today = startOfToday();
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(today, i)), []);
+  // Skip Friday (5) and Saturday (6)
+  const weekDays = useMemo(() => {
+    const days: Date[] = [];
+    let offset = 0;
+    while (days.length < 5) {
+      const d = addDays(today, offset);
+      const dow = d.getDay();
+      if (dow !== 5 && dow !== 6) days.push(d);
+      offset++;
+    }
+    return days;
+  }, []);
 
   // Pick 2 technicians to display
   const displayTechs = technicians.slice(0, 2);
@@ -126,7 +137,7 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
       <div className="overflow-x-auto">
         <div className="min-w-[800px]">
           {/* Header row - days */}
-          <div className="grid grid-cols-[120px_repeat(7,1fr)] gap-2 mb-2">
+          <div className="grid grid-cols-[120px_repeat(5,1fr)] gap-2 mb-2">
             <div className="p-2" /> {/* empty corner */}
             {weekDays.map((day, i) => {
               const isToday = i === 0;
@@ -149,7 +160,7 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
 
           {/* Technician rows */}
           {displayTechs.map(tech => (
-            <div key={tech.id} className="grid grid-cols-[120px_repeat(7,1fr)] gap-2 mb-2">
+            <div key={tech.id} className="grid grid-cols-[120px_repeat(5,1fr)] gap-2 mb-2">
               {/* Tech name cell */}
               <div className="bg-card rounded-lg shadow-card p-3 flex flex-col items-center justify-center">
                 <div className="w-8 h-8 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-sm mb-1">
