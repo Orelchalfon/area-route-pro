@@ -1,4 +1,4 @@
-import { ScheduleBoard } from '@/components/ScheduleBoard';
+import { WeeklyScheduleBoard } from '@/components/WeeklyScheduleBoard';
 import { NewJobDialog } from '@/components/NewJobDialog';
 import { useJobs } from '@/hooks/useJobs';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ export default function Dashboard() {
           <NewJobDialog customers={customersList} onAdd={addJob} />
         </div>
 
-        <ScheduleBoard
+        <WeeklyScheduleBoard
           jobs={jobs}
           onApprove={approveSchedule}
           onStatusChange={updateJobStatus}
