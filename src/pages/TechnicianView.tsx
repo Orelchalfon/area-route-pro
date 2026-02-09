@@ -6,7 +6,7 @@ import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { User, Calendar, CheckCircle2, Clock, LayoutDashboard, Users } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, LayoutDashboard, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TechnicianViewProps {
@@ -31,22 +31,29 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
   const handleComplete = () => {
     if (!completingJobId) return;
     onComplete(completingJobId, completionNotes);
-    toast.success('Job completed!', { description: 'Notes saved. Moving to next task.' });
+    toast.success('המשימה הושלמה!', { description: 'הערות נשמרו. עוברים למשימה הבאה.' });
     setCompletingJobId(null);
     setCompletionNotes('');
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
       <div className="bg-gradient-hero text-primary-foreground p-4 pb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold">
-            {tech.name[0]}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold">
+              {tech.name[0]}
+            </div>
+            <div>
+              <h1 className="font-semibold text-lg">{tech.name}</h1>
+              <p className="text-sm opacity-80">{tech.region} · {tech.skills.join(', ')}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-semibold text-lg">{tech.name}</h1>
-            <p className="text-sm opacity-80">{tech.region} · {tech.skills.join(', ')}</p>
+          <div className="flex gap-1">
+            <Button size="sm" variant="ghost" className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" asChild>
+              <Link to="/"><LayoutDashboard className="w-4 h-4" /></Link>
+            </Button>
           </div>
         </div>
 
@@ -72,17 +79,17 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
           <div className="flex items-center gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-foreground">{activeJobs.length}</p>
-              <p className="text-xs text-muted-foreground">Active</p>
+              <p className="text-xs text-muted-foreground">פעילות</p>
             </div>
             <div className="w-px h-8 bg-border" />
             <div className="text-center">
               <p className="text-2xl font-bold text-success">{completedJobs.length}</p>
-              <p className="text-xs text-muted-foreground">Done</p>
+              <p className="text-xs text-muted-foreground">הושלמו</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Calendar className="w-4 h-4" />
-            <span>Today</span>
+            <span>היום</span>
           </div>
         </div>
 
@@ -90,7 +97,7 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
         {nextJob && (
           <div className="bg-secondary/10 border border-secondary/20 rounded-lg p-3 flex items-center gap-2">
             <Clock className="w-4 h-4 text-secondary" />
-            <span className="text-sm font-medium text-foreground">Next up at {nextJob.scheduledTime}</span>
+            <span className="text-sm font-medium text-foreground">הבא בתור ב-{nextJob.scheduledTime}</span>
           </div>
         )}
 
@@ -99,7 +106,7 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
           <div className="space-y-3">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse-soft" />
-              Active Jobs
+              משימות פעילות
             </h2>
             {activeJobs.map((job, idx) => (
               <JobCard
@@ -118,7 +125,7 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
           <div className="space-y-3">
             <h2 className="font-semibold text-muted-foreground flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-success" />
-              Completed ({completedJobs.length})
+              הושלמו ({completedJobs.length})
             </h2>
             {completedJobs.map(job => (
               <JobCard key={job.id} job={job} variant="technician" />
@@ -129,30 +136,30 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
         {activeJobs.length === 0 && completedJobs.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
-            <p className="font-medium">No jobs scheduled</p>
-            <p className="text-sm">Check back later for assignments</p>
+            <p className="font-medium">אין משימות מתוזמנות</p>
+            <p className="text-sm">בדוק שוב מאוחר יותר</p>
           </div>
         )}
       </div>
 
       {/* Complete Dialog */}
       <Dialog open={!!completingJobId} onOpenChange={() => setCompletingJobId(null)}>
-        <DialogContent>
+        <DialogContent dir="rtl">
           <DialogHeader>
-            <DialogTitle>Complete Job</DialogTitle>
+            <DialogTitle>סיום משימה</DialogTitle>
           </DialogHeader>
           <Textarea
-            placeholder="Add professional notes about the completed work..."
+            placeholder="הוסף הערות מקצועיות על העבודה שבוצעה..."
             value={completionNotes}
             onChange={(e) => setCompletionNotes(e.target.value)}
             rows={4}
           />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCompletingJobId(null)}>Cancel</Button>
+          <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
             <Button onClick={handleComplete} className="bg-success hover:bg-success/90 text-success-foreground">
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Mark Complete
+              <CheckCircle2 className="w-4 h-4 ml-2" />
+              סמן כהושלם
             </Button>
+            <Button variant="outline" onClick={() => setCompletingJobId(null)}>ביטול</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
