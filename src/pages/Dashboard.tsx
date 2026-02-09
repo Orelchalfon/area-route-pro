@@ -1,5 +1,6 @@
 import { WeeklyScheduleBoard } from '@/components/WeeklyScheduleBoard';
 import { NewJobDialog } from '@/components/NewJobDialog';
+import { JobSummaryTables } from '@/components/JobSummaryTables';
 import { useJobs } from '@/hooks/useJobs';
 import { Button } from '@/components/ui/button';
 import { Calendar, Users, LayoutDashboard, Contact } from 'lucide-react';
@@ -54,6 +55,10 @@ export default function Dashboard() {
           onApprove={approveSchedule}
           onStatusChange={updateJobStatus}
         />
+
+        <div className="mt-8">
+          <JobSummaryTables jobs={jobs} />
+        </div>
       </main>
     </div>
   );
