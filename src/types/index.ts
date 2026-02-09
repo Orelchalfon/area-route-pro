@@ -17,6 +17,8 @@ export interface Customer {
   phone: string;
   address: string;
   city: string;
+  email: string;
+  product: string;
   lat?: number;
   lng?: number;
 }

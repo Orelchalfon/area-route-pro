@@ -1,0 +1,75 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { UserPlus } from 'lucide-react';
+
+interface NewCustomerDialogProps {
+  onAdd: (data: { name: string; phone: string; address: string; city: string; email: string; product: string }) => void;
+}
+
+export function NewCustomerDialog({ onAdd }: NewCustomerDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [email, setEmail] = useState('');
+  const [product, setProduct] = useState('');
+
+  const handleSubmit = () => {
+    if (!name || !phone || !address || !city) return;
+    onAdd({ name, phone, address, city, email, product });
+    setOpen(false);
+    setName(''); setPhone(''); setAddress(''); setCity(''); setEmail(''); setProduct('');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-1.5">
+          <UserPlus className="w-4 h-4" />
+          לקוח חדש
+        </Button>
+      </DialogTrigger>
+      <DialogContent dir="rtl" className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>לקוח חדש</DialogTitle>
+          <DialogDescription>הזן את פרטי הלקוח החדש</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div className="space-y-2">
+            <Label>שם מלא</Label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="שם מלא" />
+          </div>
+          <div className="space-y-2">
+            <Label>טלפון</Label>
+            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+972-50-0000000" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>כתובת</Label>
+              <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="רחוב ומספר" />
+            </div>
+            <div className="space-y-2">
+              <Label>עיר</Label>
+              <Input value={city} onChange={e => setCity(e.target.value)} placeholder="עיר" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>מייל</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" />
+          </div>
+          <div className="space-y-2">
+            <Label>מוצר</Label>
+            <Input value={product} onChange={e => setProduct(e.target.value)} placeholder="סוג המוצר" />
+          </div>
+          <Button onClick={handleSubmit} className="w-full" disabled={!name || !phone || !address || !city}>
+            הוסף לקוח
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
