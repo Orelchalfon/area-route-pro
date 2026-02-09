@@ -95,13 +95,15 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
     ? jobs.filter(j => j.technicianId === selectedTechId)
     : jobs;
 
-  const draftJobs = filteredJobs.filter(j => j.status === 'draft');
+  const getDayDraftJobs = (dateStr: string) => {
+    return filteredJobs.filter(j => j.status === 'draft' && j.scheduledDate === dateStr);
+  };
 
-  const handleApproveAll = () => {
-    const ids = draftJobs.map(j => j.id);
+  const handleApproveDay = (dateStr: string) => {
+    const ids = getDayDraftJobs(dateStr).map(j => j.id);
     if (ids.length === 0) return;
     onApprove(ids);
-    toast.success(`${ids.length} משימות אושרו — הודעות נשלחו ללקוחות`, {
+    toast.success(`${ids.length} משימות אושרו ליום ${dateStr}`, {
       description: 'הלקוחות יקבלו SMS/אימייל עם שעת הגעה משוערת.',
     });
   };
@@ -153,26 +155,18 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
         ))}
       </div>
 
-      {/* Approve button */}
-      {draftJobs.length > 0 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{draftJobs.length} משימות בטיוטה</span>
-          <Button onClick={handleApproveAll} className="bg-gradient-secondary text-secondary-foreground">
-            <CheckCircle className="w-4 h-4 ml-2" />
-            אשר לו״ז
-          </Button>
-        </div>
-      )}
-
       {/* Weekly grid */}
       <div className="overflow-x-auto">
         <div className="min-w-[700px]">
-          {/* Header row - days */}
-          <div className={`grid ${selectedTechId ? 'grid-cols-[100px_repeat(5,1fr)]' : 'grid-cols-[100px_repeat(5,1fr)]'} gap-2 mb-2`}>
+          {/* Header row - days with approve buttons */}
+          <div className="grid grid-cols-[100px_repeat(5,1fr)] gap-2 mb-2">
             <div className="p-2" />
             {weekDays.map((day, i) => {
               const isToday = i === 0 && addDays(today, 0).getTime() === day.getTime();
               const dayOfWeek = day.getDay();
+              const dateStr = format(day, 'yyyy-MM-dd');
+              const dayDrafts = getDayDraftJobs(dateStr);
+
               return (
                 <div
                   key={i}
@@ -181,9 +175,20 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
                   <p className={`text-sm font-semibold ${isToday ? '' : 'text-card-foreground'}`}>
                     {DAY_NAMES[dayOfWeek]}
                   </p>
-                  <p className={`text-xs ${isToday ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                  <p className={`text-xs mb-2 ${isToday ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                     {format(day, 'd/M', { locale: he })}
                   </p>
+                  {dayDrafts.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant={isToday ? 'secondary' : 'default'}
+                      className="h-7 text-xs w-full"
+                      onClick={() => handleApproveDay(dateStr)}
+                    >
+                      <CheckCircle className="w-3 h-3 ml-1" />
+                      אשר ({dayDrafts.length})
+                    </Button>
+                  )}
                 </div>
               );
             })}
