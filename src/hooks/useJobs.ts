@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Job, JobStatus } from '@/types';
-import { initialJobs } from '@/data/mockData';
+import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer } from '@/types';
+import { initialJobs, customers as initialCustomers } from '@/data/mockData';
 
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
+  const [customersList, setCustomersList] = useState<Customer[]>(initialCustomers);
 
   const updateJobStatus = (jobId: string, status: JobStatus) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status } : j));
@@ -23,6 +24,32 @@ export function useJobs() {
     ));
   };
 
+  const addJob = (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string }) => {
+    const customer = customersList.find(c => c.id === data.customerId);
+    const config = JOB_TYPE_CONFIG[data.type];
+    const newJob: Job = {
+      id: `j${Date.now()}`,
+      type: data.type,
+      status: 'draft',
+      priority: config.priority,
+      customerId: data.customerId,
+      technicianId: data.technicianId,
+      scheduledDate: data.scheduledDate,
+      scheduledTime: data.scheduledTime,
+      estimatedDuration: config.duration,
+      location: customer?.address || '',
+      city: customer?.city || '',
+      notes: data.notes,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setJobs(prev => [...prev, newJob]);
+  };
+
+  const addCustomer = (data: Omit<Customer, 'id'>) => {
+    const newCustomer: Customer = { ...data, id: `c${Date.now()}` };
+    setCustomersList(prev => [...prev, newCustomer]);
+  };
+
   const getJobsByArea = () => {
     const grouped: Record<string, Job[]> = {};
     jobs.forEach(job => {
@@ -36,5 +63,5 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, updateJobStatus, approveSchedule, completeJob, getJobsByArea, getJobsByTechnician };
+  return { jobs, customersList, updateJobStatus, approveSchedule, completeJob, addJob, addCustomer, getJobsByArea, getJobsByTechnician };
 }

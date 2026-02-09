@@ -8,14 +8,14 @@ export const technicians: Technician[] = [
 ];
 
 export const customers: Customer[] = [
-  { id: 'c1', name: 'שרה גולדשטיין', phone: '+972-50-1111111', address: 'רוטשילד 12', city: 'תל אביב' },
-  { id: 'c2', name: 'מיכאל רובין', phone: '+972-52-2222222', address: 'הרצל 45', city: 'תל אביב' },
-  { id: 'c3', name: 'רחל מזרחי', phone: '+972-54-3333333', address: 'בן יהודה 8', city: 'חיפה' },
-  { id: 'c4', name: 'דניאל פרץ', phone: '+972-50-4444444', address: 'קינג ג׳ורג׳ 23', city: 'ירושלים' },
-  { id: 'c5', name: 'תמר אברהמי', phone: '+972-52-5555555', address: 'דיזנגוף 67', city: 'תל אביב' },
-  { id: 'c6', name: 'אייל כץ', phone: '+972-54-6666666', address: 'שד׳ הנשיא 15', city: 'חיפה' },
-  { id: 'c7', name: 'נועה פרידמן', phone: '+972-50-7777777', address: 'יפו 30', city: 'ירושלים' },
-  { id: 'c8', name: 'אורן שוורץ', phone: '+972-52-8888888', address: 'אלנבי 5', city: 'תל אביב' },
+  { id: 'c1', name: 'שרה גולדשטיין', phone: '+972-50-1111111', address: 'רוטשילד 12', city: 'תל אביב', email: 'sara@email.com', product: 'מערכת אוסמוזה 5 שלבים' },
+  { id: 'c2', name: 'מיכאל רובין', phone: '+972-52-2222222', address: 'הרצל 45', city: 'תל אביב', email: 'michael@email.com', product: 'בר מים Eden' },
+  { id: 'c3', name: 'רחל מזרחי', phone: '+972-54-3333333', address: 'בן יהודה 8', city: 'חיפה', email: 'rachel@email.com', product: 'מסנן ברז ביתי' },
+  { id: 'c4', name: 'דניאל פרץ', phone: '+972-50-4444444', address: 'קינג ג׳ורג׳ 23', city: 'ירושלים', email: 'daniel@email.com', product: 'מערכת סינון מרכזית' },
+  { id: 'c5', name: 'תמר אברהמי', phone: '+972-52-5555555', address: 'דיזנגוף 67', city: 'תל אביב', email: 'tamar@email.com', product: 'מערכת אוסמוזה 5 שלבים' },
+  { id: 'c6', name: 'אייל כץ', phone: '+972-54-6666666', address: 'שד׳ הנשיא 15', city: 'חיפה', email: 'eyal@email.com', product: 'בר מים תמי4' },
+  { id: 'c7', name: 'נועה פרידמן', phone: '+972-50-7777777', address: 'יפו 30', city: 'ירושלים', email: 'noa@email.com', product: 'מסנן ברז ביתי' },
+  { id: 'c8', name: 'אורן שוורץ', phone: '+972-52-8888888', address: 'אלנבי 5', city: 'תל אביב', email: 'oren@email.com', product: 'בר מים Eden' },
 ];
 
 export const initialJobs: Job[] = [
