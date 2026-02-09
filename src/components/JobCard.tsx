@@ -1,6 +1,5 @@
 import { Job, JOB_TYPE_CONFIG, STATUS_CONFIG } from '@/types';
 import { customers, technicians } from '@/data/mockData';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, MapPin, User, Phone, Navigation, CheckCircle2 } from 'lucide-react';
 
@@ -19,25 +18,36 @@ export function JobCard({ job, variant = 'manager', onStatusChange, onComplete, 
   const statusConfig = STATUS_CONFIG[job.status];
 
   const priorityStyles: Record<string, string> = {
-    high: 'border-l-4 border-l-destructive',
-    medium: 'border-l-4 border-l-secondary',
-    low: 'border-l-4 border-l-info',
+    high: 'border-r-4 border-r-destructive',
+    medium: 'border-r-4 border-r-secondary',
+    low: 'border-r-4 border-r-info',
+  };
+
+  const colorMap: Record<string, string> = {
+    muted: 'bg-muted text-muted-foreground',
+    warning: 'bg-warning/15 text-warning',
+    info: 'bg-info/15 text-info',
+    secondary: 'bg-secondary/15 text-secondary',
+    success: 'bg-success/15 text-success',
+    accent: 'bg-accent/15 text-accent-foreground',
   };
 
   return (
-    <div className={`bg-card rounded-lg shadow-card p-4 transition-all hover:shadow-elevated animate-slide-in ${priorityStyles[job.priority]} ${isNext ? 'ring-2 ring-secondary' : ''}`}>
+    <div dir="rtl" className={`bg-card rounded-lg shadow-card p-4 transition-all hover:shadow-elevated animate-slide-in ${priorityStyles[job.priority]} ${isNext ? 'ring-2 ring-secondary' : ''}`}>
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="font-semibold text-card-foreground">{typeConfig.label}</span>
-            <StatusBadge status={job.status} />
+            <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${colorMap[statusConfig?.color] || colorMap.muted}`}>
+              {statusConfig?.label || job.status}
+            </span>
           </div>
           <p className="text-sm text-muted-foreground">{job.notes}</p>
         </div>
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <Clock className="w-3.5 h-3.5" />
           <span>{job.scheduledTime}</span>
-          <span className="text-xs ml-1">({typeConfig.duration}m)</span>
+          <span className="text-xs mr-1">({typeConfig.duration} ד׳)</span>
         </div>
       </div>
 
@@ -69,8 +79,8 @@ export function JobCard({ job, variant = 'manager', onStatusChange, onComplete, 
               className="flex-1"
               onClick={() => window.open(`tel:${customer.phone}`)}
             >
-              <Phone className="w-3.5 h-3.5 mr-1" />
-              Call
+              <Phone className="w-3.5 h-3.5 ml-1" />
+              התקשר
             </Button>
           )}
           <Button
@@ -79,42 +89,25 @@ export function JobCard({ job, variant = 'manager', onStatusChange, onComplete, 
             className="flex-1"
             onClick={() => window.open(`https://waze.com/ul?q=${encodeURIComponent(job.location + ', ' + job.city)}`)}
           >
-            <Navigation className="w-3.5 h-3.5 mr-1" />
-            Navigate
+            <Navigation className="w-3.5 h-3.5 ml-1" />
+            נווט
           </Button>
           <Button
             size="sm"
             className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
             onClick={() => onComplete?.(job.id)}
           >
-            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-            Complete
+            <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
+            סיים
           </Button>
         </div>
       )}
 
       {variant === 'technician' && job.status === 'completed' && (
         <div className="mt-2 p-2 bg-success/10 rounded text-sm text-success">
-          ✓ Completed {job.completionNotes && `— ${job.completionNotes}`}
+          ✓ הושלם {job.completionNotes && `— ${job.completionNotes}`}
         </div>
       )}
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
-  const colorMap: Record<string, string> = {
-    muted: 'bg-muted text-muted-foreground',
-    warning: 'bg-warning/15 text-warning',
-    info: 'bg-info/15 text-info',
-    secondary: 'bg-secondary/15 text-secondary',
-    success: 'bg-success/15 text-success',
-    accent: 'bg-accent/15 text-accent-foreground',
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${colorMap[config?.color] || colorMap.muted}`}>
-      {config?.label || status}
-    </span>
   );
 }
