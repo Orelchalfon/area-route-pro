@@ -41,9 +41,9 @@ export interface Job {
 }
 
 export const JOB_TYPE_CONFIG: Record<JobType, { label: string; duration: number; priority: JobPriority; icon: string; color: string }> = {
-  filter_replacement: { label: 'החלפת פילטר', duration: 30, priority: 'low', icon: 'Filter', color: 'info' },
+  filter_replacement: { label: 'החלפת פילטר', duration: 25, priority: 'low', icon: 'Filter', color: 'info' },
   malfunction: { label: 'תקלה', duration: 60, priority: 'high', icon: 'AlertTriangle', color: 'destructive' },
-  installation: { label: 'התקנה חדשה', duration: 180, priority: 'medium', icon: 'Wrench', color: 'secondary' },
+  installation: { label: 'התקנה חדשה', duration: 120, priority: 'medium', icon: 'Wrench', color: 'secondary' },
 };
 
 export const STATUS_CONFIG: Record<JobStatus, { label: string; color: string }> = {
