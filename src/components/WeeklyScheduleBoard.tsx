@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Job, JOB_TYPE_CONFIG, STATUS_CONFIG } from '@/types';
 import { technicians, customers } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, addDays, startOfToday, isSameDay, parseISO } from 'date-fns';
+import { format, addDays, startOfToday } from 'date-fns';
 import { he } from 'date-fns/locale';
 
 interface WeeklyScheduleBoardProps {
@@ -73,7 +73,8 @@ function MiniJobCard({ job }: { job: Job }) {
 
 export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyScheduleBoardProps) {
   const today = startOfToday();
-  // Skip Friday (5) and Saturday (6)
+  const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
+
   const weekDays = useMemo(() => {
     const days: Date[] = [];
     let offset = 0;
@@ -86,10 +87,15 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
     return days;
   }, []);
 
-  // Pick 2 technicians to display
-  const displayTechs = technicians.slice(0, 2);
+  const displayTechs = selectedTechId
+    ? technicians.filter(t => t.id === selectedTechId)
+    : technicians.slice(0, 2);
 
-  const draftJobs = jobs.filter(j => j.status === 'draft');
+  const filteredJobs = selectedTechId
+    ? jobs.filter(j => j.technicianId === selectedTechId)
+    : jobs;
+
+  const draftJobs = filteredJobs.filter(j => j.status === 'draft');
 
   const handleApproveAll = () => {
     const ids = draftJobs.map(j => j.id);
@@ -101,19 +107,44 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
   };
 
   const stats = [
-    { label: 'טיוטה', count: jobs.filter(j => j.status === 'draft').length, color: 'text-muted-foreground' },
-    { label: 'ממתין', count: jobs.filter(j => j.status === 'pending_customer').length, color: 'text-warning' },
-    { label: 'מאושר', count: jobs.filter(j => j.status === 'confirmed').length, color: 'text-info' },
-    { label: 'הושלם', count: jobs.filter(j => j.status === 'completed').length, color: 'text-success' },
+    { label: 'טיוטה', count: filteredJobs.filter(j => j.status === 'draft').length, color: 'bg-muted-foreground' },
+    { label: 'ממתין', count: filteredJobs.filter(j => j.status === 'pending_customer').length, color: 'bg-warning' },
+    { label: 'מאושר', count: filteredJobs.filter(j => j.status === 'confirmed').length, color: 'bg-info' },
+    { label: 'הושלם', count: filteredJobs.filter(j => j.status === 'completed').length, color: 'bg-success' },
   ];
 
   return (
     <div dir="rtl" className="space-y-6">
+      {/* Technician toggle buttons */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant={selectedTechId === null ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSelectedTechId(null)}
+        >
+          <Users className="w-4 h-4 ml-1.5" />
+          כל הטכנאים
+        </Button>
+        {technicians.slice(0, 2).map(tech => (
+          <Button
+            key={tech.id}
+            variant={selectedTechId === tech.id ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedTechId(tech.id)}
+          >
+            <div className="w-5 h-5 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-[10px] ml-1.5">
+              {tech.name[0]}
+            </div>
+            {tech.name}
+          </Button>
+        ))}
+      </div>
+
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map(s => (
           <div key={s.label} className="bg-card rounded-lg shadow-card p-4 flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${s.color === 'text-muted-foreground' ? 'bg-muted-foreground' : s.color === 'text-warning' ? 'bg-warning' : s.color === 'text-info' ? 'bg-info' : 'bg-success'}`} />
+            <div className={`w-3 h-3 rounded-full ${s.color}`} />
             <div>
               <p className="text-2xl font-bold text-card-foreground">{s.count}</p>
               <p className="text-xs text-muted-foreground">{s.label}</p>
@@ -135,12 +166,12 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
 
       {/* Weekly grid */}
       <div className="overflow-x-auto">
-        <div className="min-w-[800px]">
+        <div className="min-w-[700px]">
           {/* Header row - days */}
-          <div className="grid grid-cols-[120px_repeat(5,1fr)] gap-2 mb-2">
-            <div className="p-2" /> {/* empty corner */}
+          <div className={`grid ${selectedTechId ? 'grid-cols-[100px_repeat(5,1fr)]' : 'grid-cols-[100px_repeat(5,1fr)]'} gap-2 mb-2`}>
+            <div className="p-2" />
             {weekDays.map((day, i) => {
-              const isToday = i === 0;
+              const isToday = i === 0 && addDays(today, 0).getTime() === day.getTime();
               const dayOfWeek = day.getDay();
               return (
                 <div
@@ -160,7 +191,7 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange }: WeeklyS
 
           {/* Technician rows */}
           {displayTechs.map(tech => (
-            <div key={tech.id} className="grid grid-cols-[120px_repeat(5,1fr)] gap-2 mb-2">
+            <div key={tech.id} className="grid grid-cols-[100px_repeat(5,1fr)] gap-2 mb-2">
               {/* Tech name cell */}
               <div className="bg-card rounded-lg shadow-card p-3 flex flex-col items-center justify-center">
                 <div className="w-8 h-8 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-sm mb-1">
