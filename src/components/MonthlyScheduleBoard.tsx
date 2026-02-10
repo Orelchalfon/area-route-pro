@@ -9,6 +9,7 @@ import { he } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 interface MonthlyScheduleBoardProps {
   jobs: Job[];
@@ -276,7 +277,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
   );
 }
 // Filter job picker with checkboxes
-function FilterJobPicker({ jobs, onSelect }: { jobs: Job[]; onSelect: (jobIds: string[]) => void }) {
+function FilterJobPicker({ jobs, onSelect, movedFromOtherDay }: { jobs: Job[]; onSelect: (jobIds: string[]) => void; movedFromOtherDay?: Set<string> }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
@@ -291,12 +292,14 @@ function FilterJobPicker({ jobs, onSelect }: { jobs: Job[]; onSelect: (jobIds: s
     <div className="space-y-2">
       {jobs.map(job => {
         const customer = customers.find(c => c.id === job.customerId);
+        const isFromOther = movedFromOtherDay?.has(job.id);
         return (
-          <label key={job.id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+          <label key={job.id} className={cn("flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 cursor-pointer transition-colors", isFromOther ? "border-accent bg-accent/5" : "border-border")}>
             <Checkbox checked={selectedIds.has(job.id)} onCheckedChange={() => toggle(job.id)} className="mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium">{customer?.name}</p>
               <p className="text-xs text-muted-foreground">{job.location} · {customer?.city}</p>
+              {isFromOther && <p className="text-xs text-accent-foreground mt-0.5">📌 משובץ ביום אחר — יועבר לכאן</p>}
             </div>
           </label>
         );
@@ -338,15 +341,16 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
   // Auto-generated filter jobs for this month
   const filterJobs = useMemo(() => generateFilterJobs(month, year, customers), [month, year]);
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
+  const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(new Set());
   const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, workingDays), [filterJobs, workingDays]);
 
   // Unassigned filter jobs (not yet distributed to any day)
   const assignedFilterIds = useMemo(() => {
     const ids = new Set<string>();
-    filterDistribution.forEach(jobs => jobs.forEach(j => ids.add(j.id)));
+    filterDistribution.forEach(jobs => jobs.forEach(j => { if (!removedFromAutoIds.has(j.id)) ids.add(j.id); }));
     extraFilterAssignments.forEach(jobs => jobs.forEach(j => ids.add(j.id)));
     return ids;
-  }, [filterDistribution, extraFilterAssignments]);
+  }, [filterDistribution, extraFilterAssignments, removedFromAutoIds]);
 
   const unassignedFilterJobs = useMemo(() =>
     filterJobs.filter(j => !assignedFilterIds.has(j.id)),
@@ -368,7 +372,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
 
   const getManualDayJobs = (dateStr: string) => manualJobs.filter(j => j.scheduledDate === dateStr);
   const getFilterDayJobs = (dateStr: string) => [
-    ...(filterDistribution.get(dateStr) || []),
+    ...(filterDistribution.get(dateStr) || []).filter(j => !removedFromAutoIds.has(j.id)),
     ...(extraFilterAssignments.get(dateStr) || []),
   ];
 
@@ -378,6 +382,48 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
     const selected = filterJobs.filter(j => jobIds.includes(j.id));
     setExtraFilterAssignments(prev => {
       const next = new Map(prev);
+      const existing = next.get(dateStr) || [];
+      next.set(dateStr, [...existing, ...selected]);
+      return next;
+    });
+  };
+
+  const handleFilterPickerMoveSelect = (jobIds: string[], otherDayIds: Set<string>) => {
+    if (!filterPickerState) return;
+    const { dateStr } = filterPickerState;
+    const selected = filterJobs.filter(j => jobIds.includes(j.id));
+    const movedIds = new Set(jobIds.filter(id => otherDayIds.has(id)));
+
+    // Track auto-distributed jobs that are being moved
+    const autoMovedIds = new Set<string>();
+    if (movedIds.size > 0) {
+      filterDistribution.forEach((dayJobs, key) => {
+        if (key !== dateStr) {
+          dayJobs.forEach(j => { if (movedIds.has(j.id)) autoMovedIds.add(j.id); });
+        }
+      });
+    }
+    if (autoMovedIds.size > 0) {
+      setRemovedFromAutoIds(prev => {
+        const next = new Set(prev);
+        autoMovedIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+
+    setExtraFilterAssignments(prev => {
+      const next = new Map(prev);
+      // Remove moved jobs from extra assignments on other days
+      if (movedIds.size > 0) {
+        next.forEach((dayJobs, key) => {
+          if (key !== dateStr) {
+            const filtered = dayJobs.filter(j => !movedIds.has(j.id));
+            if (filtered.length > 0) next.set(key, filtered);
+            else next.delete(key);
+          }
+        });
+      }
+      // Add all selected to target day
       const existing = next.get(dateStr) || [];
       next.set(dateStr, [...existing, ...selected]);
       return next;
@@ -639,10 +685,38 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
         // Determine the area already assigned to this day
         const dayExistingFilters = getFilterDayJobs(filterPickerState.dateStr);
         const dayArea = dayExistingFilters.length > 0 ? dayExistingFilters[0].city : null;
-        // Show only unassigned filters from the same area
-        const availableFilters = dayArea
+        const dayExistingIds = new Set(dayExistingFilters.map(j => j.id));
+
+        // Unassigned filters from the same area
+        const unassignedSameArea = dayArea
           ? unassignedFilterJobs.filter(j => j.city === dayArea)
           : unassignedFilterJobs;
+
+        // Filters from the same area assigned to OTHER days (can be pulled)
+        const fromOtherDays: (Job & { fromDate?: string })[] = [];
+        if (dayArea) {
+          // Check auto-distributed
+          filterDistribution.forEach((dayJobs, dateStr) => {
+            if (dateStr === filterPickerState.dateStr) return;
+            dayJobs.forEach(j => {
+              if (j.city === dayArea && !dayExistingIds.has(j.id)) {
+                fromOtherDays.push({ ...j, fromDate: dateStr });
+              }
+            });
+          });
+          // Check extra assignments
+          extraFilterAssignments.forEach((dayJobs, dateStr) => {
+            if (dateStr === filterPickerState.dateStr) return;
+            dayJobs.forEach(j => {
+              if (j.city === dayArea && !dayExistingIds.has(j.id)) {
+                fromOtherDays.push({ ...j, fromDate: dateStr });
+              }
+            });
+          });
+        }
+
+        const availableFilters = [...unassignedSameArea, ...fromOtherDays];
+        const otherDayIds = new Set(fromOtherDays.map(j => j.id));
         const areaLabel = dayArea ? ` (${dayArea})` : '';
 
         return (
@@ -658,8 +732,9 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
               ) : (
                 <FilterJobPicker
                   jobs={availableFilters}
+                  movedFromOtherDay={otherDayIds}
                   onSelect={(jobIds) => {
-                    handleFilterPickerSelect(jobIds);
+                    handleFilterPickerMoveSelect(jobIds, otherDayIds);
                     setFilterPickerState(null);
                   }}
                 />
