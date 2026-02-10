@@ -240,6 +240,110 @@ function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, da
   );
 }
 
+// Calculate time ranges for jobs in a day, starting from 10:00
+function calculateTimeRanges(allJobs: Job[]): { job: Job; startTime: string; endTime: string }[] {
+  let currentMinutes = 10 * 60; // Start at 10:00
+  return allJobs.map(job => {
+    const startHour = Math.floor(currentMinutes / 60);
+    const startMin = currentMinutes % 60;
+    const endMinutes = currentMinutes + job.estimatedDuration;
+    const endHour = Math.floor(endMinutes / 60);
+    const endMin = endMinutes % 60;
+    const startTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`;
+    const endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+    currentMinutes = endMinutes;
+    return { job, startTime, endTime };
+  });
+}
+
+// Day approval dialog
+function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onApprove, approvedDays }: {
+  open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[];
+  onApprove: (jobIds: string[]) => void; approvedDays: Set<string>;
+}) {
+  const allJobs = [...filterJobs, ...dayJobs];
+  const dayDate = new Date(dateStr + 'T00:00:00');
+  const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
+  const timeRanges = calculateTimeRanges(allJobs);
+  const isApproved = approvedDays.has(dateStr);
+  const totalMinutes = allJobs.reduce((s, j) => s + j.estimatedDuration, 0);
+  const endMinutes = 10 * 60 + totalMinutes;
+  const overTime = endMinutes > 17 * 60;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {isApproved && <CheckCircle className="w-5 h-5 text-success" />}
+            אישור לו״ז — {dayLabel}
+          </DialogTitle>
+        </DialogHeader>
+
+        {allJobs.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">אין משימות ליום זה</p>
+        ) : (
+          <div className="space-y-3">
+            {/* Summary */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 text-sm">
+              <span>{allJobs.length} משימות</span>
+              <span>10:00 – {String(Math.floor(endMinutes / 60)).padStart(2, '0')}:{String(endMinutes % 60).padStart(2, '0')}</span>
+              {overTime && <span className="text-destructive font-medium">⚠ חריגה מ-17:00</span>}
+            </div>
+
+            {/* Timeline */}
+            <div className="space-y-1">
+              {timeRanges.map(({ job, startTime, endTime }, i) => {
+                const customer = customers.find(c => c.id === job.customerId);
+                const typeConfig = JOB_TYPE_CONFIG[job.type];
+                return (
+                  <div key={job.id} className={`p-3 rounded-lg border ${typeColors[job.type]}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        {typeIcons[job.type]}
+                        <span className="font-medium text-sm">{customer?.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs font-mono">
+                        <Clock className="w-3 h-3" />
+                        <span>{startTime} – {endTime}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs opacity-70">
+                      <span>{typeConfig.label} · {job.estimatedDuration} דק׳</span>
+                      <span>{job.location}</span>
+                    </div>
+                    {customer?.phone && (
+                      <div className="text-xs opacity-60 mt-0.5">📱 {customer.phone}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Approve button */}
+            {!isApproved ? (
+              <Button
+                className="w-full gap-2 bg-success hover:bg-success/90 text-success-foreground"
+                onClick={() => {
+                  onApprove(allJobs.map(j => j.id));
+                  toast.success(`יום ${dayLabel} אושר — ${allJobs.length} משימות`);
+                }}
+              >
+                <CheckCircle className="w-4 h-4" />
+                אשר יום ושלח הודעות ללקוחות
+              </Button>
+            ) : (
+              <div className="text-center p-3 bg-success/10 rounded-lg text-success text-sm font-medium">
+                ✓ יום זה אושר — הודעות נשלחו ללקוחות
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Day detail dialog
 function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob }: {
   open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[]; onRemoveJob: (jobId: string) => void;
@@ -330,6 +434,15 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
   const [pickerState, setPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
   const [filterPickerState, setFilterPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
   const [detailState, setDetailState] = useState<{ open: boolean; dateStr: string } | null>(null);
+  const [approvalState, setApprovalState] = useState<{ open: boolean; dateStr: string } | null>(null);
+  const [approvedDays, setApprovedDays] = useState<Set<string>>(new Set());
+
+  const handleApproveDay = (jobIds: string[]) => {
+    onApprove(jobIds);
+    if (approvalState) {
+      setApprovedDays(prev => new Set(prev).add(approvalState.dateStr));
+    }
+  };
 
   const month = currentMonth.getMonth() + 1; // 1-12
   const year = currentMonth.getFullYear();
@@ -653,24 +766,43 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
                 const totalMinutes = dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) + dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
                 const maxShow = isWeekView ? 20 : 2;
                 const dayArea = !isWeekend && inCurrentMonth ? getDayArea(dateStr) : null;
+                const isDayApproved = approvedDays.has(dateStr);
+                const hasJobs = dayFilterJobs.length + dayManualJobs.length > 0;
 
                 return (
                   <div
                     key={dateStr}
                     className={`${isWeekView ? 'min-h-[250px]' : 'min-h-[100px]'} border-b border-r border-border p-1.5 transition-colors cursor-pointer hover:bg-muted/20 ${
                       isWeekend ? 'bg-muted/30' : ''
-                    } ${isToday ? 'ring-2 ring-inset ring-primary' : ''} ${!inCurrentMonth ? 'opacity-40' : ''}`}
+                    } ${isToday ? 'ring-2 ring-inset ring-primary' : ''} ${!inCurrentMonth ? 'opacity-40' : ''} ${isDayApproved ? 'bg-success/5' : ''}`}
                     onClick={() => !isWeekend && inCurrentMonth && setDetailState({ open: true, dateStr })}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`text-xs font-medium ${isToday ? 'text-primary font-bold' : 'text-card-foreground'}`}>
-                        {isWeekView ? format(day, 'd/M') : day.getDate()}
-                      </span>
-                      {totalMinutes > 0 && !isWeekend && (
-                        <span className="text-[9px] text-muted-foreground">
-                          {Math.floor(totalMinutes / 60)}:{String(totalMinutes % 60).padStart(2, '0')}
+                      <div className="flex items-center gap-1">
+                        <span className={`text-xs font-medium ${isToday ? 'text-primary font-bold' : 'text-card-foreground'}`}>
+                          {isWeekView ? format(day, 'd/M') : day.getDate()}
                         </span>
-                      )}
+                        {isDayApproved && <CheckCircle className="w-2.5 h-2.5 text-success" />}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {totalMinutes > 0 && !isWeekend && (
+                          <span className="text-[9px] text-muted-foreground">
+                            {Math.floor(totalMinutes / 60)}:{String(totalMinutes % 60).padStart(2, '0')}
+                          </span>
+                        )}
+                        {!isWeekend && inCurrentMonth && hasJobs && !isDayApproved && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setApprovalState({ open: true, dateStr });
+                            }}
+                            className="p-0.5 rounded hover:bg-success/20 transition-colors"
+                            title="אשר יום"
+                          >
+                            <CheckCircle className="w-3 h-3 text-muted-foreground hover:text-success" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {dayArea && !isWeekend && inCurrentMonth && (
@@ -861,6 +993,19 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
           dayJobs={getManualDayJobs(detailState.dateStr)}
           filterJobs={getFilterDayJobs(detailState.dateStr)}
           onRemoveJob={onUnassignJob}
+        />
+      )}
+
+      {/* Day approval dialog */}
+      {approvalState && (
+        <DayApprovalDialog
+          open={approvalState.open}
+          onClose={() => setApprovalState(null)}
+          dateStr={approvalState.dateStr}
+          dayJobs={getManualDayJobs(approvalState.dateStr)}
+          filterJobs={getFilterDayJobs(approvalState.dateStr)}
+          onApprove={handleApproveDay}
+          approvedDays={approvedDays}
         />
       )}
     </div>
