@@ -9,7 +9,14 @@ import { he } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+
+const REGIONS = [
+  'דרום רחוק', 'דרום קרוב', 'דרום תל אביב והסביבה', 'ירושלים והסביבה',
+  'מרכז פתח תקווה', 'הרצליה ורעננה', 'שומרון', 'נתניה ועמק חפר',
+  'צפון קרוב', 'צפון רחוק',
+];
 
 interface MonthlyScheduleBoardProps {
   jobs: Job[];
@@ -342,7 +349,61 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
   const filterJobs = useMemo(() => generateFilterJobs(month, year, customers), [month, year]);
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
   const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(new Set());
+  const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string>>(new Map());
   const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, workingDays), [filterJobs, workingDays]);
+
+  // Get the effective area for a day (override or auto-determined)
+  const getDayArea = (dateStr: string): string | null => {
+    if (dayAreaOverrides.has(dateStr)) return dayAreaOverrides.get(dateStr)!;
+    const autoJobs = (filterDistribution.get(dateStr) || []).filter(j => !removedFromAutoIds.has(j.id));
+    const extraJobs = extraFilterAssignments.get(dateStr) || [];
+    const allDayFilters = [...autoJobs, ...extraJobs];
+    return allDayFilters.length > 0 ? allDayFilters[0].city : null;
+  };
+
+  // When area is overridden, rebuild that day's filter list from the new area
+  const handleAreaOverride = (dateStr: string, newArea: string) => {
+    setDayAreaOverrides(prev => new Map(prev).set(dateStr, newArea));
+
+    // Remove existing auto filters from this day
+    const currentAutoJobs = (filterDistribution.get(dateStr) || []);
+    setRemovedFromAutoIds(prev => {
+      const next = new Set(prev);
+      currentAutoJobs.forEach(j => next.add(j.id));
+      return next;
+    });
+
+    // Clear extra assignments for this day
+    setExtraFilterAssignments(prev => {
+      const next = new Map(prev);
+      next.delete(dateStr);
+      return next;
+    });
+
+    // Find unassigned filter jobs from the new area and assign up to 3
+    const allAssignedIds = new Set<string>();
+    filterDistribution.forEach((dayJobs, key) => {
+      if (key !== dateStr) dayJobs.forEach(j => { if (!removedFromAutoIds.has(j.id)) allAssignedIds.add(j.id); });
+    });
+    // Also count current removedFromAutoIds minus the ones we just removed
+    currentAutoJobs.forEach(j => allAssignedIds.delete(j.id));
+    extraFilterAssignments.forEach((dayJobs, key) => {
+      if (key !== dateStr) dayJobs.forEach(j => allAssignedIds.add(j.id));
+    });
+
+    const available = filterJobs.filter(j => j.city === newArea && !allAssignedIds.has(j.id));
+    const toAssign = available.slice(0, 3);
+
+    if (toAssign.length > 0) {
+      setExtraFilterAssignments(prev => {
+        const next = new Map(prev);
+        next.set(dateStr, toAssign);
+        return next;
+      });
+    }
+
+    toast.success(`האזור שונה ל-${newArea} — ${toAssign.length} פילטרים שובצו`);
+  };
 
   // Unassigned filter jobs (not yet distributed to any day)
   const assignedFilterIds = useMemo(() => {
@@ -569,6 +630,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
                 const dayManualJobs = getManualDayJobs(dateStr);
                 const totalMinutes = dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) + dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
                 const maxShow = isWeekView ? 20 : 2;
+                const dayArea = !isWeekend && inCurrentMonth ? getDayArea(dateStr) : null;
 
                 return (
                   <div
@@ -588,6 +650,30 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
                         </span>
                       )}
                     </div>
+
+                    {dayArea && !isWeekend && inCurrentMonth && (
+                      <div className="mb-0.5">
+                        <Select
+                          value={dayArea}
+                          onValueChange={(val) => {
+                            handleAreaOverride(dateStr, val);
+                          }}
+                        >
+                          <SelectTrigger
+                            className="h-4 px-1 text-[8px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full justify-start gap-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MapPin className="w-2 h-2 shrink-0" />
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent dir="rtl">
+                            {REGIONS.map(r => (
+                              <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
                     {!isWeekend && inCurrentMonth && (
                       <div className="space-y-0.5">
@@ -682,9 +768,9 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
 
       {/* Filter picker dialog */}
       {filterPickerState && (() => {
-        // Determine the area already assigned to this day
+        // Determine the area already assigned to this day (respects overrides)
+        const dayArea = getDayArea(filterPickerState.dateStr);
         const dayExistingFilters = getFilterDayJobs(filterPickerState.dateStr);
-        const dayArea = dayExistingFilters.length > 0 ? dayExistingFilters[0].city : null;
         const dayExistingIds = new Set(dayExistingFilters.map(j => j.id));
 
         // Unassigned filters from the same area
