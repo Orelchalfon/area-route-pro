@@ -24,6 +24,18 @@ export function useJobs() {
     ));
   };
 
+  const assignJob = (jobId: string, technicianId: string, scheduledDate: string, scheduledTime: string) => {
+    setJobs(prev => prev.map(j => 
+      j.id === jobId ? { ...j, technicianId, scheduledDate, scheduledTime } : j
+    ));
+  };
+
+  const unassignJob = (jobId: string) => {
+    setJobs(prev => prev.map(j => 
+      j.id === jobId ? { ...j, technicianId: undefined, scheduledDate: undefined, scheduledTime: undefined } : j
+    ));
+  };
+
   const addJob = (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string }) => {
     const customer = customersList.find(c => c.id === data.customerId);
     const config = JOB_TYPE_CONFIG[data.type];
@@ -50,6 +62,8 @@ export function useJobs() {
     setCustomersList(prev => [...prev, newCustomer]);
   };
 
+  const getUnassignedJobs = () => jobs.filter(j => !j.technicianId && !j.scheduledDate);
+
   const getJobsByArea = () => {
     const grouped: Record<string, Job[]> = {};
     jobs.forEach(job => {
@@ -63,5 +77,5 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, customersList, updateJobStatus, approveSchedule, completeJob, addJob, addCustomer, getJobsByArea, getJobsByTechnician };
+  return { jobs, customersList, updateJobStatus, approveSchedule, completeJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician };
 }
