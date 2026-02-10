@@ -2,9 +2,9 @@ import { useState, useMemo } from 'react';
 import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { technicians, customers } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, getDay, addMonths, subMonths, addWeeks, subWeeks, isSameMonth } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -303,6 +303,8 @@ function FilterJobPicker({ jobs, onSelect }: { jobs: Job[]; onSelect: (jobIds: s
 export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssignJob, onUnassignJob }: MonthlyScheduleBoardProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(technicians[0].id);
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [pickerState, setPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
   const [filterPickerState, setFilterPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
   const [detailState, setDetailState] = useState<{ open: boolean; dateStr: string } | null>(null);
@@ -409,17 +411,48 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
         ))}
       </div>
 
-      {/* Month navigator */}
+      {/* View mode toggle + Navigator */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-        <h3 className="text-lg font-bold text-card-foreground">
-          {MONTH_NAMES[month - 1]} {year}
-        </h3>
-        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (viewMode === 'month') setCurrentMonth(prev => subMonths(prev, 1));
+            else setCurrentWeekStart(prev => subWeeks(prev, 1));
+          }}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-bold text-card-foreground">
+            {viewMode === 'month'
+              ? `${MONTH_NAMES[month - 1]} ${year}`
+              : `${format(currentWeekStart, 'd/M')} – ${format(endOfWeek(currentWeekStart, { weekStartsOn: 0 }), 'd/M/yyyy')}`
+            }
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (viewMode === 'month') {
+                setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+                setViewMode('week');
+              } else {
+                setViewMode('month');
+              }
+            }}
+            className="gap-1.5"
+          >
+            {viewMode === 'month' ? <ZoomIn className="w-3.5 h-3.5" /> : <ZoomOut className="w-3.5 h-3.5" />}
+            {viewMode === 'month' ? 'תצוגת שבוע' : 'תצוגת חודש'}
+          </Button>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (viewMode === 'month') setCurrentMonth(prev => addMonths(prev, 1));
+            else setCurrentWeekStart(prev => addWeeks(prev, 1));
+          }}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -443,108 +476,119 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
       </div>
 
       {/* Calendar grid */}
-      <div className="bg-card rounded-xl shadow-card overflow-hidden">
-        {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-border">
-          {DAY_HEADERS.map((d, i) => (
-            <div key={i} className={`text-center py-2 text-xs font-semibold ${i === 5 || i === 6 ? 'text-muted-foreground/50' : 'text-card-foreground'}`}>
-              {d}
-            </div>
-          ))}
-        </div>
+      {(() => {
+        const isWeekView = viewMode === 'week';
+        const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
+        const displayDays = isWeekView
+          ? eachDayOfInterval({ start: currentWeekStart, end: weekEnd })
+          : allDays;
+        const emptyBefore = isWeekView ? 0 : startDow;
 
-        {/* Calendar cells */}
-        <div className="grid grid-cols-7">
-          {/* Empty cells before first day */}
-          {Array.from({ length: startDow }).map((_, i) => (
-            <div key={`empty-${i}`} className="min-h-[100px] border-b border-r border-border bg-muted/20" />
-          ))}
-
-          {allDays.map(day => {
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const dow = getDay(day);
-            const isWeekend = dow === 5 || dow === 6;
-            const isToday = dateStr === today;
-            const dayFilterJobs = getFilterDayJobs(dateStr);
-            const dayManualJobs = getManualDayJobs(dateStr);
-            const totalJobs = dayFilterJobs.length + dayManualJobs.length;
-            const totalMinutes = dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) + dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
-
-            return (
-              <div
-                key={dateStr}
-                className={`min-h-[100px] border-b border-r border-border p-1.5 transition-colors cursor-pointer hover:bg-muted/20 ${
-                  isWeekend ? 'bg-muted/30' : ''
-                } ${isToday ? 'ring-2 ring-inset ring-primary' : ''}`}
-                onClick={() => !isWeekend && setDetailState({ open: true, dateStr })}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-medium ${isToday ? 'text-primary font-bold' : 'text-card-foreground'}`}>
-                    {day.getDate()}
-                  </span>
-                  {totalMinutes > 0 && !isWeekend && (
-                    <span className="text-[9px] text-muted-foreground">
-                      {Math.floor(totalMinutes / 60)}:{String(totalMinutes % 60).padStart(2, '0')}
-                    </span>
-                  )}
+        return (
+          <div className="bg-card rounded-xl shadow-card overflow-hidden">
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-b border-border">
+              {DAY_HEADERS.map((d, i) => (
+                <div key={i} className={`text-center py-2 text-xs font-semibold ${i === 5 || i === 6 ? 'text-muted-foreground/50' : 'text-card-foreground'}`}>
+                  {d}
                 </div>
+              ))}
+            </div>
 
-                {!isWeekend && (
-                  <div className="space-y-0.5">
-                    {dayFilterJobs.slice(0, 2).map(job => (
-                      <MiniJobChip key={job.id} job={job} isAutoScheduled />
-                    ))}
-                    {dayFilterJobs.length > 2 && (
-                      <span className="text-[9px] text-info">+{dayFilterJobs.length - 2} שירות</span>
-                    )}
-                    {dayManualJobs.slice(0, 2).map(job => (
-                      <MiniJobChip key={job.id} job={job} onRemove={() => onUnassignJob(job.id)} />
-                    ))}
-                    {dayManualJobs.length > 2 && (
-                      <span className="text-[9px] text-muted-foreground">+{dayManualJobs.length - 2} עוד</span>
-                    )}
+            {/* Calendar cells */}
+            <div className="grid grid-cols-7">
+              {Array.from({ length: emptyBefore }).map((_, i) => (
+                <div key={`empty-${i}`} className={`${isWeekView ? 'min-h-[250px]' : 'min-h-[100px]'} border-b border-r border-border bg-muted/20`} />
+              ))}
 
-                    <div className="flex gap-0.5 mt-0.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const dayDate = new Date(dateStr + 'T00:00:00');
-                          setPickerState({
-                            open: true,
-                            dateStr,
-                            dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
-                          });
-                        }}
-                        className="flex-1 text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-destructive/50 hover:text-destructive transition-colors"
-                        title="הוסף תקלה/התקנה"
-                      >
-                        <AlertTriangle className="w-2 h-2" />
-                        <Plus className="w-2 h-2" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const dayDate = new Date(dateStr + 'T00:00:00');
-                          setFilterPickerState({
-                            open: true,
-                            dateStr,
-                            dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
-                          });
-                        }}
-                        className="flex-1 text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-info/50 hover:text-info transition-colors"
-                        title="הוסף החלפת פילטר"
-                      >
-                        <Filter className="w-2 h-2" />
-                        <Plus className="w-2 h-2" />
-                      </button>
+              {displayDays.map(day => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const dow = getDay(day);
+                const isWeekend = dow === 5 || dow === 6;
+                const isToday = dateStr === today;
+                const inCurrentMonth = isWeekView ? true : isSameMonth(day, currentMonth);
+                const dayFilterJobs = getFilterDayJobs(dateStr);
+                const dayManualJobs = getManualDayJobs(dateStr);
+                const totalMinutes = dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) + dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
+                const maxShow = isWeekView ? 20 : 2;
+
+                return (
+                  <div
+                    key={dateStr}
+                    className={`${isWeekView ? 'min-h-[250px]' : 'min-h-[100px]'} border-b border-r border-border p-1.5 transition-colors cursor-pointer hover:bg-muted/20 ${
+                      isWeekend ? 'bg-muted/30' : ''
+                    } ${isToday ? 'ring-2 ring-inset ring-primary' : ''} ${!inCurrentMonth ? 'opacity-40' : ''}`}
+                    onClick={() => !isWeekend && inCurrentMonth && setDetailState({ open: true, dateStr })}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-medium ${isToday ? 'text-primary font-bold' : 'text-card-foreground'}`}>
+                        {isWeekView ? format(day, 'd/M') : day.getDate()}
+                      </span>
+                      {totalMinutes > 0 && !isWeekend && (
+                        <span className="text-[9px] text-muted-foreground">
+                          {Math.floor(totalMinutes / 60)}:{String(totalMinutes % 60).padStart(2, '0')}
+                        </span>
+                      )}
                     </div>
+
+                    {!isWeekend && inCurrentMonth && (
+                      <div className="space-y-0.5">
+                        {dayFilterJobs.slice(0, maxShow).map(job => (
+                          <MiniJobChip key={job.id} job={job} isAutoScheduled />
+                        ))}
+                        {dayFilterJobs.length > maxShow && (
+                          <span className="text-[9px] text-info">+{dayFilterJobs.length - maxShow} שירות</span>
+                        )}
+                        {dayManualJobs.slice(0, maxShow).map(job => (
+                          <MiniJobChip key={job.id} job={job} onRemove={() => onUnassignJob(job.id)} />
+                        ))}
+                        {dayManualJobs.length > maxShow && (
+                          <span className="text-[9px] text-muted-foreground">+{dayManualJobs.length - maxShow} עוד</span>
+                        )}
+
+                        <div className="flex gap-0.5 mt-0.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const dayDate = new Date(dateStr + 'T00:00:00');
+                              setPickerState({
+                                open: true,
+                                dateStr,
+                                dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
+                              });
+                            }}
+                            className="flex-1 text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-destructive/50 hover:text-destructive transition-colors"
+                            title="הוסף תקלה/התקנה"
+                          >
+                            <AlertTriangle className="w-2 h-2" />
+                            <Plus className="w-2 h-2" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const dayDate = new Date(dateStr + 'T00:00:00');
+                              setFilterPickerState({
+                                open: true,
+                                dateStr,
+                                dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
+                              });
+                            }}
+                            className="flex-1 text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-info/50 hover:text-info transition-colors"
+                            title="הוסף החלפת פילטר"
+                          >
+                            <Filter className="w-2 h-2" />
+                            <Plus className="w-2 h-2" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Add button for days that already have jobs */}
       <div className="flex justify-center">
