@@ -1,4 +1,4 @@
-import { WeeklyScheduleBoard } from '@/components/WeeklyScheduleBoard';
+import { MonthlyScheduleBoard } from '@/components/MonthlyScheduleBoard';
 import { NewJobDialog } from '@/components/NewJobDialog';
 import { useJobs } from '@/hooks/useJobs';
 
@@ -9,15 +9,15 @@ export default function Dashboard() {
     <div dir="rtl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">ניהול לו״ז</h2>
+          <h2 className="text-2xl font-bold text-foreground">ניהול לו״ז חודשי</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            בחר אזור עבודה לכל יום, בחר פניות ושבץ אותן ידנית.
+            שירות שוטף מתוזמן אוטומטית לפי חודש קבוע ללקוח. תקלות והתקנות משובצות ידנית.
           </p>
         </div>
         <NewJobDialog customers={customersList} onAdd={addJob} />
       </div>
 
-      <WeeklyScheduleBoard
+      <MonthlyScheduleBoard
         jobs={jobs}
         onApprove={approveSchedule}
         onStatusChange={updateJobStatus}
