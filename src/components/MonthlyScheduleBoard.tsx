@@ -50,20 +50,32 @@ function generateFilterJobs(month: number, year: number, allCustomers: Customer[
   }));
 }
 
-// Distribute filter jobs evenly across working days — exactly 3 per day round-robin
+// Distribute filter jobs across working days — each day gets jobs from ONE area only (3 per day)
 function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<string, Job[]> {
   const distribution = new Map<string, Job[]>();
   workingDays.forEach(d => distribution.set(format(d, 'yyyy-MM-dd'), []));
 
+  // Group jobs by city/area
+  const jobsByCity: Record<string, Job[]> = {};
+  filterJobs.forEach(job => {
+    if (!jobsByCity[job.city]) jobsByCity[job.city] = [];
+    jobsByCity[job.city].push(job);
+  });
+
   const dayKeys = workingDays.map(d => format(d, 'yyyy-MM-dd'));
   const perDay = 3;
+  let dayIdx = 0;
 
-  filterJobs.forEach((job, i) => {
-    const dayIdx = Math.floor(i / perDay) % dayKeys.length;
-    const dateStr = dayKeys[dayIdx];
-    const existing = distribution.get(dateStr) || [];
-    existing.push(job);
-    distribution.set(dateStr, existing);
+  // Assign each area's jobs to consecutive days, 3 per day
+  Object.values(jobsByCity).forEach(cityJobs => {
+    for (let i = 0; i < cityJobs.length; i += perDay) {
+      if (dayIdx >= dayKeys.length) break;
+      const dateStr = dayKeys[dayIdx];
+      const chunk = cityJobs.slice(i, i + perDay);
+      const existing = distribution.get(dateStr) || [];
+      distribution.set(dateStr, [...existing, ...chunk]);
+      dayIdx++;
+    }
   });
 
   return distribution;
