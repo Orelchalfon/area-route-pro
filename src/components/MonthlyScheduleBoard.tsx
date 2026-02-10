@@ -547,22 +547,44 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
               : `${format(currentWeekStart, 'd/M')} – ${format(endOfWeek(currentWeekStart, { weekStartsOn: 0 }), 'd/M/yyyy')}`
             }
           </h3>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (viewMode === 'month') {
-                setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
-                setViewMode('week');
-              } else {
-                setViewMode('month');
-              }
-            }}
-            className="gap-1.5"
-          >
-            {viewMode === 'month' ? <ZoomIn className="w-3.5 h-3.5" /> : <ZoomOut className="w-3.5 h-3.5" />}
-            {viewMode === 'month' ? 'תצוגת שבוע' : 'תצוגת חודש'}
-          </Button>
+          {viewMode === 'month' ? (
+            <div className="flex items-center gap-1">
+              {(() => {
+                // Calculate week starts for this month
+                const weeks: Date[] = [];
+                let ws = startOfWeek(monthStart, { weekStartsOn: 0 });
+                while (ws <= monthEnd) {
+                  weeks.push(ws);
+                  ws = addWeeks(ws, 1);
+                }
+                return weeks.map((ws, i) => (
+                  <Button
+                    key={i}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCurrentWeekStart(ws);
+                      setViewMode('week');
+                    }}
+                    className="gap-1 text-xs px-2"
+                  >
+                    <ZoomIn className="w-3 h-3" />
+                    שבוע {i + 1}
+                  </Button>
+                ));
+              })()}
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setViewMode('month')}
+              className="gap-1.5"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+              תצוגת חודש
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => {
