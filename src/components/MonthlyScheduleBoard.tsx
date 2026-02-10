@@ -263,11 +263,48 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
     </Dialog>
   );
 }
+// Filter job picker with checkboxes
+function FilterJobPicker({ jobs, onSelect }: { jobs: Job[]; onSelect: (jobIds: string[]) => void }) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggle = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-2">
+      {jobs.map(job => {
+        const customer = customers.find(c => c.id === job.customerId);
+        return (
+          <label key={job.id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+            <Checkbox checked={selectedIds.has(job.id)} onCheckedChange={() => toggle(job.id)} className="mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{customer?.name}</p>
+              <p className="text-xs text-muted-foreground">{job.location} · {customer?.city}</p>
+            </div>
+          </label>
+        );
+      })}
+      {selectedIds.size > 0 && (
+        <div className="sticky bottom-0 bg-card border-t border-border pt-3 flex items-center justify-between">
+          <span className="text-sm font-medium">{selectedIds.size} נבחרו</span>
+          <Button onClick={() => onSelect(Array.from(selectedIds))}><Plus className="w-4 h-4 ml-1" />הוסף</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssignJob, onUnassignJob }: MonthlyScheduleBoardProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(technicians[0].id);
   const [pickerState, setPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
+  const [filterPickerState, setFilterPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
   const [detailState, setDetailState] = useState<{ open: boolean; dateStr: string } | null>(null);
 
   const month = currentMonth.getMonth() + 1; // 1-12
@@ -286,7 +323,21 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
 
   // Auto-generated filter jobs for this month
   const filterJobs = useMemo(() => generateFilterJobs(month, year, customers), [month, year]);
+  const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
   const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, workingDays), [filterJobs, workingDays]);
+
+  // Unassigned filter jobs (not yet distributed to any day)
+  const assignedFilterIds = useMemo(() => {
+    const ids = new Set<string>();
+    filterDistribution.forEach(jobs => jobs.forEach(j => ids.add(j.id)));
+    extraFilterAssignments.forEach(jobs => jobs.forEach(j => ids.add(j.id)));
+    return ids;
+  }, [filterDistribution, extraFilterAssignments]);
+
+  const unassignedFilterJobs = useMemo(() =>
+    filterJobs.filter(j => !assignedFilterIds.has(j.id)),
+    [filterJobs, assignedFilterIds]
+  );
 
   // Manually assigned jobs (malfunction/installation) for this tech & month
   const manualJobs = jobs.filter(j =>
@@ -302,7 +353,22 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
   );
 
   const getManualDayJobs = (dateStr: string) => manualJobs.filter(j => j.scheduledDate === dateStr);
-  const getFilterDayJobs = (dateStr: string) => filterDistribution.get(dateStr) || [];
+  const getFilterDayJobs = (dateStr: string) => [
+    ...(filterDistribution.get(dateStr) || []),
+    ...(extraFilterAssignments.get(dateStr) || []),
+  ];
+
+  const handleFilterPickerSelect = (jobIds: string[]) => {
+    if (!filterPickerState) return;
+    const { dateStr } = filterPickerState;
+    const selected = filterJobs.filter(j => jobIds.includes(j.id));
+    setExtraFilterAssignments(prev => {
+      const next = new Map(prev);
+      const existing = next.get(dateStr) || [];
+      next.set(dateStr, [...existing, ...selected]);
+      return next;
+    });
+  };
 
   const handlePickerSelect = (jobIds: string[]) => {
     if (!pickerState) return;
@@ -438,7 +504,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
                       <span className="text-[9px] text-muted-foreground">+{dayManualJobs.length - 2} עוד</span>
                     )}
 
-                    {totalJobs === 0 && (
+                    <div className="flex gap-0.5 mt-0.5">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -449,11 +515,29 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
                             dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
                           });
                         }}
-                        className="w-full text-[9px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-1 rounded border border-dashed border-border"
+                        className="flex-1 text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-destructive/50 hover:text-destructive transition-colors"
+                        title="הוסף תקלה/התקנה"
                       >
-                        <Plus className="w-2.5 h-2.5" />
+                        <AlertTriangle className="w-2 h-2" />
+                        <Plus className="w-2 h-2" />
                       </button>
-                    )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const dayDate = new Date(dateStr + 'T00:00:00');
+                          setFilterPickerState({
+                            open: true,
+                            dateStr,
+                            dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
+                          });
+                        }}
+                        className="flex-1 text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-info/50 hover:text-info transition-colors"
+                        title="הוסף החלפת פילטר"
+                      >
+                        <Filter className="w-2 h-2" />
+                        <Plus className="w-2 h-2" />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -492,6 +576,28 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
           onSelectJobs={handlePickerSelect}
           dayLabel={pickerState.dayLabel}
         />
+      )}
+
+      {/* Filter picker dialog */}
+      {filterPickerState && (
+        <Dialog open={filterPickerState.open} onOpenChange={() => setFilterPickerState(null)}>
+          <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto" dir="rtl">
+            <DialogHeader>
+              <DialogTitle>הוסף החלפות פילטר — {filterPickerState.dayLabel}</DialogTitle>
+            </DialogHeader>
+            {unassignedFilterJobs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">כל הפילטרים כבר משובצים בחודש זה</p>
+            ) : (
+              <FilterJobPicker
+                jobs={unassignedFilterJobs}
+                onSelect={(jobIds) => {
+                  handleFilterPickerSelect(jobIds);
+                  setFilterPickerState(null);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Day detail dialog */}
