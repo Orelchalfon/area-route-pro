@@ -50,43 +50,20 @@ function generateFilterJobs(month: number, year: number, allCustomers: Customer[
   }));
 }
 
-// Distribute filter jobs evenly across working days, grouped by area
+// Distribute filter jobs evenly across working days — exactly 3 per day round-robin
 function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<string, Job[]> {
   const distribution = new Map<string, Job[]>();
   workingDays.forEach(d => distribution.set(format(d, 'yyyy-MM-dd'), []));
 
-  // Group by area
-  const byArea: Record<string, Job[]> = {};
-  filterJobs.forEach(j => {
-    if (!byArea[j.city]) byArea[j.city] = [];
-    byArea[j.city].push(j);
-  });
+  const dayKeys = workingDays.map(d => format(d, 'yyyy-MM-dd'));
+  const perDay = 3;
 
-  // For each area, pick ~30% of working days and spread jobs across them
-  const areas = Object.keys(byArea);
-  let dayIndex = 0;
-
-  areas.forEach(area => {
-    const areaJobs = byArea[area];
-    // Use 30% of days for this area's jobs, minimum 1 day
-    const daysNeeded = Math.max(1, Math.ceil(workingDays.length * 0.3 * (areaJobs.length / Math.max(filterJobs.length, 1))));
-    // Spread evenly across the month
-    const step = Math.max(1, Math.floor(workingDays.length / daysNeeded));
-
-    let jobIdx = 0;
-    for (let i = 0; i < workingDays.length && jobIdx < areaJobs.length; i++) {
-      // Pick days spaced out by step, starting from dayIndex offset
-      const actualI = (dayIndex + i * step) % workingDays.length;
-      const dateStr = format(workingDays[actualI], 'yyyy-MM-dd');
-      const existing = distribution.get(dateStr) || [];
-      // Max 6 filter jobs per day (30% of 540min = ~162min, 162/25 ≈ 6)
-      if (existing.filter(j => j.type === 'filter_replacement').length < 6) {
-        existing.push(areaJobs[jobIdx]);
-        distribution.set(dateStr, existing);
-        jobIdx++;
-      }
-    }
-    dayIndex += 2; // offset next area
+  filterJobs.forEach((job, i) => {
+    const dayIdx = Math.floor(i / perDay) % dayKeys.length;
+    const dateStr = dayKeys[dayIdx];
+    const existing = distribution.get(dateStr) || [];
+    existing.push(job);
+    distribution.set(dateStr, existing);
   });
 
   return distribution;
