@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Users, Contact, Calendar, AlertTriangle, Wrench, Filter } from 'lucide-react';
+import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
@@ -9,7 +9,7 @@ const navItems = [
   { to: '/service', label: 'שירות שוטף', icon: Filter },
   { to: '/technician', label: 'טכנאי', icon: Users },
   { to: '/customers', label: 'לקוחות', icon: Contact },
-  { to: '/confirm', label: 'אישור לקוח', icon: Calendar },
+  
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
