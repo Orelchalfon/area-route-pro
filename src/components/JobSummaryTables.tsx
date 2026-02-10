@@ -1,7 +1,8 @@
 import { Job, STATUS_CONFIG } from '@/types';
 import { customers, technicians } from '@/data/mockData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, Wrench } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertTriangle, Wrench, Filter } from 'lucide-react';
 
 interface JobSummaryTablesProps {
   jobs: Job[];
@@ -35,60 +36,99 @@ function PriorityBadge({ priority }: { priority: string }) {
   return <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${p.cls}`}>{p.label}</span>;
 }
 
-export function JobSummaryTables({ jobs }: JobSummaryTablesProps) {
-  const malfunctions = jobs.filter(j => j.type === 'malfunction').sort((a, b) => (a.scheduledDate || '').localeCompare(b.scheduledDate || '') || (a.scheduledTime || '').localeCompare(b.scheduledTime || ''));
-  const installations = jobs.filter(j => j.type === 'installation').sort((a, b) => (a.scheduledDate || '').localeCompare(b.scheduledDate || '') || (a.scheduledTime || '').localeCompare(b.scheduledTime || ''));
+function JobsByArea({ jobs }: { jobs: Job[] }) {
+  const grouped: Record<string, Job[]> = {};
+  jobs.forEach(job => {
+    const city = job.city || 'לא צוין';
+    if (!grouped[city]) grouped[city] = [];
+    grouped[city].push(job);
+  });
 
-  const renderTable = (title: string, icon: React.ReactNode, items: Job[]) => (
-    <div className="bg-card rounded-xl shadow-card border border-border overflow-hidden">
-      <div className="flex items-center gap-2 p-4 border-b border-border">
-        {icon}
-        <h3 className="font-bold text-card-foreground">{title}</h3>
-        <span className="text-xs text-muted-foreground">({items.length})</span>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-right">תאריך</TableHead>
-              <TableHead className="text-right">שעה</TableHead>
-              <TableHead className="text-right">לקוח</TableHead>
-              <TableHead className="text-right">עיר</TableHead>
-              <TableHead className="text-right">כתובת</TableHead>
-              <TableHead className="text-right">טכנאי</TableHead>
-              <TableHead className="text-right">עדיפות</TableHead>
-              <TableHead className="text-right">סטטוס</TableHead>
-              <TableHead className="text-right">הערות</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map(job => {
-              const customer = customers.find(c => c.id === job.customerId);
-              const tech = technicians.find(t => t.id === job.technicianId);
-              return (
-                <TableRow key={job.id}>
-                  <TableCell className="whitespace-nowrap">{job.scheduledDate}</TableCell>
-                  <TableCell>{job.scheduledTime}</TableCell>
-                  <TableCell className="font-medium">{customer?.name}</TableCell>
-                  <TableCell>{job.city}</TableCell>
-                  <TableCell>{job.location}</TableCell>
-                  <TableCell>{tech?.name}</TableCell>
-                  <TableCell><PriorityBadge priority={job.priority} /></TableCell>
-                  <TableCell><StatusBadge status={job.status} /></TableCell>
-                  <TableCell className="max-w-[200px] truncate">{job.notes}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
+  const sortedCities = Object.keys(grouped).sort();
 
   return (
-    <div dir="rtl" className="space-y-6">
-      {renderTable('סיכום תקלות', <AlertTriangle className="w-5 h-5 text-destructive" />, malfunctions)}
-      {renderTable('סיכום התקנות', <Wrench className="w-5 h-5 text-secondary" />, installations)}
+    <div className="space-y-4">
+      {sortedCities.map(city => (
+        <div key={city} className="bg-card rounded-xl shadow-card border border-border overflow-hidden">
+          <div className="flex items-center gap-2 p-3 border-b border-border bg-muted/30">
+            <h4 className="font-semibold text-card-foreground">{city}</h4>
+            <span className="text-xs text-muted-foreground">({grouped[city].length})</span>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-right">תאריך</TableHead>
+                  <TableHead className="text-right">שעה</TableHead>
+                  <TableHead className="text-right">לקוח</TableHead>
+                  <TableHead className="text-right">כתובת</TableHead>
+                  <TableHead className="text-right">טכנאי</TableHead>
+                  <TableHead className="text-right">עדיפות</TableHead>
+                  <TableHead className="text-right">סטטוס</TableHead>
+                  <TableHead className="text-right">הערות</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {grouped[city]
+                  .sort((a, b) => (a.scheduledDate || '').localeCompare(b.scheduledDate || '') || (a.scheduledTime || '').localeCompare(b.scheduledTime || ''))
+                  .map(job => {
+                    const customer = customers.find(c => c.id === job.customerId);
+                    const tech = technicians.find(t => t.id === job.technicianId);
+                    return (
+                      <TableRow key={job.id}>
+                        <TableCell className="whitespace-nowrap">{job.scheduledDate}</TableCell>
+                        <TableCell>{job.scheduledTime}</TableCell>
+                        <TableCell className="font-medium">{customer?.name}</TableCell>
+                        <TableCell>{job.location}</TableCell>
+                        <TableCell>{tech?.name}</TableCell>
+                        <TableCell><PriorityBadge priority={job.priority} /></TableCell>
+                        <TableCell><StatusBadge status={job.status} /></TableCell>
+                        <TableCell className="max-w-[200px] truncate">{job.notes}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function JobSummaryTables({ jobs }: JobSummaryTablesProps) {
+  const malfunctions = jobs.filter(j => j.type === 'malfunction');
+  const installations = jobs.filter(j => j.type === 'installation');
+  const filterReplacements = jobs.filter(j => j.type === 'filter_replacement');
+
+  return (
+    <div dir="rtl">
+      <Tabs defaultValue="malfunctions" className="w-full">
+        <TabsList className="w-full justify-start mb-4">
+          <TabsTrigger value="malfunctions" className="gap-1.5">
+            <AlertTriangle className="w-4 h-4" />
+            תקלות ({malfunctions.length})
+          </TabsTrigger>
+          <TabsTrigger value="installations" className="gap-1.5">
+            <Wrench className="w-4 h-4" />
+            התקנות ({installations.length})
+          </TabsTrigger>
+          <TabsTrigger value="service" className="gap-1.5">
+            <Filter className="w-4 h-4" />
+            שירות שוטף ({filterReplacements.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="malfunctions">
+          <JobsByArea jobs={malfunctions} />
+        </TabsContent>
+        <TabsContent value="installations">
+          <JobsByArea jobs={installations} />
+        </TabsContent>
+        <TabsContent value="service">
+          <JobsByArea jobs={filterReplacements} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
