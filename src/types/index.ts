@@ -19,6 +19,7 @@ export interface Customer {
   city: string;
   email: string;
   product: string;
+  filterReplacementMonth: number; // 1-12, the fixed month for annual filter replacement
   lat?: number;
   lng?: number;
 }

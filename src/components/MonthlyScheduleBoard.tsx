@@ -1,0 +1,533 @@
+import { useState, useMemo } from 'react';
+import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
+import { technicians, customers } from '@/data/mockData';
+import { Button } from '@/components/ui/button';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
+import { he } from 'date-fns/locale';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+
+interface MonthlyScheduleBoardProps {
+  jobs: Job[];
+  onApprove: (jobIds: string[]) => void;
+  onStatusChange: (jobId: string, status: string) => void;
+  onAssignJob: (jobId: string, technicianId: string, scheduledDate: string, scheduledTime: string) => void;
+  onUnassignJob: (jobId: string) => void;
+}
+
+const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const MONTH_NAMES = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+
+const typeIcons: Record<string, React.ReactNode> = {
+  filter_replacement: <Filter className="w-3 h-3" />,
+  malfunction: <AlertTriangle className="w-3 h-3" />,
+  installation: <Wrench className="w-3 h-3" />,
+};
+
+const typeColors: Record<string, string> = {
+  filter_replacement: 'bg-info/15 text-info border-info/30',
+  malfunction: 'bg-destructive/15 text-destructive border-destructive/30',
+  installation: 'bg-secondary/15 text-secondary border-secondary/30',
+};
+
+// Generate filter replacement jobs for a given month based on customer data
+function generateFilterJobs(month: number, year: number, allCustomers: Customer[]): Job[] {
+  const monthCustomers = allCustomers.filter(c => c.filterReplacementMonth === month);
+  return monthCustomers.map((customer, i) => ({
+    id: `filter-${year}-${month}-${customer.id}`,
+    type: 'filter_replacement' as const,
+    status: 'draft' as const,
+    priority: 'low' as const,
+    customerId: customer.id,
+    estimatedDuration: 25,
+    location: customer.address,
+    city: customer.city,
+    notes: 'החלפת פילטר שנתית',
+    createdAt: `${year}-${String(month).padStart(2, '0')}-01`,
+  }));
+}
+
+// Distribute filter jobs evenly across working days, grouped by area
+function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<string, Job[]> {
+  const distribution = new Map<string, Job[]>();
+  workingDays.forEach(d => distribution.set(format(d, 'yyyy-MM-dd'), []));
+
+  // Group by area
+  const byArea: Record<string, Job[]> = {};
+  filterJobs.forEach(j => {
+    if (!byArea[j.city]) byArea[j.city] = [];
+    byArea[j.city].push(j);
+  });
+
+  // For each area, pick ~30% of working days and spread jobs across them
+  const areas = Object.keys(byArea);
+  let dayIndex = 0;
+
+  areas.forEach(area => {
+    const areaJobs = byArea[area];
+    // Use 30% of days for this area's jobs, minimum 1 day
+    const daysNeeded = Math.max(1, Math.ceil(workingDays.length * 0.3 * (areaJobs.length / Math.max(filterJobs.length, 1))));
+    // Spread evenly across the month
+    const step = Math.max(1, Math.floor(workingDays.length / daysNeeded));
+
+    let jobIdx = 0;
+    for (let i = 0; i < workingDays.length && jobIdx < areaJobs.length; i++) {
+      // Pick days spaced out by step, starting from dayIndex offset
+      const actualI = (dayIndex + i * step) % workingDays.length;
+      const dateStr = format(workingDays[actualI], 'yyyy-MM-dd');
+      const existing = distribution.get(dateStr) || [];
+      // Max 6 filter jobs per day (30% of 540min = ~162min, 162/25 ≈ 6)
+      if (existing.filter(j => j.type === 'filter_replacement').length < 6) {
+        existing.push(areaJobs[jobIdx]);
+        distribution.set(dateStr, existing);
+        jobIdx++;
+      }
+    }
+    dayIndex += 2; // offset next area
+  });
+
+  return distribution;
+}
+
+function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: () => void; isAutoScheduled?: boolean }) {
+  const customer = customers.find(c => c.id === job.customerId);
+  const typeConfig = JOB_TYPE_CONFIG[job.type];
+
+  return (
+    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${typeColors[job.type]} group relative`}>
+      {typeIcons[job.type]}
+      <span className="truncate max-w-[60px]">{customer?.name}</span>
+      {isAutoScheduled && <span className="text-[8px] opacity-60">●</span>}
+      {onRemove && (
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <X className="w-2.5 h-2.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Area picker dialog for adding manual jobs
+function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, dayLabel }: {
+  open: boolean;
+  onClose: () => void;
+  unassignedJobs: Job[];
+  onSelectJobs: (jobIds: string[]) => void;
+  dayLabel: string;
+}) {
+  const [selectedArea, setSelectedArea] = useState<string | null>(null);
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+
+  const cities = useMemo(() => {
+    const citySet = new Set(unassignedJobs.map(j => j.city));
+    return Array.from(citySet).sort();
+  }, [unassignedJobs]);
+
+  const areaJobs = useMemo(() => {
+    if (!selectedArea) return [];
+    return unassignedJobs.filter(j => j.city === selectedArea);
+  }, [selectedArea, unassignedJobs]);
+
+  const jobsByType = useMemo(() => ({
+    malfunction: areaJobs.filter(j => j.type === 'malfunction'),
+    installation: areaJobs.filter(j => j.type === 'installation'),
+  }), [areaJobs]);
+
+  const toggleJob = (jobId: string) => {
+    setSelectedJobIds(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId); else next.add(jobId);
+      return next;
+    });
+  };
+
+  const handleConfirm = () => {
+    onSelectJobs(Array.from(selectedJobIds));
+    setSelectedArea(null);
+    setSelectedJobIds(new Set());
+    onClose();
+  };
+
+  const handleClose = () => {
+    setSelectedArea(null);
+    setSelectedJobIds(new Set());
+    onClose();
+  };
+
+  const renderJobList = (items: Job[]) => {
+    if (items.length === 0) return <p className="text-xs text-muted-foreground py-4 text-center">אין פניות באזור זה</p>;
+    return (
+      <div className="space-y-2">
+        {items.map(job => {
+          const customer = customers.find(c => c.id === job.customerId);
+          return (
+            <label key={job.id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+              <Checkbox checked={selectedJobIds.has(job.id)} onCheckedChange={() => toggleJob(job.id)} className="mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">{customer?.name}</span>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
+                    job.priority === 'high' ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
+                  }`}>
+                    {job.priority === 'high' ? 'גבוהה' : 'בינונית'}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{job.location}</p>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{job.estimatedDuration} דק׳</span>
+                  <span>{job.notes}</span>
+                </div>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle>הוספת תקלה/התקנה — {dayLabel}</DialogTitle>
+        </DialogHeader>
+
+        {!selectedArea ? (
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground mb-3">בחר אזור:</p>
+            <div className="grid grid-cols-2 gap-2">
+              {cities.map(city => {
+                const count = unassignedJobs.filter(j => j.city === city).length;
+                return (
+                  <Button key={city} variant="outline" className="justify-between h-auto py-3" onClick={() => setSelectedArea(city)}>
+                    <span className="font-medium text-xs">{city}</span>
+                    <span className="text-xs text-muted-foreground">{count}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedArea(null); setSelectedJobIds(new Set()); }}>← חזרה</Button>
+              <span className="font-semibold">{selectedArea}</span>
+            </div>
+
+            <Tabs defaultValue="malfunction" className="w-full">
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="malfunction" className="gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />תקלות ({jobsByType.malfunction.length})
+                </TabsTrigger>
+                <TabsTrigger value="installation" className="gap-1">
+                  <Wrench className="w-3.5 h-3.5" />התקנות ({jobsByType.installation.length})
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="malfunction">{renderJobList(jobsByType.malfunction)}</TabsContent>
+              <TabsContent value="installation">{renderJobList(jobsByType.installation)}</TabsContent>
+            </Tabs>
+
+            {selectedJobIds.size > 0 && (
+              <div className="sticky bottom-0 bg-card border-t border-border pt-3 flex items-center justify-between">
+                <span className="text-sm font-medium">{selectedJobIds.size} נבחרו</span>
+                <Button onClick={handleConfirm}><Plus className="w-4 h-4 ml-1" />הוסף</Button>
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Day detail dialog
+function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob }: {
+  open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[]; onRemoveJob: (jobId: string) => void;
+}) {
+  const allJobs = [...filterJobs, ...dayJobs];
+  const dayDate = new Date(dateStr + 'T00:00:00');
+  const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle>{dayLabel}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          {allJobs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">אין משימות ליום זה</p>}
+          {allJobs.map(job => {
+            const customer = customers.find(c => c.id === job.customerId);
+            const typeConfig = JOB_TYPE_CONFIG[job.type];
+            const isFilter = job.type === 'filter_replacement';
+            return (
+              <div key={job.id} className={`p-3 rounded-lg border ${typeColors[job.type]} flex items-center justify-between`}>
+                <div className="flex items-center gap-2">
+                  {typeIcons[job.type]}
+                  <div>
+                    <p className="text-sm font-medium">{customer?.name}</p>
+                    <p className="text-xs opacity-70">{typeConfig.label} · {job.estimatedDuration} דק׳</p>
+                    <p className="text-xs opacity-60">{job.location}</p>
+                  </div>
+                </div>
+                {!isFilter && (
+                  <button onClick={() => onRemoveJob(job.id)} className="p-1 rounded hover:bg-destructive/10">
+                    <X className="w-3.5 h-3.5 text-destructive" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssignJob, onUnassignJob }: MonthlyScheduleBoardProps) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedTechId, setSelectedTechId] = useState<string>(technicians[0].id);
+  const [pickerState, setPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
+  const [detailState, setDetailState] = useState<{ open: boolean; dateStr: string } | null>(null);
+
+  const month = currentMonth.getMonth() + 1; // 1-12
+  const year = currentMonth.getFullYear();
+
+  // Calendar days
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const allDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Working days (Sun-Thu, not Fri/Sat)
+  const workingDays = allDays.filter(d => {
+    const dow = getDay(d);
+    return dow !== 5 && dow !== 6;
+  });
+
+  // Auto-generated filter jobs for this month
+  const filterJobs = useMemo(() => generateFilterJobs(month, year, customers), [month, year]);
+  const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, workingDays), [filterJobs, workingDays]);
+
+  // Manually assigned jobs (malfunction/installation) for this tech & month
+  const manualJobs = jobs.filter(j =>
+    j.technicianId === selectedTechId &&
+    j.scheduledDate &&
+    j.scheduledDate.startsWith(`${year}-${String(month).padStart(2, '0')}`)
+  );
+
+  // Unassigned malfunction/installation jobs
+  const unassignedManualJobs = jobs.filter(j =>
+    j.type !== 'filter_replacement' &&
+    (!j.technicianId || !j.scheduledDate)
+  );
+
+  const getManualDayJobs = (dateStr: string) => manualJobs.filter(j => j.scheduledDate === dateStr);
+  const getFilterDayJobs = (dateStr: string) => filterDistribution.get(dateStr) || [];
+
+  const handlePickerSelect = (jobIds: string[]) => {
+    if (!pickerState) return;
+    const { dateStr } = pickerState;
+    jobIds.forEach(jobId => {
+      onAssignJob(jobId, selectedTechId, dateStr, '08:00');
+    });
+  };
+
+  // Stats
+  const stats = useMemo(() => {
+    const filterCount = filterJobs.length;
+    const manualAssigned = manualJobs.length;
+    const unassigned = unassignedManualJobs.length;
+    return [
+      { label: 'שירות שוטף', count: filterCount, color: 'bg-info' },
+      { label: 'משובצים ידנית', count: manualAssigned, color: 'bg-secondary' },
+      { label: 'ממתינים לשיבוץ', count: unassigned, color: 'bg-muted-foreground' },
+    ];
+  }, [filterJobs, manualJobs, unassignedManualJobs]);
+
+  // Calendar grid padding
+  const startDow = getDay(monthStart); // 0=Sun
+
+  const today = format(new Date(), 'yyyy-MM-dd');
+
+  return (
+    <div dir="rtl" className="space-y-5">
+      {/* Tech toggle */}
+      <div className="flex items-center gap-2">
+        {technicians.map(tech => (
+          <Button key={tech.id} variant={selectedTechId === tech.id ? 'default' : 'outline'} size="sm" onClick={() => setSelectedTechId(tech.id)}>
+            <div className="w-5 h-5 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-[10px] ml-1.5">
+              {tech.name[0]}
+            </div>
+            {tech.name}
+          </Button>
+        ))}
+      </div>
+
+      {/* Month navigator */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}>
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+        <h3 className="text-lg font-bold text-card-foreground">
+          {MONTH_NAMES[month - 1]} {year}
+        </h3>
+        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}>
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        {stats.map(s => (
+          <div key={s.label} className="bg-card rounded-lg shadow-card p-3 flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${s.color}`} />
+            <div>
+              <p className="text-xl font-bold text-card-foreground">{s.count}</p>
+              <p className="text-xs text-muted-foreground">{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1"><Filter className="w-3 h-3 text-info" /> שירות שוטף (אוטומטי)</div>
+        <div className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-destructive" /> תקלה (ידני)</div>
+        <div className="flex items-center gap-1"><Wrench className="w-3 h-3 text-secondary" /> התקנה (ידני)</div>
+      </div>
+
+      {/* Calendar grid */}
+      <div className="bg-card rounded-xl shadow-card overflow-hidden">
+        {/* Day headers */}
+        <div className="grid grid-cols-7 border-b border-border">
+          {DAY_HEADERS.map((d, i) => (
+            <div key={i} className={`text-center py-2 text-xs font-semibold ${i === 5 || i === 6 ? 'text-muted-foreground/50' : 'text-card-foreground'}`}>
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar cells */}
+        <div className="grid grid-cols-7">
+          {/* Empty cells before first day */}
+          {Array.from({ length: startDow }).map((_, i) => (
+            <div key={`empty-${i}`} className="min-h-[100px] border-b border-r border-border bg-muted/20" />
+          ))}
+
+          {allDays.map(day => {
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const dow = getDay(day);
+            const isWeekend = dow === 5 || dow === 6;
+            const isToday = dateStr === today;
+            const dayFilterJobs = getFilterDayJobs(dateStr);
+            const dayManualJobs = getManualDayJobs(dateStr);
+            const totalJobs = dayFilterJobs.length + dayManualJobs.length;
+            const totalMinutes = dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) + dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
+
+            return (
+              <div
+                key={dateStr}
+                className={`min-h-[100px] border-b border-r border-border p-1.5 transition-colors cursor-pointer hover:bg-muted/20 ${
+                  isWeekend ? 'bg-muted/30' : ''
+                } ${isToday ? 'ring-2 ring-inset ring-primary' : ''}`}
+                onClick={() => !isWeekend && setDetailState({ open: true, dateStr })}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-xs font-medium ${isToday ? 'text-primary font-bold' : 'text-card-foreground'}`}>
+                    {day.getDate()}
+                  </span>
+                  {totalMinutes > 0 && !isWeekend && (
+                    <span className="text-[9px] text-muted-foreground">
+                      {Math.floor(totalMinutes / 60)}:{String(totalMinutes % 60).padStart(2, '0')}
+                    </span>
+                  )}
+                </div>
+
+                {!isWeekend && (
+                  <div className="space-y-0.5">
+                    {dayFilterJobs.slice(0, 2).map(job => (
+                      <MiniJobChip key={job.id} job={job} isAutoScheduled />
+                    ))}
+                    {dayFilterJobs.length > 2 && (
+                      <span className="text-[9px] text-info">+{dayFilterJobs.length - 2} שירות</span>
+                    )}
+                    {dayManualJobs.slice(0, 2).map(job => (
+                      <MiniJobChip key={job.id} job={job} onRemove={() => onUnassignJob(job.id)} />
+                    ))}
+                    {dayManualJobs.length > 2 && (
+                      <span className="text-[9px] text-muted-foreground">+{dayManualJobs.length - 2} עוד</span>
+                    )}
+
+                    {totalJobs === 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const dayDate = new Date(dateStr + 'T00:00:00');
+                          setPickerState({
+                            open: true,
+                            dateStr,
+                            dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
+                          });
+                        }}
+                        className="w-full text-[9px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-1 rounded border border-dashed border-border"
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Add button for days that already have jobs */}
+      <div className="flex justify-center">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            // Find next available working day
+            const nextDay = workingDays.find(d => format(d, 'yyyy-MM-dd') >= today) || workingDays[0];
+            const dateStr = format(nextDay, 'yyyy-MM-dd');
+            setPickerState({
+              open: true,
+              dateStr,
+              dayLabel: format(nextDay, 'EEEE d/M', { locale: he }),
+            });
+          }}
+        >
+          <Plus className="w-4 h-4 ml-1" />
+          הוסף תקלה/התקנה ידנית
+        </Button>
+      </div>
+
+      {/* Picker dialog */}
+      {pickerState && (
+        <ManualJobPickerDialog
+          open={pickerState.open}
+          onClose={() => setPickerState(null)}
+          unassignedJobs={unassignedManualJobs}
+          onSelectJobs={handlePickerSelect}
+          dayLabel={pickerState.dayLabel}
+        />
+      )}
+
+      {/* Day detail dialog */}
+      {detailState && (
+        <DayDetailDialog
+          open={detailState.open}
+          onClose={() => setDetailState(null)}
+          dateStr={detailState.dateStr}
+          dayJobs={getManualDayJobs(detailState.dateStr)}
+          filterJobs={getFilterDayJobs(detailState.dateStr)}
+          onRemoveJob={onUnassignJob}
+        />
+      )}
+    </div>
+  );
+}
