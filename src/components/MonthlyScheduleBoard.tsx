@@ -635,26 +635,39 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
       )}
 
       {/* Filter picker dialog */}
-      {filterPickerState && (
-        <Dialog open={filterPickerState.open} onOpenChange={() => setFilterPickerState(null)}>
-          <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto" dir="rtl">
-            <DialogHeader>
-              <DialogTitle>הוסף החלפות פילטר — {filterPickerState.dayLabel}</DialogTitle>
-            </DialogHeader>
-            {unassignedFilterJobs.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">כל הפילטרים כבר משובצים בחודש זה</p>
-            ) : (
-              <FilterJobPicker
-                jobs={unassignedFilterJobs}
-                onSelect={(jobIds) => {
-                  handleFilterPickerSelect(jobIds);
-                  setFilterPickerState(null);
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
+      {filterPickerState && (() => {
+        // Determine the area already assigned to this day
+        const dayExistingFilters = getFilterDayJobs(filterPickerState.dateStr);
+        const dayArea = dayExistingFilters.length > 0 ? dayExistingFilters[0].city : null;
+        // Show only unassigned filters from the same area
+        const availableFilters = dayArea
+          ? unassignedFilterJobs.filter(j => j.city === dayArea)
+          : unassignedFilterJobs;
+        const areaLabel = dayArea ? ` (${dayArea})` : '';
+
+        return (
+          <Dialog open={filterPickerState.open} onOpenChange={() => setFilterPickerState(null)}>
+            <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto" dir="rtl">
+              <DialogHeader>
+                <DialogTitle>הוסף החלפות פילטר — {filterPickerState.dayLabel}{areaLabel}</DialogTitle>
+              </DialogHeader>
+              {availableFilters.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {dayArea ? `אין עוד לקוחות באזור ${dayArea}` : 'כל הפילטרים כבר משובצים בחודש זה'}
+                </p>
+              ) : (
+                <FilterJobPicker
+                  jobs={availableFilters}
+                  onSelect={(jobIds) => {
+                    handleFilterPickerSelect(jobIds);
+                    setFilterPickerState(null);
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* Day detail dialog */}
       {detailState && (
