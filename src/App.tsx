@@ -3,7 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AppLayout } from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
+import JobCategoryPage from "./pages/JobCategoryPage";
 import TechnicianPage from "./pages/TechnicianPage";
 import CustomerConfirmation from "./pages/CustomerConfirmation";
 import CustomersPage from "./pages/CustomersPage";
@@ -17,13 +19,18 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/technician" element={<TechnicianPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/confirm" element={<CustomerConfirmation />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AppLayout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/malfunctions" element={<JobCategoryPage category="malfunctions" />} />
+            <Route path="/installations" element={<JobCategoryPage category="installations" />} />
+            <Route path="/service" element={<JobCategoryPage category="service" />} />
+            <Route path="/technician" element={<TechnicianPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/confirm" element={<CustomerConfirmation />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AppLayout>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
