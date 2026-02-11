@@ -580,8 +580,19 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     return dow !== 5 && dow !== 6;
   });
 
-  // Auto-generated filter jobs for this month
-  const filterJobs = useMemo(() => generateFilterJobs(month, year, customers), [month, year]);
+  // Auto-generated filter jobs for this month, merged with global state for completion status
+  const filterJobs = useMemo(() => {
+    const generated = generateFilterJobs(month, year, customers);
+    // Merge completion data from global jobs state
+    const jobMap = new Map(jobs.map(j => [j.id, j]));
+    return generated.map(gj => {
+      const globalJob = jobMap.get(gj.id);
+      if (globalJob) {
+        return { ...gj, status: globalJob.status, completionStatus: globalJob.completionStatus, completionNotes: globalJob.completionNotes };
+      }
+      return gj;
+    });
+  }, [month, year, jobs]);
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
   const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(new Set());
   const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string>>(new Map());
