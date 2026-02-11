@@ -1,23 +1,24 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { technicians } from '@/data/mockData';
-import { Job } from '@/types';
+import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Calendar, CheckCircle2, Clock, LayoutDashboard, Users } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, LayoutDashboard, XCircle, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TechnicianViewProps {
   jobs: Job[];
-  onComplete: (jobId: string, notes: string) => void;
+  onMarkCompletion: (jobId: string, status: CompletionStatus, notes: string) => void;
 }
 
-export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps) {
+export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianViewProps) {
   const [selectedTech, setSelectedTech] = useState(technicians[0].id);
   const [completingJobId, setCompletingJobId] = useState<string | null>(null);
   const [completionNotes, setCompletionNotes] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
 
   const tech = technicians.find(t => t.id === selectedTech)!;
   const techJobs = jobs
@@ -30,9 +31,21 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
 
   const handleComplete = () => {
     if (!completingJobId) return;
-    onComplete(completingJobId, completionNotes);
-    toast.success('המשימה הושלמה!', { description: 'הערות נשמרו. עוברים למשימה הבאה.' });
+    onMarkCompletion(completingJobId, selectedStatus, completionNotes);
+    const messages: Record<CompletionStatus, string> = {
+      done: 'המשימה סומנה כבוצעה!',
+      not_done: 'המשימה סומנה כלא בוצעה',
+      need_return: 'המשימה סומנה — צריך לחזור',
+    };
+    toast.success(messages[selectedStatus]);
     setCompletingJobId(null);
+    setCompletionNotes('');
+    setSelectedStatus('done');
+  };
+
+  const openCompletionDialog = (jobId: string, status: CompletionStatus) => {
+    setCompletingJobId(jobId);
+    setSelectedStatus(status);
     setCompletionNotes('');
   };
 
@@ -109,13 +122,42 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
               משימות פעילות
             </h2>
             {activeJobs.map((job, idx) => (
-              <JobCard
-                key={job.id}
-                job={job}
-                variant="technician"
-                isNext={idx === 0}
-                onComplete={(id) => setCompletingJobId(id)}
-              />
+              <div key={job.id}>
+                <JobCard
+                  job={job}
+                  variant="technician"
+                  isNext={idx === 0}
+                />
+                {/* 3 action buttons */}
+                <div className="flex gap-2 mt-2 px-1">
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+                    onClick={() => openCompletionDialog(job.id, 'done')}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
+                    בוצע
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
+                    onClick={() => openCompletionDialog(job.id, 'not_done')}
+                  >
+                    <XCircle className="w-3.5 h-3.5 ml-1" />
+                    לא בוצע
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 border-warning text-warning hover:bg-warning/10"
+                    onClick={() => openCompletionDialog(job.id, 'need_return')}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 ml-1" />
+                    צריך לחזור
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -125,11 +167,25 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
           <div className="space-y-3">
             <h2 className="font-semibold text-muted-foreground flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-success" />
-              הושלמו ({completedJobs.length})
+              דווחו ({completedJobs.length})
             </h2>
-            {completedJobs.map(job => (
-              <JobCard key={job.id} job={job} variant="technician" />
-            ))}
+            {completedJobs.map(job => {
+              const statusColor = job.completionStatus === 'done' ? 'bg-success/10 border-success/30' :
+                job.completionStatus === 'not_done' ? 'bg-destructive/10 border-destructive/30' :
+                job.completionStatus === 'need_return' ? 'bg-warning/10 border-warning/30' : 'bg-muted/10';
+              const statusLabel = job.completionStatus === 'done' ? '✓ בוצע' :
+                job.completionStatus === 'not_done' ? '✗ לא בוצע' :
+                job.completionStatus === 'need_return' ? '↻ צריך לחזור' : 'הושלם';
+              return (
+                <div key={job.id} className={`rounded-lg border p-3 ${statusColor}`}>
+                  <JobCard job={job} variant="technician" />
+                  <div className="mt-2 text-sm font-medium">
+                    {statusLabel}
+                    {job.completionNotes && <span className="text-muted-foreground"> — {job.completionNotes}</span>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -146,18 +202,31 @@ export default function TechnicianView({ jobs, onComplete }: TechnicianViewProps
       <Dialog open={!!completingJobId} onOpenChange={() => setCompletingJobId(null)}>
         <DialogContent dir="rtl">
           <DialogHeader>
-            <DialogTitle>סיום משימה</DialogTitle>
+            <DialogTitle>
+              {selectedStatus === 'done' ? 'סימון כבוצע' :
+               selectedStatus === 'not_done' ? 'סימון כלא בוצע' :
+               'סימון — צריך לחזור'}
+            </DialogTitle>
           </DialogHeader>
           <Textarea
-            placeholder="הוסף הערות מקצועיות על העבודה שבוצעה..."
+            placeholder="הוסף הערות..."
             value={completionNotes}
             onChange={(e) => setCompletionNotes(e.target.value)}
             rows={4}
           />
           <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
-            <Button onClick={handleComplete} className="bg-success hover:bg-success/90 text-success-foreground">
-              <CheckCircle2 className="w-4 h-4 ml-2" />
-              סמן כהושלם
+            <Button
+              onClick={handleComplete}
+              className={
+                selectedStatus === 'done' ? 'bg-success hover:bg-success/90 text-success-foreground' :
+                selectedStatus === 'not_done' ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground' :
+                'bg-warning hover:bg-warning/90 text-warning-foreground'
+              }
+            >
+              {selectedStatus === 'done' ? <CheckCircle2 className="w-4 h-4 ml-2" /> :
+               selectedStatus === 'not_done' ? <XCircle className="w-4 h-4 ml-2" /> :
+               <RotateCcw className="w-4 h-4 ml-2" />}
+              אישור
             </Button>
             <Button variant="outline" onClick={() => setCompletingJobId(null)}>ביטול</Button>
           </DialogFooter>

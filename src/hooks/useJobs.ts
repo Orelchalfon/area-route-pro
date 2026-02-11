@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer } from '@/types';
+import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
 import { initialJobs, customers as initialCustomers } from '@/data/mockData';
 
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [customersList, setCustomersList] = useState<Customer[]>(initialCustomers);
+  const [closedJobs, setClosedJobs] = useState<Job[]>([]);
 
   const updateJobStatus = (jobId: string, status: JobStatus) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status } : j));
@@ -37,10 +38,79 @@ export function useJobs() {
     });
   };
 
-  const completeJob = (jobId: string, completionNotes: string) => {
+  const completeJob = (jobId: string, notes: string) => {
     setJobs(prev => prev.map(j => 
-      j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionNotes } : j
+      j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionNotes: notes, completionStatus: 'done' as CompletionStatus } : j
     ));
+  };
+
+  const markJobCompletion = (jobId: string, completionStatus: CompletionStatus, notes: string) => {
+    setJobs(prev => prev.map(j => 
+      j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionStatus, completionNotes: notes } : j
+    ));
+  };
+
+  const closeJob = (jobId: string) => {
+    setJobs(prev => {
+      const job = prev.find(j => j.id === jobId);
+      if (!job) return prev;
+
+      // Move to closed/history
+      setClosedJobs(old => [...old, job]);
+
+      // If filter replacement, schedule next year
+      if (job.type === 'filter_replacement') {
+        const customer = customersList.find(c => c.id === job.customerId);
+        const currentYear = parseInt(job.createdAt.split('-')[0]);
+        const nextYear = currentYear + 1;
+        const month = customer?.filterReplacementMonth || parseInt(job.createdAt.split('-')[1]);
+        const nextJobId = `filter-${nextYear}-${month}-${job.customerId}`;
+        const existing = prev.find(j => j.id === nextJobId);
+        if (!existing) {
+          const newJob: Job = {
+            id: nextJobId,
+            type: 'filter_replacement',
+            status: 'draft',
+            priority: 'low',
+            customerId: job.customerId,
+            estimatedDuration: 25,
+            location: customer?.address || job.location,
+            city: customer?.city || job.city,
+            notes: 'החלפת פילטר שנתית',
+            createdAt: `${nextYear}-${String(month).padStart(2, '0')}-01`,
+          };
+          return [...prev.filter(j => j.id !== jobId), newJob];
+        }
+      }
+      return prev.filter(j => j.id !== jobId);
+    });
+  };
+
+  const returnJob = (jobId: string) => {
+    setJobs(prev => {
+      const job = prev.find(j => j.id === jobId);
+      if (!job) return prev;
+
+      if (job.type === 'filter_replacement') {
+        // Reschedule to nearest available date — just reset assignment, keep in list
+        return prev.map(j => j.id === jobId ? {
+          ...j,
+          status: 'draft' as JobStatus,
+          technicianId: undefined,
+          scheduledDate: undefined,
+          scheduledTime: undefined,
+        } : j);
+      } else {
+        // Malfunction/installation — return to unassigned pool, keep completion color
+        return prev.map(j => j.id === jobId ? {
+          ...j,
+          status: 'draft' as JobStatus,
+          technicianId: undefined,
+          scheduledDate: undefined,
+          scheduledTime: undefined,
+        } : j);
+      }
+    });
   };
 
   const completeFilterJob = (jobId: string) => {
@@ -49,15 +119,12 @@ export function useJobs() {
       if (!job || job.type !== 'filter_replacement') {
         return prev.map(j => j.id === jobId ? { ...j, status: 'completed' as JobStatus } : j);
       }
-      // Mark current job as completed
       const updated = prev.map(j => j.id === jobId ? { ...j, status: 'completed' as JobStatus } : j);
-      // Auto-schedule next year's replacement
       const customer = customersList.find(c => c.id === job.customerId);
       const currentYear = parseInt(job.createdAt.split('-')[0]);
       const nextYear = currentYear + 1;
       const month = customer?.filterReplacementMonth || (parseInt(job.createdAt.split('-')[1]));
       const nextJobId = `filter-${nextYear}-${month}-${job.customerId}`;
-      // Only add if not already exists
       if (!updated.find(j => j.id === nextJobId)) {
         const newJob: Job = {
           id: nextJobId,
@@ -130,5 +197,5 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, customersList, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician };
+  return { jobs, customersList, closedJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician };
 }
