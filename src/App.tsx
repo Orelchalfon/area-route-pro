@@ -7,6 +7,7 @@ import { AppLayout } from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import JobCategoryPage from "./pages/JobCategoryPage";
 import TechnicianPage from "./pages/TechnicianPage";
+import ServiceCyclePage from "./pages/ServiceCyclePage";
 import CustomerConfirmation from "./pages/CustomerConfirmation";
 import CustomersPage from "./pages/CustomersPage";
 import NotFound from "./pages/NotFound";
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/malfunctions" element={<JobCategoryPage category="malfunctions" />} />
             <Route path="/installations" element={<JobCategoryPage category="installations" />} />
             <Route path="/service" element={<JobCategoryPage category="service" />} />
+            <Route path="/service-cycle" element={<ServiceCyclePage />} />
             <Route path="/technician" element={<TechnicianPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/confirm" element={<CustomerConfirmation />} />

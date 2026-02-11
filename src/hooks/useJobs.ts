@@ -24,6 +24,40 @@ export function useJobs() {
     ));
   };
 
+  const completeFilterJob = (jobId: string) => {
+    setJobs(prev => {
+      const job = prev.find(j => j.id === jobId);
+      if (!job || job.type !== 'filter_replacement') {
+        return prev.map(j => j.id === jobId ? { ...j, status: 'completed' as JobStatus } : j);
+      }
+      // Mark current job as completed
+      const updated = prev.map(j => j.id === jobId ? { ...j, status: 'completed' as JobStatus } : j);
+      // Auto-schedule next year's replacement
+      const customer = customersList.find(c => c.id === job.customerId);
+      const currentYear = parseInt(job.createdAt.split('-')[0]);
+      const nextYear = currentYear + 1;
+      const month = customer?.filterReplacementMonth || (parseInt(job.createdAt.split('-')[1]));
+      const nextJobId = `filter-${nextYear}-${month}-${job.customerId}`;
+      // Only add if not already exists
+      if (!updated.find(j => j.id === nextJobId)) {
+        const newJob: Job = {
+          id: nextJobId,
+          type: 'filter_replacement',
+          status: 'draft',
+          priority: 'low',
+          customerId: job.customerId,
+          estimatedDuration: 25,
+          location: customer?.address || job.location,
+          city: customer?.city || job.city,
+          notes: 'החלפת פילטר שנתית',
+          createdAt: `${nextYear}-${String(month).padStart(2, '0')}-01`,
+        };
+        updated.push(newJob);
+      }
+      return updated;
+    });
+  };
+
   const assignJob = (jobId: string, technicianId: string, scheduledDate: string, scheduledTime: string) => {
     setJobs(prev => prev.map(j => 
       j.id === jobId ? { ...j, technicianId, scheduledDate, scheduledTime } : j
@@ -77,5 +111,5 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, customersList, updateJobStatus, approveSchedule, completeJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician };
+  return { jobs, customersList, updateJobStatus, approveSchedule, completeJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician };
 }
