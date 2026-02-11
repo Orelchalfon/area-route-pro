@@ -1,9 +1,9 @@
 import { MonthlyScheduleBoard } from '@/components/MonthlyScheduleBoard';
 import { NewJobDialog } from '@/components/NewJobDialog';
-import { useJobs } from '@/hooks/useJobs';
+import { useJobsContext } from '@/contexts/JobsContext';
 
 export default function Dashboard() {
-  const { jobs, customersList, approveSchedule, updateJobStatus, addJob, assignJob, unassignJob } = useJobs();
+  const { jobs, customersList, approveSchedule, approveDaySchedule, updateJobStatus, addJob, assignJob, unassignJob } = useJobsContext();
 
   return (
     <div dir="rtl">
@@ -20,6 +20,7 @@ export default function Dashboard() {
       <MonthlyScheduleBoard
         jobs={jobs}
         onApprove={approveSchedule}
+        onApproveDaySchedule={approveDaySchedule}
         onStatusChange={updateJobStatus}
         onAssignJob={assignJob}
         onUnassignJob={unassignJob}

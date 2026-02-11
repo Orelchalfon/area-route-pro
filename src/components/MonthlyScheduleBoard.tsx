@@ -21,6 +21,7 @@ const REGIONS = [
 interface MonthlyScheduleBoardProps {
   jobs: Job[];
   onApprove: (jobIds: string[]) => void;
+  onApproveDaySchedule: (assignments: { jobId: string; technicianId: string; scheduledDate: string; scheduledTime: string }[]) => void;
   onStatusChange: (jobId: string, status: string) => void;
   onAssignJob: (jobId: string, technicianId: string, scheduledDate: string, scheduledTime: string) => void;
   onUnassignJob: (jobId: string) => void;
@@ -259,7 +260,7 @@ function calculateTimeRanges(allJobs: Job[]): { job: Job; startTime: string; end
 // Day approval dialog
 function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onApprove, approvedDays }: {
   open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[];
-  onApprove: (jobIds: string[]) => void; approvedDays: Set<string>;
+  onApprove: (jobIds: string[], dateStr: string) => void; approvedDays: Set<string>;
 }) {
   const allJobs = [...filterJobs, ...dayJobs];
   const dayDate = new Date(dateStr + 'T00:00:00');
@@ -325,8 +326,8 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
               <Button
                 className="w-full gap-2 bg-success hover:bg-success/90 text-success-foreground"
                 onClick={() => {
-                  onApprove(allJobs.map(j => j.id));
-                  toast.success(`יום ${dayLabel} אושר — ${allJobs.length} משימות`);
+                  onApprove(allJobs.map(j => j.id), dateStr);
+                  toast.success(`יום ${dayLabel} אושר — ${allJobs.length} משימות שובצו לטכנאי`);
                 }}
               >
                 <CheckCircle className="w-4 h-4" />
@@ -426,7 +427,7 @@ function FilterJobPicker({ jobs, onSelect, movedFromOtherDay }: { jobs: Job[]; o
 }
 
 
-export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssignJob, onUnassignJob }: MonthlyScheduleBoardProps) {
+export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, onStatusChange, onAssignJob, onUnassignJob }: MonthlyScheduleBoardProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(technicians[0].id);
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
@@ -437,11 +438,31 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onStatusChange, onAssign
   const [approvalState, setApprovalState] = useState<{ open: boolean; dateStr: string } | null>(null);
   const [approvedDays, setApprovedDays] = useState<Set<string>>(new Set());
 
-  const handleApproveDay = (jobIds: string[]) => {
-    onApprove(jobIds);
-    if (approvalState) {
-      setApprovedDays(prev => new Set(prev).add(approvalState.dateStr));
-    }
+  const handleApproveDay = (jobIds: string[], dateStr: string) => {
+    // Calculate time ranges for assignments
+    const allJobs = jobIds.map(id => {
+      // Find job from filter distribution, extra assignments, or main jobs
+      const filterDayJobs = getFilterDayJobs(dateStr);
+      const manualDayJobs = getManualDayJobs(dateStr);
+      return [...filterDayJobs, ...manualDayJobs].find(j => j.id === id);
+    }).filter(Boolean) as Job[];
+
+    let currentMinutes = 10 * 60; // Start at 10:00
+    const assignments = allJobs.map(job => {
+      const startHour = Math.floor(currentMinutes / 60);
+      const startMin = currentMinutes % 60;
+      const scheduledTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`;
+      currentMinutes += job.estimatedDuration;
+      return {
+        jobId: job.id,
+        technicianId: selectedTechId,
+        scheduledDate: dateStr,
+        scheduledTime,
+      };
+    });
+
+    onApproveDaySchedule(assignments);
+    setApprovedDays(prev => new Set(prev).add(dateStr));
   };
 
   const month = currentMonth.getMonth() + 1; // 1-12

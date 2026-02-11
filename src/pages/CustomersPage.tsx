@@ -1,4 +1,4 @@
-import { useJobs } from '@/hooks/useJobs';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { CustomerCard } from '@/components/CustomerCard';
 import { NewCustomerDialog } from '@/components/NewCustomerDialog';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { LayoutDashboard, Users, Calendar, Contact } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function CustomersPage() {
-  const { customersList, addCustomer } = useJobs();
+  const { customersList, addCustomer } = useJobsContext();
 
   return (
     <div className="min-h-screen bg-background">

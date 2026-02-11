@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
+import { JobsProvider } from "./contexts/JobsContext";
 import Dashboard from "./pages/Dashboard";
 import JobCategoryPage from "./pages/JobCategoryPage";
 import TechnicianPage from "./pages/TechnicianPage";
@@ -20,18 +21,20 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/malfunctions" element={<JobCategoryPage category="malfunctions" />} />
-            <Route path="/installations" element={<JobCategoryPage category="installations" />} />
-            <Route path="/service" element={<ServiceCyclePage />} />
-            <Route path="/technician" element={<TechnicianPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/confirm" element={<CustomerConfirmation />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
+        <JobsProvider>
+          <AppLayout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/malfunctions" element={<JobCategoryPage category="malfunctions" />} />
+              <Route path="/installations" element={<JobCategoryPage category="installations" />} />
+              <Route path="/service" element={<ServiceCyclePage />} />
+              <Route path="/technician" element={<TechnicianPage />} />
+              <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/confirm" element={<CustomerConfirmation />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AppLayout>
+        </JobsProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Customer, Job, JOB_TYPE_CONFIG } from '@/types';
 import { customers } from '@/data/mockData';
-import { useJobs } from '@/hooks/useJobs';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,7 @@ const MONTH_NAMES = [
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 export default function ServiceCyclePage() {
-  const { jobs, customersList, completeFilterJob } = useJobs();
+  const { jobs, customersList, completeFilterJob } = useJobsContext();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const currentMonth = new Date().getMonth() + 1;
