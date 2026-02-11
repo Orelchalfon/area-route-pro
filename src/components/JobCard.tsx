@@ -72,7 +72,7 @@ export function JobCard({ job, variant = 'manager', onStatusChange, onComplete, 
 
       {variant === 'technician' && job.status === 'confirmed' && (
         <div className="flex gap-2 mt-3">
-          {isNext && customer && (
+          {customer && (
             <Button
               size="sm"
               variant="outline"
