@@ -5,116 +5,95 @@ export const technicians: Technician[] = [
   { id: 't2', name: 'יוסי לוי', region: 'צפון', skills: ['פילטרים', 'תקלות', 'התקנות'], phone: '+972-52-2345678' },
 ];
 
-export const customers: Customer[] = [
-  { id: 'c1',  name: 'שרה גולדשטיין',    phone: '+972-50-1111111', address: 'רוטשילד 12, תל אביב',        city: 'ת״א, גבעתיים, רמת גן',       email: 'sara@email.com',    product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c2',  name: 'מיכאל רובין',       phone: '+972-52-2222222', address: 'הרצל 45, תל אביב',           city: 'ת״א, גבעתיים, רמת גן',       email: 'michael@email.com', product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c3',  name: 'רחל מזרחי',         phone: '+972-54-3333333', address: 'בן יהודה 8, חיפה',           city: 'צפון קרוב',                   email: 'rachel@email.com',  product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c4',  name: 'דניאל פרץ',         phone: '+972-50-4444444', address: 'קינג ג׳ורג׳ 23, ירושלים',    city: 'ירושלים והסביבה',             email: 'daniel@email.com',  product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c5',  name: 'תמר אברהמי',        phone: '+972-52-5555555', address: 'דיזנגוף 67, תל אביב',        city: 'ת״א, גבעתיים, רמת גן',       email: 'tamar@email.com',   product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c6',  name: 'אייל כץ',           phone: '+972-54-6666666', address: 'שד׳ הנשיא 15, חיפה',         city: 'צפון קרוב',                   email: 'eyal@email.com',    product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c7',  name: 'נועה פרידמן',       phone: '+972-50-7777777', address: 'יפו 30, ירושלים',            city: 'ירושלים והסביבה',             email: 'noa@email.com',     product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c8',  name: 'אורן שוורץ',        phone: '+972-52-8888888', address: 'אלנבי 5, תל אביב',           city: 'ת״א, גבעתיים, רמת גן',       email: 'oren@email.com',    product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c9',  name: 'יעל דהן',           phone: '+972-50-9999901', address: 'ביאליק 3, רמת גן',           city: 'ת״א, גבעתיים, רמת גן',       email: 'yael@email.com',    product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c10', name: 'אבי מלכה',          phone: '+972-52-9999902', address: 'סוקולוב 18, הרצליה',          city: 'הרצליה, רעננה והסביבה',       email: 'avi@email.com',     product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c11', name: 'מורן ביטון',        phone: '+972-54-9999903', address: 'ויצמן 22, כפר סבא',           city: 'הרצליה, רעננה והסביבה',       email: 'moran@email.com',   product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c12', name: 'עידו נחמיאס',       phone: '+972-50-9999904', address: 'ז׳בוטינסקי 40, פתח תקווה',   city: 'מרכז - פתח תקווה',           email: 'ido@email.com',     product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c13', name: 'ליאת שמעון',        phone: '+972-52-9999905', address: 'הגליל 7, נתניה',             city: 'נתניה, עמק חפר',              email: 'liat@email.com',    product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c14', name: 'רון אזולאי',        phone: '+972-54-9999906', address: 'המלך דוד 9, ירושלים',         city: 'ירושלים והסביבה',             email: 'ron@email.com',     product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c15', name: 'הדר לביא',          phone: '+972-50-9999907', address: 'נורדאו 14, תל אביב',          city: 'ת״א, גבעתיים, רמת גן',       email: 'hadar@email.com',   product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c16', name: 'אלון סגל',          phone: '+972-52-9999908', address: 'העצמאות 33, חיפה',            city: 'צפון קרוב',                   email: 'alon@email.com',    product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c17', name: 'שירה קפלן',         phone: '+972-54-9999909', address: 'הרב קוק 5, בני ברק',          city: 'ת״א, גבעתיים, רמת גן',       email: 'shira@email.com',   product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c18', name: 'גיל חסון',          phone: '+972-50-9999910', address: 'שמואל הנגיד 11, ראשון לציון', city: 'דרום ת״א והסביבה',            email: 'gil@email.com',     product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c19', name: 'ענת ברק',           phone: '+972-52-9999911', address: 'אוסישקין 27, רעננה',          city: 'הרצליה, רעננה והסביבה',       email: 'anat@email.com',    product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c20', name: 'נדב עמרם',          phone: '+972-54-9999912', address: 'הנרייטה סולד 6, חולון',       city: 'דרום ת״א והסביבה',            email: 'nadav@email.com',   product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c21', name: 'מיכל אופיר',        phone: '+972-50-9999913', address: 'דרך העצמאות 50, באר שבע',     city: 'דרום רחוק',                   email: 'michal@email.com',  product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c22', name: 'יונתן גרינברג',     phone: '+972-52-9999914', address: 'בורוכוב 19, גבעתיים',        city: 'ת״א, גבעתיים, רמת גן',       email: 'yonatan@email.com', product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c23', name: 'אורלי טל',          phone: '+972-54-9999915', address: 'מנחם בגין 88, תל אביב',      city: 'ת״א, גבעתיים, רמת גן',       email: 'orly@email.com',    product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c24', name: 'דור אשכנזי',        phone: '+972-50-9999916', address: 'התמר 4, ראש העין',            city: 'מרכז - פתח תקווה',           email: 'dor@email.com',     product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c25', name: 'קרן וולף',          phone: '+972-52-9999917', address: 'הזית 21, מודיעין',            city: 'ירושלים והסביבה',             email: 'keren@email.com',   product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c26', name: 'תומר שלום',         phone: '+972-54-9999918', address: 'דרך הים 10, אשדוד',           city: 'דרום קרוב',                   email: 'tomer@email.com',   product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c27', name: 'נעמי הלל',          phone: '+972-50-9999919', address: 'ירושלים 55, אשקלון',          city: 'דרום קרוב',                   email: 'naomi@email.com',   product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c28', name: 'עמיר צור',          phone: '+972-52-9999920', address: 'יצחק רבין 13, הוד השרון',     city: 'הרצליה, רעננה והסביבה',       email: 'amir@email.com',    product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c29', name: 'רותם חן',           phone: '+972-54-9999921', address: 'הברוש 8, רמת השרון',          city: 'הרצליה, רעננה והסביבה',       email: 'rotem@email.com',   product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c30', name: 'איתי מנדל',         phone: '+972-50-9999922', address: 'ההדסים 16, קריית אונו',       city: 'ת״א, גבעתיים, רמת גן',       email: 'itay@email.com',    product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c31', name: 'סיון רוזנפלד',      phone: '+972-52-9999923', address: 'השקד 2, יבנה',               city: 'דרום קרוב',                   email: 'sivan@email.com',   product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c32', name: 'אלעד פינקלשטיין',   phone: '+972-54-9999924', address: 'דרך בן גוריון 31, רמלה',     city: 'מרכז - פתח תקווה',           email: 'elad@email.com',    product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c33', name: 'ליאור הרשקוביץ',    phone: '+972-50-9999925', address: 'האלון 9, כרמיאל',             city: 'צפון קרוב',                   email: 'lior@email.com',    product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c34', name: 'עדי שפירו',         phone: '+972-52-9999926', address: 'הגפן 24, טבריה',             city: 'צפון רחוק',                   email: 'adi@email.com',     product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c35', name: 'שחר נאמן',          phone: '+972-54-9999927', address: 'המייסדים 17, עפולה',          city: 'שומרון',                      email: 'shahar@email.com',  product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c36', name: 'דנה קורן',          phone: '+972-50-9999928', address: 'הרצל 60, נצרת עילית',         city: 'צפון קרוב',                   email: 'dana@email.com',    product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c37', name: 'ניר אדלר',          phone: '+972-52-9999929', address: 'שד׳ ירושלים 44, לוד',         city: 'מרכז - פתח תקווה',           email: 'nir@email.com',     product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c38', name: 'מעיין זיו',         phone: '+972-54-9999930', address: 'הדקל 7, אילת',               city: 'דרום רחוק',                   email: 'maayan@email.com',  product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c39', name: 'עופר רוזנברג',      phone: '+972-50-9999931', address: 'כצנלסון 35, בת ים',           city: 'דרום ת״א והסביבה',            email: 'ofer@email.com',    product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c40', name: 'טלי גולן',          phone: '+972-52-9999932', address: 'הפרחים 12, נס ציונה',         city: 'דרום ת״א והסביבה',            email: 'tali@email.com',    product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c41', name: 'ארז חביב',          phone: '+972-54-9999933', address: 'דרך יפו 77, תל אביב',        city: 'ת״א, גבעתיים, רמת גן',       email: 'erez@email.com',    product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c42', name: 'הילה לוין',         phone: '+972-50-9999934', address: 'העליה 20, חדרה',              city: 'נתניה, עמק חפר',              email: 'hila@email.com',    product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c43', name: 'בועז פלד',          phone: '+972-52-9999935', address: 'הרימון 3, קריית ביאליק',      city: 'צפון קרוב',                   email: 'boaz@email.com',    product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c44', name: 'שני אלקובי',        phone: '+972-54-9999936', address: 'התאנה 15, קריית מוצקין',      city: 'צפון קרוב',                   email: 'shani@email.com',   product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c45', name: 'אריאל מאירי',       phone: '+972-50-9999937', address: 'ברנר 28, גבעת שמואל',         city: 'ת״א, גבעתיים, רמת גן',       email: 'ariel@email.com',   product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c46', name: 'יפית אוחיון',       phone: '+972-50-9999938', address: 'הנביאים 5, ירושלים',          city: 'ירושלים והסביבה',             email: 'yafit@email.com',   product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c47', name: 'אסף דיין',          phone: '+972-52-9999939', address: 'ז׳בוטינסקי 12, רמת גן',      city: 'ת״א, גבעתיים, רמת גן',       email: 'assaf@email.com',   product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c48', name: 'מאיה כהן',          phone: '+972-54-9999940', address: 'אחד העם 30, פתח תקווה',       city: 'מרכז - פתח תקווה',           email: 'maya@email.com',    product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c49', name: 'גלעד שמש',          phone: '+972-50-9999941', address: 'ההסתדרות 8, באר שבע',         city: 'דרום רחוק',                   email: 'gilad@email.com',   product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c50', name: 'רינת אלפסי',        phone: '+972-52-9999942', address: 'דרך הים 45, אשדוד',           city: 'דרום קרוב',                   email: 'rinat@email.com',   product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c51', name: 'עומר בן דוד',       phone: '+972-54-9999943', address: 'הרצליה 18, נתניה',            city: 'נתניה, עמק חפר',              email: 'omer@email.com',    product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c52', name: 'לירון שגב',         phone: '+972-50-9999944', address: 'סמילנסקי 7, חולון',           city: 'דרום ת״א והסביבה',            email: 'liron@email.com',   product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c53', name: 'נתנאל ברזילי',      phone: '+972-52-9999945', address: 'העצמאות 22, עכו',             city: 'צפון קרוב',                   email: 'netanel@email.com', product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c54', name: 'אביגיל סויסה',      phone: '+972-54-9999946', address: 'הגלבוע 14, עפולה',            city: 'שומרון',                      email: 'avigail@email.com', product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c55', name: 'חיים פרנקל',        phone: '+972-50-9999947', address: 'שד׳ בן ציון 9, הרצליה',       city: 'הרצליה, רעננה והסביבה',       email: 'haim@email.com',    product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
-  { id: 'c56', name: 'אפרת נגר',          phone: '+972-52-9999948', address: 'קרן היסוד 16, ירושלים',       city: 'ירושלים והסביבה',             email: 'efrat@email.com',   product: 'מערכת אוסמוזה 5 שלבים', filterReplacementMonth: 2 },
-  { id: 'c57', name: 'זיו אמסלם',         phone: '+972-54-9999949', address: 'יוספטל 33, בת ים',            city: 'דרום ת״א והסביבה',            email: 'ziv@email.com',     product: 'בר מים Eden', filterReplacementMonth: 2 },
-  { id: 'c58', name: 'יהודית לוי',        phone: '+972-50-9999950', address: 'רמב״ם 4, טבריה',             city: 'צפון רחוק',                   email: 'yehudit@email.com', product: 'מסנן ברז ביתי', filterReplacementMonth: 2 },
-  { id: 'c59', name: 'אמיר חדד',          phone: '+972-52-9999951', address: 'שדרות הנשיא 20, רעננה',       city: 'הרצליה, רעננה והסביבה',       email: 'amir.h@email.com',  product: 'בר מים תמי4', filterReplacementMonth: 2 },
-  { id: 'c60', name: 'סיגל מזרחי',        phone: '+972-54-9999952', address: 'הברושים 11, מודיעין',         city: 'ירושלים והסביבה',             email: 'sigal@email.com',   product: 'מערכת סינון מרכזית', filterReplacementMonth: 2 },
+const CITIES = [
+  'דרום רחוק', 'דרום קרוב', 'דרום ת״א והסביבה', 'ירושלים והסביבה',
+  'מרכז - פתח תקווה', 'הרצליה, רעננה והסביבה', 'שומרון', 'נתניה, עמק חפר',
+  'צפון קרוב', 'צפון רחוק',
 ];
+
+const PRODUCTS = ['מערכת אוסמוזה 5 שלבים', 'בר מים Eden', 'מסנן ברז ביתי', 'בר מים תמי4', 'מערכת סינון מרכזית'];
+
+const ADDRESSES: Record<string, string[]> = {
+  'דרום רחוק': ['דרך העצמאות 50, באר שבע', 'ההסתדרות 8, באר שבע', 'הדקל 7, אילת', 'שד׳ הנגב 12, דימונה', 'רגר 5, באר שבע', 'הנשיא 3, ערד', 'יצחק רבין 10, אופקים', 'הפלמ״ח 22, באר שבע', 'העצמאות 14, ירוחם', 'הרצל 8, מצפה רמון'],
+  'דרום קרוב': ['דרך הים 10, אשדוד', 'ירושלים 55, אשקלון', 'השקד 2, יבנה', 'דרך הים 45, אשדוד', 'הגפן 15, קריית גת', 'שד׳ הנשיא 7, אשדוד', 'הזית 3, יבנה', 'בן גוריון 20, אשקלון', 'העצמאות 30, קריית מלאכי', 'הברוש 11, גדרה'],
+  'דרום ת״א והסביבה': ['שמואל הנגיד 11, ראשון לציון', 'הנרייטה סולד 6, חולון', 'יוספטל 33, בת ים', 'כצנלסון 35, בת ים', 'הפרחים 12, נס ציונה', 'סמילנסקי 7, חולון', 'רוטשילד 14, ראשון לציון', 'הרצל 28, חולון', 'ז׳בוטינסקי 15, ראשון לציון', 'הבנים 9, נס ציונה'],
+  'ירושלים והסביבה': ['קינג ג׳ורג׳ 23, ירושלים', 'יפו 30, ירושלים', 'המלך דוד 9, ירושלים', 'הזית 21, מודיעין', 'הנביאים 5, ירושלים', 'קרן היסוד 16, ירושלים', 'הברושים 11, מודיעין', 'בן יהודה 40, ירושלים', 'עזה 12, ירושלים', 'דרך בית לחם 7, ירושלים'],
+  'מרכז - פתח תקווה': ['ז׳בוטינסקי 40, פתח תקווה', 'התמר 4, ראש העין', 'דרך בן גוריון 31, רמלה', 'שד׳ ירושלים 44, לוד', 'אחד העם 30, פתח תקווה', 'רוטשילד 5, פתח תקווה', 'הרצל 18, ראש העין', 'סטמפר 12, פתח תקווה', 'בילו 8, רמלה', 'העצמאות 25, לוד'],
+  'הרצליה, רעננה והסביבה': ['סוקולוב 18, הרצליה', 'ויצמן 22, כפר סבא', 'אוסישקין 27, רעננה', 'יצחק רבין 13, הוד השרון', 'הברוש 8, רמת השרון', 'שד׳ בן ציון 9, הרצליה', 'שדרות הנשיא 20, רעננה', 'אחוזה 45, רעננה', 'הרצל 33, כפר סבא', 'המייסדים 6, הוד השרון'],
+  'שומרון': ['המייסדים 17, עפולה', 'הגלבוע 14, עפולה', 'הרצל 8, אריאל', 'העצמאות 12, קדומים', 'הזית 5, אלפי מנשה', 'דרך השלום 3, עפולה', 'הגפן 7, אריאל', 'הדקל 9, אלקנה', 'בן גוריון 15, עפולה', 'הרימון 4, ברקן'],
+  'נתניה, עמק חפר': ['הגליל 7, נתניה', 'העליה 20, חדרה', 'הרצליה 18, נתניה', 'שד׳ בנימין 10, נתניה', 'רזיאל 25, חדרה', 'הנשיא 8, נתניה', 'הרצל 40, חדרה', 'ויצמן 15, נתניה', 'סמילנסקי 12, חדרה', 'גורדון 6, נתניה'],
+  'צפון קרוב': ['בן יהודה 8, חיפה', 'שד׳ הנשיא 15, חיפה', 'העצמאות 33, חיפה', 'הרצל 60, נצרת עילית', 'האלון 9, כרמיאל', 'התאנה 15, קריית מוצקין', 'הרימון 3, קריית ביאליק', 'העצמאות 22, עכו', 'המגינים 10, חיפה', 'הנביאים 18, חיפה'],
+  'צפון רחוק': ['הגפן 24, טבריה', 'רמב״ם 4, טבריה', 'הרצל 15, צפת', 'העצמאות 8, קריית שמונה', 'הגליל 12, נהריה', 'דרך הים 5, נהריה', 'הרצל 20, צפת', 'המייסדים 3, ראש פינה', 'הגפן 7, מגדל', 'הזית 11, קריית שמונה'],
+};
+
+const FIRST_NAMES = ['שרה', 'מיכאל', 'רחל', 'דניאל', 'תמר', 'אייל', 'נועה', 'אורן', 'יעל', 'אבי', 'מורן', 'עידו', 'ליאת', 'רון', 'הדר', 'אלון', 'שירה', 'גיל', 'ענת', 'נדב', 'מיכל', 'יונתן', 'אורלי', 'דור', 'קרן', 'תומר', 'נעמי', 'עמיר', 'רותם', 'איתי', 'סיון', 'אלעד', 'ליאור', 'עדי', 'שחר', 'דנה', 'ניר', 'מעיין', 'עופר', 'טלי', 'ארז', 'הילה', 'בועז', 'שני', 'אריאל', 'יפית', 'אסף', 'מאיה', 'גלעד', 'רינת'];
+const LAST_NAMES = ['גולדשטיין', 'רובין', 'מזרחי', 'פרץ', 'אברהמי', 'כץ', 'פרידמן', 'שוורץ', 'דהן', 'מלכה', 'ביטון', 'נחמיאס', 'שמעון', 'אזולאי', 'לביא', 'סגל', 'קפלן', 'חסון', 'ברק', 'עמרם', 'אופיר', 'גרינברג', 'טל', 'אשכנזי', 'וולף', 'שלום', 'הלל', 'צור', 'חן', 'מנדל', 'רוזנפלד', 'פינקלשטיין', 'הרשקוביץ', 'שפירו', 'נאמן', 'קורן', 'אדלר', 'זיו', 'רוזנברג', 'גולן', 'חביב', 'לוין', 'פלד', 'אלקובי', 'מאירי', 'אוחיון', 'דיין', 'כהן', 'שמש', 'אלפסי'];
+
+// Generate 100 customers spread across 12 months and 10 regions
+function generateCustomers(): Customer[] {
+  const result: Customer[] = [];
+  for (let i = 0; i < 100; i++) {
+    const month = (i % 12) + 1; // Spread evenly: ~8-9 per month
+    const cityIdx = i % 10;
+    const city = CITIES[cityIdx];
+    const addressIdx = Math.floor(i / 10) % ADDRESSES[city].length;
+    const address = ADDRESSES[city][addressIdx];
+    const firstName = FIRST_NAMES[i % FIRST_NAMES.length];
+    const lastName = LAST_NAMES[i % LAST_NAMES.length];
+    const product = PRODUCTS[i % PRODUCTS.length];
+
+    result.push({
+      id: `c${i + 1}`,
+      name: `${firstName} ${lastName}`,
+      phone: `+972-5${i % 5}-${String(1000000 + i).slice(-7)}`,
+      address,
+      city,
+      email: `${firstName.toLowerCase()}${i}@email.com`,
+      product,
+      filterReplacementMonth: month,
+    });
+  }
+  return result;
+}
+
+export const customers: Customer[] = generateCustomers();
 
 const today = new Date();
 const todayStr = today.toISOString().split('T')[0];
 
 // תקלות והתקנות - לא משובצים, מוכנים לשיבוץ ידני
-// שירות שוטף (פילטרים) - מנוהל אוטומטית לפי חודש קבוע ללקוח
 export const initialJobs: Job[] = [
   // ===== תקלות (20) =====
-  { id: 'j1',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c2',  estimatedDuration: 60, location: 'הרצל 45, תל אביב',          city: 'ת״א, גבעתיים, רמת גן',   notes: 'אין מים קרים - דחוף',   createdAt: todayStr },
-  { id: 'j2',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c10', estimatedDuration: 60, location: 'סוקולוב 18, הרצליה',       city: 'הרצליה, רעננה והסביבה',   notes: 'תקלה בחימום',           createdAt: todayStr },
-  { id: 'j3',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c3',  estimatedDuration: 60, location: 'בן יהודה 8, חיפה',          city: 'צפון קרוב',              notes: 'נזילה ביחידה',          createdAt: todayStr },
-  { id: 'j4',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c34', estimatedDuration: 60, location: 'הגפן 24, טבריה',            city: 'צפון רחוק',              notes: 'תקלה במשאבה',           createdAt: todayStr },
-  { id: 'j5',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c11', estimatedDuration: 60, location: 'ויצמן 22, כפר סבא',         city: 'הרצליה, רעננה והסביבה',   notes: 'רעש חריג מהמערכת',      createdAt: todayStr },
-  { id: 'j6',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c39', estimatedDuration: 60, location: 'כצנלסון 35, בת ים',         city: 'דרום ת״א והסביבה',       notes: 'דליפה מהמערכת',         createdAt: todayStr },
-  { id: 'j7',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c14', estimatedDuration: 60, location: 'המלך דוד 9, ירושלים',       city: 'ירושלים והסביבה',        notes: 'לחץ מים נמוך',          createdAt: todayStr },
-  { id: 'j8',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c28', estimatedDuration: 60, location: 'יצחק רבין 13, הוד השרון',   city: 'הרצליה, רעננה והסביבה',   notes: 'נזילה',                 createdAt: todayStr },
-  { id: 'j9',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c20', estimatedDuration: 60, location: 'הנרייטה סולד 6, חולון',     city: 'דרום ת״א והסביבה',       notes: 'המערכת לא נדלקת',       createdAt: todayStr },
-  { id: 'j10', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c42', estimatedDuration: 60, location: 'העליה 20, חדרה',            city: 'נתניה, עמק חפר',         notes: 'רעש חזק',               createdAt: todayStr },
-  { id: 'j11', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c36', estimatedDuration: 60, location: 'הרצל 60, נצרת עילית',      city: 'צפון קרוב',              notes: 'רעש חריג',              createdAt: todayStr },
-  { id: 'j12', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c41', estimatedDuration: 60, location: 'דרך יפו 77, תל אביב',      city: 'ת״א, גבעתיים, רמת גן',   notes: 'דליפה חזקה',            createdAt: todayStr },
-  { id: 'j13', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c38', estimatedDuration: 60, location: 'הדקל 7, אילת',             city: 'דרום רחוק',              notes: 'תקלה במשאבה',           createdAt: todayStr },
-  { id: 'j14', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c5',  estimatedDuration: 60, location: 'דיזנגוף 67, תל אביב',      city: 'ת״א, גבעתיים, רמת גן',   notes: 'טפטוף מהמסנן',          createdAt: todayStr },
-  { id: 'j15', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c9',  estimatedDuration: 60, location: 'ביאליק 3, רמת גן',         city: 'ת״א, גבעתיים, רמת גן',   notes: 'לחץ לא יציב',           createdAt: todayStr },
-  { id: 'j16', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c22', estimatedDuration: 60, location: 'בורוכוב 19, גבעתיים',      city: 'ת״א, גבעתיים, רמת גן',   notes: 'מים עכורים',            createdAt: todayStr },
-  { id: 'j17', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c30', estimatedDuration: 60, location: 'ההדסים 16, קריית אונו',     city: 'ת״א, גבעתיים, רמת גן',   notes: 'ריח רע מהמים',          createdAt: todayStr },
-  { id: 'j18', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c25', estimatedDuration: 60, location: 'הזית 21, מודיעין',          city: 'ירושלים והסביבה',        notes: 'לא מקרר',               createdAt: todayStr },
-  { id: 'j19', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c27', estimatedDuration: 60, location: 'ירושלים 55, אשקלון',        city: 'דרום קרוב',              notes: 'נזילה קלה',             createdAt: todayStr },
-  { id: 'j20', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c45', estimatedDuration: 60, location: 'ברנר 28, גבעת שמואל',       city: 'ת״א, גבעתיים, רמת גן',   notes: 'רעש בלילה',             createdAt: todayStr },
+  { id: 'j1',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c2',  estimatedDuration: 60, location: customers[1].address,  city: customers[1].city,  notes: 'אין מים קרים — דחוף',   createdAt: todayStr },
+  { id: 'j2',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c10', estimatedDuration: 60, location: customers[9].address,  city: customers[9].city,  notes: 'תקלה בחימום',           createdAt: todayStr },
+  { id: 'j3',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c3',  estimatedDuration: 60, location: customers[2].address,  city: customers[2].city,  notes: 'נזילה ביחידה',          createdAt: todayStr },
+  { id: 'j4',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c34', estimatedDuration: 60, location: customers[33].address, city: customers[33].city, notes: 'תקלה במשאבה',           createdAt: todayStr },
+  { id: 'j5',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c11', estimatedDuration: 60, location: customers[10].address, city: customers[10].city, notes: 'רעש חריג מהמערכת',      createdAt: todayStr },
+  { id: 'j6',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c39', estimatedDuration: 60, location: customers[38].address, city: customers[38].city, notes: 'דליפה מהמערכת',         createdAt: todayStr },
+  { id: 'j7',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c14', estimatedDuration: 60, location: customers[13].address, city: customers[13].city, notes: 'לחץ מים נמוך',          createdAt: todayStr },
+  { id: 'j8',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c28', estimatedDuration: 60, location: customers[27].address, city: customers[27].city, notes: 'נזילה',                 createdAt: todayStr },
+  { id: 'j9',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c20', estimatedDuration: 60, location: customers[19].address, city: customers[19].city, notes: 'המערכת לא נדלקת',       createdAt: todayStr },
+  { id: 'j10', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c42', estimatedDuration: 60, location: customers[41].address, city: customers[41].city, notes: 'רעש חזק',               createdAt: todayStr },
+  { id: 'j11', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c36', estimatedDuration: 60, location: customers[35].address, city: customers[35].city, notes: 'רעש חריג',              createdAt: todayStr },
+  { id: 'j12', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c41', estimatedDuration: 60, location: customers[40].address, city: customers[40].city, notes: 'דליפה חזקה',            createdAt: todayStr },
+  { id: 'j13', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c38', estimatedDuration: 60, location: customers[37].address, city: customers[37].city, notes: 'תקלה במשאבה',           createdAt: todayStr },
+  { id: 'j14', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c5',  estimatedDuration: 60, location: customers[4].address,  city: customers[4].city,  notes: 'טפטוף מהמסנן',          createdAt: todayStr },
+  { id: 'j15', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c9',  estimatedDuration: 60, location: customers[8].address,  city: customers[8].city,  notes: 'לחץ לא יציב',           createdAt: todayStr },
+  { id: 'j16', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c22', estimatedDuration: 60, location: customers[21].address, city: customers[21].city, notes: 'מים עכורים',            createdAt: todayStr },
+  { id: 'j17', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c30', estimatedDuration: 60, location: customers[29].address, city: customers[29].city, notes: 'ריח רע מהמים',          createdAt: todayStr },
+  { id: 'j18', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c25', estimatedDuration: 60, location: customers[24].address, city: customers[24].city, notes: 'לא מקרר',               createdAt: todayStr },
+  { id: 'j19', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c27', estimatedDuration: 60, location: customers[26].address, city: customers[26].city, notes: 'נזילה קלה',             createdAt: todayStr },
+  { id: 'j20', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c45', estimatedDuration: 60, location: customers[44].address, city: customers[44].city, notes: 'רעש בלילה',             createdAt: todayStr },
 
   // ===== התקנות (20) =====
-  { id: 'j21', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c15', estimatedDuration: 120, location: 'נורדאו 14, תל אביב',       city: 'ת״א, גבעתיים, רמת גן',   notes: 'התקנת בר מים תמי4',     createdAt: todayStr },
-  { id: 'j22', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c24', estimatedDuration: 120, location: 'התמר 4, ראש העין',          city: 'מרכז - פתח תקווה',       notes: 'התקנת מערכת אוסמוזה',   createdAt: todayStr },
-  { id: 'j23', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c33', estimatedDuration: 120, location: 'האלון 9, כרמיאל',           city: 'צפון קרוב',              notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j24', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c44', estimatedDuration: 120, location: 'התאנה 15, קריית מוצקין',    city: 'צפון קרוב',              notes: 'התקנת מערכת סינון',     createdAt: todayStr },
-  { id: 'j25', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c4',  estimatedDuration: 120, location: 'קינג ג׳ורג׳ 23, ירושלים',   city: 'ירושלים והסביבה',        notes: 'התקנת מערכת פרימיום',    createdAt: todayStr },
-  { id: 'j26', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c26', estimatedDuration: 120, location: 'דרך הים 10, אשדוד',         city: 'דרום קרוב',              notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j27', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c13', estimatedDuration: 120, location: 'הגליל 7, נתניה',            city: 'נתניה, עמק חפר',         notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j28', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c18', estimatedDuration: 120, location: 'שמואל הנגיד 11, ראשון לציון', city: 'דרום ת״א והסביבה',      notes: 'התקנת בר מים',          createdAt: todayStr },
-  { id: 'j29', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c43', estimatedDuration: 120, location: 'הרימון 3, קריית ביאליק',    city: 'צפון קרוב',              notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j30', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c29', estimatedDuration: 120, location: 'הברוש 8, רמת השרון',        city: 'הרצליה, רעננה והסביבה',   notes: 'התקנת מערכת חדשה',      createdAt: todayStr },
-  { id: 'j31', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c31', estimatedDuration: 120, location: 'השקד 2, יבנה',              city: 'דרום קרוב',              notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j32', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c37', estimatedDuration: 120, location: 'שד׳ ירושלים 44, לוד',       city: 'מרכז - פתח תקווה',       notes: 'התקנת מסנן מרכזי',      createdAt: todayStr },
-  { id: 'j33', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c40', estimatedDuration: 120, location: 'הפרחים 12, נס ציונה',       city: 'דרום ת״א והסביבה',       notes: 'התקנת מסנן',            createdAt: todayStr },
-  { id: 'j34', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c21', estimatedDuration: 120, location: 'דרך העצמאות 50, באר שבע',   city: 'דרום רחוק',              notes: 'התקנת מערכת סינון',     createdAt: todayStr },
-  { id: 'j35', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c17', estimatedDuration: 120, location: 'הרב קוק 5, בני ברק',       city: 'ת״א, גבעתיים, רמת גן',   notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j36', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c32', estimatedDuration: 120, location: 'דרך בן גוריון 31, רמלה',   city: 'מרכז - פתח תקווה',       notes: 'התקנת מערכת',           createdAt: todayStr },
-  { id: 'j37', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c19', estimatedDuration: 120, location: 'אוסישקין 27, רעננה',        city: 'הרצליה, רעננה והסביבה',   notes: 'התקנת בר מים',          createdAt: todayStr },
-  { id: 'j38', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c35', estimatedDuration: 120, location: 'המייסדים 17, עפולה',        city: 'שומרון',                 notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j39', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c8',  estimatedDuration: 120, location: 'אלנבי 5, תל אביב',          city: 'ת״א, גבעתיים, רמת גן',   notes: 'התקנת מערכת אוסמוזה',   createdAt: todayStr },
-  { id: 'j40', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c12', estimatedDuration: 120, location: 'ז׳בוטינסקי 40, פתח תקווה', city: 'מרכז - פתח תקווה',       notes: 'התקנת מסנן חדש',        createdAt: todayStr },
+  { id: 'j21', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c15', estimatedDuration: 120, location: customers[14].address, city: customers[14].city, notes: 'התקנת בר מים תמי4',     createdAt: todayStr },
+  { id: 'j22', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c24', estimatedDuration: 120, location: customers[23].address, city: customers[23].city, notes: 'התקנת מערכת אוסמוזה',   createdAt: todayStr },
+  { id: 'j23', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c33', estimatedDuration: 120, location: customers[32].address, city: customers[32].city, notes: 'התקנה חדשה',            createdAt: todayStr },
+  { id: 'j24', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c44', estimatedDuration: 120, location: customers[43].address, city: customers[43].city, notes: 'התקנת מערכת סינון',     createdAt: todayStr },
+  { id: 'j25', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c4',  estimatedDuration: 120, location: customers[3].address,  city: customers[3].city,  notes: 'התקנת מערכת פרימיום',    createdAt: todayStr },
+  { id: 'j26', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c26', estimatedDuration: 120, location: customers[25].address, city: customers[25].city, notes: 'התקנה חדשה',            createdAt: todayStr },
+  { id: 'j27', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c13', estimatedDuration: 120, location: customers[12].address, city: customers[12].city, notes: 'התקנה חדשה',            createdAt: todayStr },
+  { id: 'j28', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c18', estimatedDuration: 120, location: customers[17].address, city: customers[17].city, notes: 'התקנת בר מים',          createdAt: todayStr },
+  { id: 'j29', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c43', estimatedDuration: 120, location: customers[42].address, city: customers[42].city, notes: 'התקנה חדשה',            createdAt: todayStr },
+  { id: 'j30', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c29', estimatedDuration: 120, location: customers[28].address, city: customers[28].city, notes: 'התקנת מערכת חדשה',      createdAt: todayStr },
 ];
