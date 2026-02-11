@@ -94,15 +94,15 @@ function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<strin
 
 function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: () => void; isAutoScheduled?: boolean }) {
   const customer = customers.find(c => c.id === job.customerId);
-  const typeConfig = JOB_TYPE_CONFIG[job.type];
 
-  // Completion status coloring overrides type color
+  // Only color chips that have a completion status from technician
   const completionColorMap: Record<string, string> = {
     done: 'bg-success/20 text-success border-success/40',
     not_done: 'bg-destructive/20 text-destructive border-destructive/40',
     need_return: 'bg-warning/20 text-warning border-warning/40',
   };
-  const chipColor = job.completionStatus ? completionColorMap[job.completionStatus] : typeColors[job.type];
+  // Neutral default for jobs not yet reported by technician
+  const chipColor = job.completionStatus ? completionColorMap[job.completionStatus] : 'bg-muted/30 text-muted-foreground border-border';
 
   return (
     <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${chipColor} group relative`}>
