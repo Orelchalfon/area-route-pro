@@ -5,7 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Plus } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Plus, ChevronsUpDown, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { JobType, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { technicians } from '@/data/mockData';
 
@@ -16,12 +19,15 @@ interface NewJobDialogProps {
 
 export function NewJobDialog({ customers, onAdd }: NewJobDialogProps) {
   const [open, setOpen] = useState(false);
+  const [customerOpen, setCustomerOpen] = useState(false);
   const [type, setType] = useState<JobType>('filter_replacement');
   const [customerId, setCustomerId] = useState('');
   const [technicianId, setTechnicianId] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [notes, setNotes] = useState('');
+
+  const selectedCustomer = customers.find(c => c.id === customerId);
 
   const handleSubmit = () => {
     if (!customerId || !technicianId || !scheduledDate || !scheduledTime) return;
@@ -63,14 +69,40 @@ export function NewJobDialog({ customers, onAdd }: NewJobDialogProps) {
 
           <div className="space-y-2">
             <Label>לקוח</Label>
-            <Select value={customerId} onValueChange={setCustomerId}>
-              <SelectTrigger><SelectValue placeholder="בחר לקוח" /></SelectTrigger>
-              <SelectContent>
-                {customers.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name} - {c.city}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={customerOpen} className="w-full justify-between font-normal">
+                  {selectedCustomer ? `${selectedCustomer.name} - ${selectedCustomer.city}` : 'חפש ובחר לקוח...'}
+                  <ChevronsUpDown className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0" align="start">
+                <Command dir="rtl">
+                  <CommandInput placeholder="חפש לפי שם, טלפון, עיר..." />
+                  <CommandList>
+                    <CommandEmpty>לא נמצאו לקוחות</CommandEmpty>
+                    <CommandGroup>
+                      {customers.map(c => (
+                        <CommandItem
+                          key={c.id}
+                          value={`${c.name} ${c.phone} ${c.city} ${c.address}`}
+                          onSelect={() => {
+                            setCustomerId(c.id);
+                            setCustomerOpen(false);
+                          }}
+                        >
+                          <Check className={cn("ml-2 h-4 w-4", customerId === c.id ? "opacity-100" : "opacity-0")} />
+                          <div className="flex flex-col">
+                            <span className="font-medium">{c.name}</span>
+                            <span className="text-xs text-muted-foreground">{c.phone} · {c.city}</span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2">
