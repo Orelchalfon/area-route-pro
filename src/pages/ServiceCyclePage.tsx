@@ -3,14 +3,17 @@ import { Customer, Job, JOB_TYPE_CONFIG } from '@/types';
 import { customers } from '@/data/mockData';
 import { useJobs } from '@/hooks/useJobs';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Filter, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CheckCircle, Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek } from 'date-fns';
+import { he } from 'date-fns/locale';
 
 const MONTH_NAMES = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
 ];
+
+const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 export default function ServiceCyclePage() {
   const { jobs, customersList, completeFilterJob } = useJobs();
@@ -47,7 +50,6 @@ export default function ServiceCyclePage() {
     return grouped;
   }, [jobs, selectedYear]);
 
-  // Stats per month
   const monthStats = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
       const month = i + 1;
@@ -61,18 +63,154 @@ export default function ServiceCyclePage() {
     });
   }, [customersByMonth, filterJobsByMonth, selectedYear, currentMonth, currentYear]);
 
-  const selectedMonthData = selectedMonth ? monthStats[selectedMonth - 1] : null;
+  // Month calendar view
+  if (selectedMonth !== null) {
+    const stat = monthStats[selectedMonth - 1];
+    const monthDate = new Date(selectedYear, selectedMonth - 1, 1);
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const calDays = eachDayOfInterval({ start: calStart, end: calEnd });
 
+    // Distribute customers across working days of the month
+    const workingDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+      .filter(d => getDay(d) !== 6 && getDay(d) !== 5); // Exclude Fri+Sat
+
+    // Group customers by city for distribution
+    const customersByCity: Record<string, Customer[]> = {};
+    stat.customers.forEach(c => {
+      if (!customersByCity[c.city]) customersByCity[c.city] = [];
+      customersByCity[c.city].push(c);
+    });
+
+    // Distribute: 3 per day, grouped by area
+    const dayAssignments = new Map<string, { customer: Customer; job?: Job }[]>();
+    workingDays.forEach(d => dayAssignments.set(format(d, 'yyyy-MM-dd'), []));
+    const dayKeys = workingDays.map(d => format(d, 'yyyy-MM-dd'));
+    let dayIdx = 0;
+    Object.values(customersByCity).forEach(cityCustomers => {
+      for (let i = 0; i < cityCustomers.length; i += 3) {
+        if (dayIdx >= dayKeys.length) dayIdx = 0;
+        const dateStr = dayKeys[dayIdx];
+        const chunk = cityCustomers.slice(i, i + 3);
+        const existing = dayAssignments.get(dateStr) || [];
+        chunk.forEach(c => {
+          const job = stat.jobs.find(j => j.customerId === c.id);
+          existing.push({ customer: c, job });
+        });
+        dayAssignments.set(dateStr, existing);
+        dayIdx++;
+      }
+    });
+
+    return (
+      <div dir="rtl" className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedMonth(null)} className="gap-1">
+            <ArrowRight className="w-4 h-4" />
+            חזרה
+          </Button>
+          <h2 className="text-xl font-bold text-foreground">
+            <Filter className="w-5 h-5 inline ml-2 text-primary" />
+            שירות שוטף — {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+          </h2>
+          <span className="text-sm text-muted-foreground mr-auto">
+            {stat.completed}/{stat.total} הושלמו
+          </span>
+        </div>
+
+        {/* Calendar grid */}
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-border">
+            {DAY_HEADERS.map(d => (
+              <div key={d} className="p-2 text-center text-xs font-semibold text-muted-foreground bg-muted/30">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {calDays.map((day, idx) => {
+              const dateStr = format(day, 'yyyy-MM-dd');
+              const isCurrentMonth = day.getMonth() === selectedMonth - 1;
+              const isWeekend = getDay(day) === 5 || getDay(day) === 6;
+              const dayItems = dayAssignments.get(dateStr) || [];
+              const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+
+              return (
+                <div
+                  key={idx}
+                  className={cn(
+                    'min-h-[120px] border-b border-r border-border p-1.5 transition-colors',
+                    !isCurrentMonth && 'bg-muted/20 opacity-40',
+                    isWeekend && isCurrentMonth && 'bg-muted/10',
+                    isToday && 'ring-2 ring-primary ring-inset',
+                  )}
+                >
+                  <div className={cn(
+                    'text-xs font-medium mb-1',
+                    isToday ? 'text-primary font-bold' : 'text-muted-foreground'
+                  )}>
+                    {day.getDate()}
+                  </div>
+                  {isCurrentMonth && !isWeekend && (
+                    <div className="space-y-0.5">
+                      {dayItems.map(({ customer, job }) => {
+                        const isCompleted = job?.status === 'completed';
+                        return (
+                          <div
+                            key={customer.id}
+                            className={cn(
+                              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border cursor-pointer group',
+                              isCompleted
+                                ? 'bg-success/10 text-success border-success/30 line-through'
+                                : 'bg-info/10 text-info border-info/30 hover:bg-info/20'
+                            )}
+                            onClick={() => {
+                              if (job && !isCompleted) {
+                                completeFilterJob(job.id);
+                              }
+                            }}
+                            title={isCompleted ? 'הוחלף' : 'לחץ לסמן כהוחלף'}
+                          >
+                            {isCompleted ? (
+                              <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />
+                            ) : (
+                              <Filter className="w-2.5 h-2.5 flex-shrink-0" />
+                            )}
+                            <span className="truncate">{customer.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><Filter className="w-3 h-3 text-info" /> ממתין להחלפה</span>
+          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-success" /> הוחלף</span>
+          <span>לחץ על לקוח לסמן כהוחלף</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Annual overview
   return (
     <div dir="rtl" className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <RefreshCw className="w-6 h-6 text-primary" />
-            מעגל שירות שנתי
+            שירות שוטף — מעגל שנתי
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            מעקב אחר החלפת פילטרים — מחזור שנתי לכל לקוח
+            מעקב אחר החלפת פילטרים — מחזור שנתי. לחץ על חודש לצפייה בלוח החודשי.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -86,8 +224,8 @@ export default function ServiceCyclePage() {
         </div>
       </div>
 
-      {/* Annual circle grid */}
-      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-3">
+      {/* 12-month grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
         {monthStats.map(stat => {
           const pct = stat.total > 0 ? Math.round((stat.completed / stat.total) * 100) : 0;
           const allDone = stat.total > 0 && stat.completed === stat.total;
@@ -97,18 +235,17 @@ export default function ServiceCyclePage() {
               key={stat.month}
               onClick={() => setSelectedMonth(stat.month)}
               className={cn(
-                'relative flex flex-col items-center p-3 rounded-xl border-2 transition-all hover:shadow-md cursor-pointer',
+                'relative flex flex-col items-center p-4 rounded-xl border-2 transition-all hover:shadow-md cursor-pointer',
                 stat.isCurrent && 'ring-2 ring-primary ring-offset-2',
                 allDone ? 'border-success bg-success/5' :
                   stat.isPast && stat.total > 0 && !allDone ? 'border-warning bg-warning/5' :
                     'border-border bg-card'
               )}
             >
-              <span className="text-xs font-medium text-muted-foreground">{MONTH_NAMES[stat.month - 1]}</span>
+              <span className="text-sm font-semibold text-foreground">{MONTH_NAMES[stat.month - 1]}</span>
               
-              {/* Circular progress */}
-              <div className="relative w-12 h-12 my-2">
-                <svg className="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
+              <div className="relative w-14 h-14 my-2">
+                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
                   <path
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     fill="none"
@@ -133,83 +270,11 @@ export default function ServiceCyclePage() {
                 </div>
               </div>
 
-              {stat.total > 0 && (
-                <span className="text-[10px] text-muted-foreground">{stat.total} לקוחות</span>
-              )}
+              <span className="text-[11px] text-muted-foreground">{stat.total} לקוחות</span>
             </button>
           );
         })}
       </div>
-
-      {/* Month detail dialog */}
-      <Dialog open={selectedMonth !== null} onOpenChange={() => setSelectedMonth(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-primary" />
-              שירות שוטף — {selectedMonth ? MONTH_NAMES[selectedMonth - 1] : ''} {selectedYear}
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedMonthData && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 text-sm">
-                <span>{selectedMonthData.completed}/{selectedMonthData.total} הושלמו</span>
-                <span className="text-muted-foreground">
-                  {selectedMonthData.total - selectedMonthData.completed} נותרו
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                {selectedMonthData.customers.map(customer => {
-                  const job = selectedMonthData.jobs.find(j => j.customerId === customer.id);
-                  const isCompleted = job?.status === 'completed';
-
-                  return (
-                    <div
-                      key={customer.id}
-                      className={cn(
-                        'flex items-center justify-between p-3 rounded-lg border',
-                        isCompleted ? 'bg-success/5 border-success/30' : 'bg-card border-border'
-                      )}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {isCompleted && <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />}
-                          <span className="font-medium text-sm">{customer.name}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{customer.address}</p>
-                        <p className="text-xs text-muted-foreground">{customer.product}</p>
-                      </div>
-
-                      {!isCompleted && job && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1 text-xs"
-                          onClick={() => {
-                            completeFilterJob(job.id);
-                          }}
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          הוחלף
-                        </Button>
-                      )}
-                      {isCompleted && (
-                        <span className="text-xs text-success font-medium">✓ הוחלף</span>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {selectedMonthData.customers.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-6">אין לקוחות לשירות בחודש זה</p>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
