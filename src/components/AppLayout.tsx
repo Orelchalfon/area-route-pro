@@ -22,9 +22,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div dir="rtl" className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">FS</span>
+                <span className="text-primary-foreground font-bold text-sm">טח</span>
               </div>
-              <h1 className="font-bold text-lg text-foreground">פילד סינק</h1>
+              <h1 className="font-bold text-lg text-foreground">טל חרמון</h1>
             </div>
             <nav className="flex items-center gap-1">
               {navItems.map(item => {
