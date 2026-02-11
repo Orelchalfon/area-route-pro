@@ -108,31 +108,41 @@ function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: 
   );
 }
 
-// Area picker dialog for adding manual jobs
-function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, dayLabel }: {
+// Unified picker dialog for adding any job type to a day
+function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassignedFilterJobs, filterJobsFromOtherDays, otherDayIds, onSelectManualJobs, onSelectFilterJobs, dayLabel, dayArea }: {
   open: boolean;
   onClose: () => void;
-  unassignedJobs: Job[];
-  onSelectJobs: (jobIds: string[]) => void;
+  unassignedManualJobs: Job[];
+  unassignedFilterJobs: Job[];
+  filterJobsFromOtherDays: Job[];
+  otherDayIds: Set<string>;
+  onSelectManualJobs: (jobIds: string[]) => void;
+  onSelectFilterJobs: (jobIds: string[], otherDayIds: Set<string>) => void;
   dayLabel: string;
+  dayArea: string | null;
 }) {
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState('malfunction');
+
+  // Combine all jobs for area selection
+  const allAvailableJobs = [...unassignedManualJobs, ...unassignedFilterJobs, ...filterJobsFromOtherDays];
 
   const cities = useMemo(() => {
-    const citySet = new Set(unassignedJobs.map(j => j.city));
+    const citySet = new Set(allAvailableJobs.map(j => j.city));
     return Array.from(citySet).sort();
-  }, [unassignedJobs]);
+  }, [allAvailableJobs]);
 
   const areaJobs = useMemo(() => {
     if (!selectedArea) return [];
-    return unassignedJobs.filter(j => j.city === selectedArea);
-  }, [selectedArea, unassignedJobs]);
+    return allAvailableJobs.filter(j => j.city === selectedArea);
+  }, [selectedArea, allAvailableJobs]);
 
   const jobsByType = useMemo(() => ({
-    malfunction: areaJobs.filter(j => j.type === 'malfunction'),
-    installation: areaJobs.filter(j => j.type === 'installation'),
-  }), [areaJobs]);
+    malfunction: selectedArea ? unassignedManualJobs.filter(j => j.type === 'malfunction' && j.city === selectedArea) : [],
+    installation: selectedArea ? unassignedManualJobs.filter(j => j.type === 'installation' && j.city === selectedArea) : [],
+    filter_replacement: selectedArea ? [...unassignedFilterJobs, ...filterJobsFromOtherDays].filter(j => j.city === selectedArea) : [],
+  }), [selectedArea, unassignedManualJobs, unassignedFilterJobs, filterJobsFromOtherDays]);
 
   const toggleJob = (jobId: string) => {
     setSelectedJobIds(prev => {
@@ -143,7 +153,12 @@ function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, da
   };
 
   const handleConfirm = () => {
-    onSelectJobs(Array.from(selectedJobIds));
+    const manualIds = Array.from(selectedJobIds).filter(id => unassignedManualJobs.some(j => j.id === id));
+    const filterIds = Array.from(selectedJobIds).filter(id => [...unassignedFilterJobs, ...filterJobsFromOtherDays].some(j => j.id === id));
+    
+    if (manualIds.length > 0) onSelectManualJobs(manualIds);
+    if (filterIds.length > 0) onSelectFilterJobs(filterIds, otherDayIds);
+    
     setSelectedArea(null);
     setSelectedJobIds(new Set());
     onClose();
@@ -155,22 +170,23 @@ function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, da
     onClose();
   };
 
-  const renderJobList = (items: Job[]) => {
+  const renderJobList = (items: Job[], isFilter = false) => {
     if (items.length === 0) return <p className="text-xs text-muted-foreground py-4 text-center">אין פניות באזור זה</p>;
     return (
       <div className="space-y-2">
         {items.map(job => {
           const customer = customers.find(c => c.id === job.customerId);
+          const isFromOther = otherDayIds.has(job.id);
           return (
-            <label key={job.id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors">
+            <label key={job.id} className={cn("flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 cursor-pointer transition-colors", isFromOther ? "border-accent bg-accent/5" : "border-border")}>
               <Checkbox checked={selectedJobIds.has(job.id)} onCheckedChange={() => toggleJob(job.id)} className="mt-0.5" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{customer?.name}</span>
                   <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
-                    job.priority === 'high' ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
+                    job.priority === 'high' ? 'bg-destructive/15 text-destructive' : job.priority === 'medium' ? 'bg-warning/15 text-warning' : 'bg-info/15 text-info'
                   }`}>
-                    {job.priority === 'high' ? 'גבוהה' : 'בינונית'}
+                    {job.priority === 'high' ? 'גבוהה' : job.priority === 'medium' ? 'בינונית' : 'נמוכה'}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{job.location}</p>
@@ -178,6 +194,7 @@ function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, da
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{job.estimatedDuration} דק׳</span>
                   <span>{job.notes}</span>
                 </div>
+                {isFromOther && <p className="text-xs text-accent-foreground mt-0.5">📌 משובץ ביום אחר — יועבר לכאן</p>}
               </div>
             </label>
           );
@@ -190,7 +207,7 @@ function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, da
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle>הוספת תקלה/התקנה — {dayLabel}</DialogTitle>
+          <DialogTitle>הוספת משימה — {dayLabel}</DialogTitle>
         </DialogHeader>
 
         {!selectedArea ? (
@@ -198,7 +215,7 @@ function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, da
             <p className="text-sm text-muted-foreground mb-3">בחר אזור:</p>
             <div className="grid grid-cols-2 gap-2">
               {cities.map(city => {
-                const count = unassignedJobs.filter(j => j.city === city).length;
+                const count = allAvailableJobs.filter(j => j.city === city).length;
                 return (
                   <Button key={city} variant="outline" className="justify-between h-auto py-3" onClick={() => setSelectedArea(city)}>
                     <span className="font-medium text-xs">{city}</span>
@@ -215,7 +232,7 @@ function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, da
               <span className="font-semibold">{selectedArea}</span>
             </div>
 
-            <Tabs defaultValue="malfunction" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start">
                 <TabsTrigger value="malfunction" className="gap-1">
                   <AlertTriangle className="w-3.5 h-3.5" />תקלות ({jobsByType.malfunction.length})
@@ -223,9 +240,13 @@ function ManualJobPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, da
                 <TabsTrigger value="installation" className="gap-1">
                   <Wrench className="w-3.5 h-3.5" />התקנות ({jobsByType.installation.length})
                 </TabsTrigger>
+                <TabsTrigger value="filter_replacement" className="gap-1">
+                  <Filter className="w-3.5 h-3.5" />שירות ({jobsByType.filter_replacement.length})
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="malfunction">{renderJobList(jobsByType.malfunction)}</TabsContent>
               <TabsContent value="installation">{renderJobList(jobsByType.installation)}</TabsContent>
+              <TabsContent value="filter_replacement">{renderJobList(jobsByType.filter_replacement, true)}</TabsContent>
             </Tabs>
 
             {selectedJobIds.size > 0 && (
@@ -433,7 +454,6 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [pickerState, setPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
-  const [filterPickerState, setFilterPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
   const [detailState, setDetailState] = useState<{ open: boolean; dateStr: string } | null>(null);
   const [approvalState, setApprovalState] = useState<{ open: boolean; dateStr: string } | null>(null);
   const [approvedDays, setApprovedDays] = useState<Set<string>>(new Set());
@@ -571,9 +591,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     ...(extraFilterAssignments.get(dateStr) || []),
   ];
 
-  const handleFilterPickerSelect = (jobIds: string[]) => {
-    if (!filterPickerState) return;
-    const { dateStr } = filterPickerState;
+  const handleFilterPickerSelect = (jobIds: string[], dateStr: string) => {
     const selected = filterJobs.filter(j => jobIds.includes(j.id));
     setExtraFilterAssignments(prev => {
       const next = new Map(prev);
@@ -583,13 +601,10 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     });
   };
 
-  const handleFilterPickerMoveSelect = (jobIds: string[], otherDayIds: Set<string>) => {
-    if (!filterPickerState) return;
-    const { dateStr } = filterPickerState;
+  const handleFilterPickerMoveSelect = (jobIds: string[], otherDayIdsSet: Set<string>, dateStr: string) => {
     const selected = filterJobs.filter(j => jobIds.includes(j.id));
-    const movedIds = new Set(jobIds.filter(id => otherDayIds.has(id)));
+    const movedIds = new Set(jobIds.filter(id => otherDayIdsSet.has(id)));
 
-    // Track auto-distributed jobs that are being moved
     const autoMovedIds = new Set<string>();
     if (movedIds.size > 0) {
       filterDistribution.forEach((dayJobs, key) => {
@@ -608,7 +623,6 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
     setExtraFilterAssignments(prev => {
       const next = new Map(prev);
-      // Remove moved jobs from extra assignments on other days
       if (movedIds.size > 0) {
         next.forEach((dayJobs, key) => {
           if (key !== dateStr) {
@@ -618,7 +632,6 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
           }
         });
       }
-      // Add all selected to target day
       const existing = next.get(dateStr) || [];
       next.set(dateStr, [...existing, ...selected]);
       return next;
@@ -865,40 +878,21 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                           <span className="text-[9px] text-muted-foreground">+{dayManualJobs.length - maxShow} עוד</span>
                         )}
 
-                        <div className="flex gap-0.5 mt-0.5">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const dayDate = new Date(dateStr + 'T00:00:00');
-                              setPickerState({
-                                open: true,
-                                dateStr,
-                                dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
-                              });
-                            }}
-                            className="flex-1 text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-destructive/50 hover:text-destructive transition-colors"
-                            title="הוסף תקלה/התקנה"
-                          >
-                            <AlertTriangle className="w-2 h-2" />
-                            <Plus className="w-2 h-2" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const dayDate = new Date(dateStr + 'T00:00:00');
-                              setFilterPickerState({
-                                open: true,
-                                dateStr,
-                                dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
-                              });
-                            }}
-                            className="flex-1 text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-info/50 hover:text-info transition-colors"
-                            title="הוסף החלפת פילטר"
-                          >
-                            <Filter className="w-2 h-2" />
-                            <Plus className="w-2 h-2" />
-                          </button>
-                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const dayDate = new Date(dateStr + 'T00:00:00');
+                            setPickerState({
+                              open: true,
+                              dateStr,
+                              dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
+                            });
+                          }}
+                          className="w-full text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors mt-0.5"
+                          title="הוסף משימה"
+                        >
+                          <Plus className="w-2.5 h-2.5" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -926,82 +920,52 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
           }}
         >
           <Plus className="w-4 h-4 ml-1" />
-          הוסף תקלה/התקנה ידנית
+          הוסף משימה ידנית
         </Button>
       </div>
 
       {/* Picker dialog */}
-      {pickerState && (
-        <ManualJobPickerDialog
-          open={pickerState.open}
-          onClose={() => setPickerState(null)}
-          unassignedJobs={unassignedManualJobs}
-          onSelectJobs={handlePickerSelect}
-          dayLabel={pickerState.dayLabel}
-        />
-      )}
-
-      {/* Filter picker dialog */}
-      {filterPickerState && (() => {
-        // Determine the area already assigned to this day (respects overrides)
-        const dayArea = getDayArea(filterPickerState.dateStr);
-        const dayExistingFilters = getFilterDayJobs(filterPickerState.dateStr);
+      {pickerState && (() => {
+        const dayArea = getDayArea(pickerState.dateStr);
+        const dayExistingFilters = getFilterDayJobs(pickerState.dateStr);
         const dayExistingIds = new Set(dayExistingFilters.map(j => j.id));
 
-        // Unassigned filters from the same area
-        const unassignedSameArea = dayArea
+        const unassignedSameAreaFilters = dayArea
           ? unassignedFilterJobs.filter(j => j.city === dayArea)
           : unassignedFilterJobs;
 
-        // Filters from the same area assigned to OTHER days (can be pulled)
-        const fromOtherDays: (Job & { fromDate?: string })[] = [];
+        const fromOtherDays: Job[] = [];
         if (dayArea) {
-          // Check auto-distributed
           filterDistribution.forEach((dayJobs, dateStr) => {
-            if (dateStr === filterPickerState.dateStr) return;
+            if (dateStr === pickerState.dateStr) return;
             dayJobs.forEach(j => {
-              if (j.city === dayArea && !dayExistingIds.has(j.id)) {
-                fromOtherDays.push({ ...j, fromDate: dateStr });
-              }
+              if (j.city === dayArea && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
             });
           });
-          // Check extra assignments
           extraFilterAssignments.forEach((dayJobs, dateStr) => {
-            if (dateStr === filterPickerState.dateStr) return;
+            if (dateStr === pickerState.dateStr) return;
             dayJobs.forEach(j => {
-              if (j.city === dayArea && !dayExistingIds.has(j.id)) {
-                fromOtherDays.push({ ...j, fromDate: dateStr });
-              }
+              if (j.city === dayArea && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
             });
           });
         }
 
-        const availableFilters = [...unassignedSameArea, ...fromOtherDays];
+        const availableFilters = [...unassignedSameAreaFilters, ...fromOtherDays];
         const otherDayIds = new Set(fromOtherDays.map(j => j.id));
-        const areaLabel = dayArea ? ` (${dayArea})` : '';
 
         return (
-          <Dialog open={filterPickerState.open} onOpenChange={() => setFilterPickerState(null)}>
-            <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto" dir="rtl">
-              <DialogHeader>
-                <DialogTitle>הוסף החלפות פילטר — {filterPickerState.dayLabel}{areaLabel}</DialogTitle>
-              </DialogHeader>
-              {availableFilters.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  {dayArea ? `אין עוד לקוחות באזור ${dayArea}` : 'כל הפילטרים כבר משובצים בחודש זה'}
-                </p>
-              ) : (
-                <FilterJobPicker
-                  jobs={availableFilters}
-                  movedFromOtherDay={otherDayIds}
-                  onSelect={(jobIds) => {
-                    handleFilterPickerMoveSelect(jobIds, otherDayIds);
-                    setFilterPickerState(null);
-                  }}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
+          <UnifiedJobPickerDialog
+            open={pickerState.open}
+            onClose={() => setPickerState(null)}
+            unassignedManualJobs={unassignedManualJobs}
+            unassignedFilterJobs={unassignedSameAreaFilters}
+            filterJobsFromOtherDays={fromOtherDays}
+            otherDayIds={otherDayIds}
+            onSelectManualJobs={handlePickerSelect}
+            onSelectFilterJobs={(jobIds, odi) => handleFilterPickerMoveSelect(jobIds, odi, pickerState.dateStr)}
+            dayLabel={pickerState.dayLabel}
+            dayArea={dayArea}
+          />
         );
       })()}
 
