@@ -1,5 +1,6 @@
 export type JobType = 'filter_replacement' | 'malfunction' | 'installation';
 export type JobStatus = 'draft' | 'pending_customer' | 'confirmed' | 'in_progress' | 'completed' | 'rescheduled';
+export type CompletionStatus = 'done' | 'not_done' | 'need_return';
 export type JobPriority = 'low' | 'medium' | 'high';
 
 export interface Technician {
@@ -38,6 +39,7 @@ export interface Job {
   city: string;
   notes: string;
   completionNotes?: string;
+  completionStatus?: CompletionStatus;
   createdAt: string;
 }
 

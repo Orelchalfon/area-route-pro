@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
+import { Job, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
 import { technicians, customers } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, getDay, addMonths, subMonths, addWeeks, subWeeks, isSameMonth } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -25,6 +25,8 @@ interface MonthlyScheduleBoardProps {
   onStatusChange: (jobId: string, status: string) => void;
   onAssignJob: (jobId: string, technicianId: string, scheduledDate: string, scheduledTime: string) => void;
   onUnassignJob: (jobId: string) => void;
+  onCloseJob?: (jobId: string) => void;
+  onReturnJob?: (jobId: string) => void;
 }
 
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -94,12 +96,23 @@ function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: 
   const customer = customers.find(c => c.id === job.customerId);
   const typeConfig = JOB_TYPE_CONFIG[job.type];
 
+  // Completion status coloring overrides type color
+  const completionColorMap: Record<string, string> = {
+    done: 'bg-success/20 text-success border-success/40',
+    not_done: 'bg-destructive/20 text-destructive border-destructive/40',
+    need_return: 'bg-warning/20 text-warning border-warning/40',
+  };
+  const chipColor = job.completionStatus ? completionColorMap[job.completionStatus] : typeColors[job.type];
+
   return (
-    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${typeColors[job.type]} group relative`}>
+    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${chipColor} group relative`}>
       {typeIcons[job.type]}
       <span className="truncate max-w-[60px]">{customer?.name}</span>
-      {isAutoScheduled && <span className="text-[8px] opacity-60">●</span>}
-      {onRemove && (
+      {isAutoScheduled && !job.completionStatus && <span className="text-[8px] opacity-60">●</span>}
+      {job.completionStatus === 'done' && <span className="text-[8px]">✓</span>}
+      {job.completionStatus === 'not_done' && <span className="text-[8px]">✗</span>}
+      {job.completionStatus === 'need_return' && <span className="text-[8px]">↻</span>}
+      {onRemove && !job.completionStatus && (
         <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="opacity-0 group-hover:opacity-100 transition-opacity">
           <X className="w-2.5 h-2.5" />
         </button>
@@ -367,12 +380,20 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
 }
 
 // Day detail dialog
-function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob }: {
+function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob, onCloseJob, onReturnJob }: {
   open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[]; onRemoveJob: (jobId: string) => void;
+  onCloseJob?: (jobId: string) => void; onReturnJob?: (jobId: string) => void;
 }) {
   const allJobs = [...filterJobs, ...dayJobs];
   const dayDate = new Date(dateStr + 'T00:00:00');
   const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+
+  const completionColorMap: Record<string, string> = {
+    done: 'border-success bg-success/10',
+    not_done: 'border-destructive bg-destructive/10',
+    need_return: 'border-warning bg-warning/10',
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -386,20 +407,80 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
             const customer = customers.find(c => c.id === job.customerId);
             const typeConfig = JOB_TYPE_CONFIG[job.type];
             const isFilter = job.type === 'filter_replacement';
+            const isCompleted = job.status === 'completed';
+            const borderClass = job.completionStatus ? completionColorMap[job.completionStatus] : typeColors[job.type];
+            const isExpanded = expandedJobId === job.id;
+
             return (
-              <div key={job.id} className={`p-3 rounded-lg border ${typeColors[job.type]} flex items-center justify-between`}>
-                <div className="flex items-center gap-2">
-                  {typeIcons[job.type]}
-                  <div>
-                    <p className="text-sm font-medium">{customer?.name}</p>
-                    <p className="text-xs opacity-70">{typeConfig.label} · {job.estimatedDuration} דק׳</p>
-                    <p className="text-xs opacity-60">{job.location}</p>
+              <div key={job.id}>
+                <div
+                  className={`p-3 rounded-lg border-2 ${borderClass} flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity`}
+                  onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                >
+                  <div className="flex items-center gap-2">
+                    {typeIcons[job.type]}
+                    <div>
+                      <p className="text-sm font-medium">{customer?.name}</p>
+                      <p className="text-xs opacity-70">{typeConfig.label} · {job.estimatedDuration} דק׳</p>
+                      <p className="text-xs opacity-60">{job.location}</p>
+                      {isCompleted && (
+                        <p className="text-xs font-medium mt-0.5">
+                          {job.completionStatus === 'done' ? '✓ בוצע' :
+                           job.completionStatus === 'not_done' ? '✗ לא בוצע' :
+                           job.completionStatus === 'need_return' ? '↻ צריך לחזור' : ''}
+                        </p>
+                      )}
+                    </div>
                   </div>
+                  {!isFilter && !isCompleted && (
+                    <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10">
+                      <X className="w-3.5 h-3.5 text-destructive" />
+                    </button>
+                  )}
                 </div>
-                {!isFilter && (
-                  <button onClick={() => onRemoveJob(job.id)} className="p-1 rounded hover:bg-destructive/10">
-                    <X className="w-3.5 h-3.5 text-destructive" />
-                  </button>
+
+                {/* Expanded details */}
+                {isExpanded && isCompleted && (
+                  <div className="mt-1 p-3 rounded-lg bg-muted/50 border border-border space-y-2">
+                    {job.completionNotes && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-0.5">הערות טכנאי:</p>
+                        <p className="text-sm">{job.completionNotes}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      {onCloseJob && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs"
+                          onClick={() => {
+                            onCloseJob(job.id);
+                            toast.success('הקריאה נסגרה והועברה להיסטוריה');
+                            onClose();
+                          }}
+                        >
+                          <Archive className="w-3 h-3 ml-1" />
+                          סגור קריאה
+                        </Button>
+                      )}
+                      {onReturnJob && (job.completionStatus === 'not_done' || job.completionStatus === 'need_return') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs border-warning text-warning hover:bg-warning/10"
+                          onClick={() => {
+                            onReturnJob(job.id);
+                            toast.success(job.type === 'filter_replacement' ? 'המשימה שובצה מחדש' : 'הקריאה הוחזרה לטבלה');
+                            onClose();
+                          }}
+                        >
+                          <Undo2 className="w-3 h-3 ml-1" />
+                          החזר קריאה
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -448,7 +529,7 @@ function FilterJobPicker({ jobs, onSelect, movedFromOtherDay }: { jobs: Job[]; o
 }
 
 
-export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, onStatusChange, onAssignJob, onUnassignJob }: MonthlyScheduleBoardProps) {
+export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, onStatusChange, onAssignJob, onUnassignJob, onCloseJob, onReturnJob }: MonthlyScheduleBoardProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(technicians[0].id);
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
@@ -978,6 +1059,8 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
           dayJobs={getManualDayJobs(detailState.dateStr)}
           filterJobs={getFilterDayJobs(detailState.dateStr)}
           onRemoveJob={onUnassignJob}
+          onCloseJob={onCloseJob}
+          onReturnJob={onReturnJob}
         />
       )}
 

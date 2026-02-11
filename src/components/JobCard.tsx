@@ -92,16 +92,6 @@ export function JobCard({ job, variant = 'manager', onStatusChange, onComplete, 
             <Navigation className="w-3.5 h-3.5 ml-1" />
             נווט
           </Button>
-          {job.status === 'confirmed' && (
-            <Button
-              size="sm"
-              className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
-              onClick={() => onComplete?.(job.id)}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
-              סיים
-            </Button>
-          )}
         </div>
       )}
 

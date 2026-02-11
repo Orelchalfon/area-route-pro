@@ -3,7 +3,7 @@ import { NewJobDialog } from '@/components/NewJobDialog';
 import { useJobsContext } from '@/contexts/JobsContext';
 
 export default function Dashboard() {
-  const { jobs, customersList, approveSchedule, approveDaySchedule, updateJobStatus, addJob, assignJob, unassignJob } = useJobsContext();
+  const { jobs, customersList, approveSchedule, approveDaySchedule, updateJobStatus, addJob, assignJob, unassignJob, closeJob, returnJob } = useJobsContext();
 
   return (
     <div dir="rtl">
@@ -24,6 +24,8 @@ export default function Dashboard() {
         onStatusChange={updateJobStatus}
         onAssignJob={assignJob}
         onUnassignJob={unassignJob}
+        onCloseJob={closeJob}
+        onReturnJob={returnJob}
       />
     </div>
   );
