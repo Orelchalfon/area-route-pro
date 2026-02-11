@@ -29,11 +29,11 @@ const ADDRESSES: Record<string, string[]> = {
 const FIRST_NAMES = ['שרה', 'מיכאל', 'רחל', 'דניאל', 'תמר', 'אייל', 'נועה', 'אורן', 'יעל', 'אבי', 'מורן', 'עידו', 'ליאת', 'רון', 'הדר', 'אלון', 'שירה', 'גיל', 'ענת', 'נדב', 'מיכל', 'יונתן', 'אורלי', 'דור', 'קרן', 'תומר', 'נעמי', 'עמיר', 'רותם', 'איתי', 'סיון', 'אלעד', 'ליאור', 'עדי', 'שחר', 'דנה', 'ניר', 'מעיין', 'עופר', 'טלי', 'ארז', 'הילה', 'בועז', 'שני', 'אריאל', 'יפית', 'אסף', 'מאיה', 'גלעד', 'רינת'];
 const LAST_NAMES = ['גולדשטיין', 'רובין', 'מזרחי', 'פרץ', 'אברהמי', 'כץ', 'פרידמן', 'שוורץ', 'דהן', 'מלכה', 'ביטון', 'נחמיאס', 'שמעון', 'אזולאי', 'לביא', 'סגל', 'קפלן', 'חסון', 'ברק', 'עמרם', 'אופיר', 'גרינברג', 'טל', 'אשכנזי', 'וולף', 'שלום', 'הלל', 'צור', 'חן', 'מנדל', 'רוזנפלד', 'פינקלשטיין', 'הרשקוביץ', 'שפירו', 'נאמן', 'קורן', 'אדלר', 'זיו', 'רוזנברג', 'גולן', 'חביב', 'לוין', 'פלד', 'אלקובי', 'מאירי', 'אוחיון', 'דיין', 'כהן', 'שמש', 'אלפסי'];
 
-// Generate 100 customers spread across 12 months and 10 regions
+// Generate 1200 customers — 100 per month, spread across 10 regions
 function generateCustomers(): Customer[] {
   const result: Customer[] = [];
-  for (let i = 0; i < 100; i++) {
-    const month = (i % 12) + 1; // Spread evenly: ~8-9 per month
+  for (let i = 0; i < 1200; i++) {
+    const month = Math.floor(i / 100) + 1; // 100 per month
     const cityIdx = i % 10;
     const city = CITIES[cityIdx];
     const addressIdx = Math.floor(i / 10) % ADDRESSES[city].length;
@@ -60,9 +60,27 @@ export const customers: Customer[] = generateCustomers();
 
 const today = new Date();
 const todayStr = today.toISOString().split('T')[0];
+const currentYear = today.getFullYear();
 
-// תקלות והתקנות - לא משובצים, מוכנים לשיבוץ ידני
+// Generate filter replacement jobs for all 1200 customers
+function generateFilterJobs(): Job[] {
+  return customers.map((c) => ({
+    id: `filter-${currentYear}-${c.filterReplacementMonth}-${c.id}`,
+    type: 'filter_replacement' as const,
+    status: 'draft' as const,
+    priority: 'low' as const,
+    customerId: c.id,
+    estimatedDuration: 25,
+    location: c.address,
+    city: c.city,
+    notes: 'החלפת פילטר שנתית',
+    createdAt: `${currentYear}-${String(c.filterReplacementMonth).padStart(2, '0')}-01`,
+  }));
+}
+
+// תקלות והתקנות + כל משימות החלפת הפילטרים
 export const initialJobs: Job[] = [
+  ...generateFilterJobs(),
   // ===== תקלות (20) =====
   { id: 'j1',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c2',  estimatedDuration: 60, location: customers[1].address,  city: customers[1].city,  notes: 'אין מים קרים — דחוף',   createdAt: todayStr },
   { id: 'j2',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c10', estimatedDuration: 60, location: customers[9].address,  city: customers[9].city,  notes: 'תקלה בחימום',           createdAt: todayStr },
