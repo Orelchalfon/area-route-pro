@@ -1,7 +1,7 @@
 import TechnicianView from './TechnicianView';
-import { useJobs } from '@/hooks/useJobs';
+import { useJobsContext } from '@/contexts/JobsContext';
 
 export default function TechnicianPage() {
-  const { jobs, completeJob } = useJobs();
+  const { jobs, completeJob } = useJobsContext();
   return <TechnicianView jobs={jobs} onComplete={completeJob} />;
 }

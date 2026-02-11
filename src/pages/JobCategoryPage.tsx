@@ -1,4 +1,4 @@
-import { useJobs } from '@/hooks/useJobs';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { Job, STATUS_CONFIG, JobType } from '@/types';
 import { customers, technicians } from '@/data/mockData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -96,7 +96,7 @@ function JobsByArea({ jobs }: { jobs: Job[] }) {
 }
 
 export default function JobCategoryPage({ category }: { category: 'malfunctions' | 'installations' | 'service' }) {
-  const { jobs } = useJobs();
+  const { jobs } = useJobsContext();
   const config = categoryConfig[category];
   const filtered = jobs.filter(j => j.type === config.type);
 

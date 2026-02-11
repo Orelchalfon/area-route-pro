@@ -18,6 +18,25 @@ export function useJobs() {
     ));
   };
 
+  const approveDaySchedule = (assignments: { jobId: string; technicianId: string; scheduledDate: string; scheduledTime: string }[]) => {
+    setJobs(prev => {
+      const assignmentMap = new Map(assignments.map(a => [a.jobId, a]));
+      return prev.map(j => {
+        const assignment = assignmentMap.get(j.id);
+        if (assignment) {
+          return {
+            ...j,
+            status: 'confirmed' as JobStatus,
+            technicianId: assignment.technicianId,
+            scheduledDate: assignment.scheduledDate,
+            scheduledTime: assignment.scheduledTime,
+          };
+        }
+        return j;
+      });
+    });
+  };
+
   const completeJob = (jobId: string, completionNotes: string) => {
     setJobs(prev => prev.map(j => 
       j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionNotes } : j
@@ -111,5 +130,5 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, customersList, updateJobStatus, approveSchedule, completeJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician };
+  return { jobs, customersList, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician };
 }
