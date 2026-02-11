@@ -70,7 +70,7 @@ export function JobCard({ job, variant = 'manager', onStatusChange, onComplete, 
         )}
       </div>
 
-      {variant === 'technician' && job.status === 'confirmed' && (
+      {variant === 'technician' && (
         <div className="flex gap-2 mt-3">
           {customer && (
             <Button
@@ -92,14 +92,16 @@ export function JobCard({ job, variant = 'manager', onStatusChange, onComplete, 
             <Navigation className="w-3.5 h-3.5 ml-1" />
             נווט
           </Button>
-          <Button
-            size="sm"
-            className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
-            onClick={() => onComplete?.(job.id)}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
-            סיים
-          </Button>
+          {job.status === 'confirmed' && (
+            <Button
+              size="sm"
+              className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+              onClick={() => onComplete?.(job.id)}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
+              סיים
+            </Button>
+          )}
         </div>
       )}
 
