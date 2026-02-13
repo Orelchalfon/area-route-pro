@@ -1,4 +1,13 @@
 export type JobType = 'filter_replacement' | 'malfunction' | 'installation';
+
+export interface ActivityLog {
+  id: string;
+  customerId: string;
+  jobId?: string;
+  action: string;
+  details: string;
+  timestamp: string;
+}
 export type JobStatus = 'draft' | 'pending_customer' | 'confirmed' | 'in_progress' | 'completed' | 'rescheduled';
 export type CompletionStatus = 'done' | 'not_done' | 'need_return';
 export type JobPriority = 'low' | 'medium' | 'high';
