@@ -403,6 +403,36 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
         </DialogHeader>
         <div className="space-y-2">
           {allJobs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">אין משימות ליום זה</p>}
+          {(() => {
+            const reportedJobs = allJobs.filter(j => j.status === 'completed' && j.completionStatus);
+            const doneJobs = reportedJobs.filter(j => j.completionStatus === 'done');
+            const returnJobs = reportedJobs.filter(j => j.completionStatus === 'not_done' || j.completionStatus === 'need_return');
+            if (reportedJobs.length > 0) {
+              return (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-2">
+                  <p className="text-sm font-semibold text-foreground">סיכום דיווחי טכנאי</p>
+                  <div className="flex gap-3 text-xs">
+                    {doneJobs.length > 0 && <span className="text-success font-medium">✓ בוצע: {doneJobs.length}</span>}
+                    {returnJobs.filter(j => j.completionStatus === 'not_done').length > 0 && <span className="text-destructive font-medium">✗ לא בוצע: {returnJobs.filter(j => j.completionStatus === 'not_done').length}</span>}
+                    {returnJobs.filter(j => j.completionStatus === 'need_return').length > 0 && <span className="text-warning font-medium">↻ צריך לחזור: {returnJobs.filter(j => j.completionStatus === 'need_return').length}</span>}
+                  </div>
+                  <Button
+                    className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                    onClick={() => {
+                      doneJobs.forEach(j => onCloseJob?.(j.id));
+                      returnJobs.forEach(j => onReturnJob?.(j.id));
+                      toast.success(`סיכום יום אושר — ${doneJobs.length} נסגרו, ${returnJobs.length} הוחזרו`);
+                      onClose();
+                    }}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    אישור סיכום יום
+                  </Button>
+                </div>
+              );
+            }
+            return null;
+          })()}
           {allJobs.map(job => {
             const customer = customers.find(c => c.id === job.customerId);
             const typeConfig = JOB_TYPE_CONFIG[job.type];
