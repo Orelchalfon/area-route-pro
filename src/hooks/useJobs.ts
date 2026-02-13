@@ -1,11 +1,24 @@
-import { useState } from 'react';
-import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
+import { useState, useCallback } from 'react';
+import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog } from '@/types';
 import { initialJobs, customers as initialCustomers } from '@/data/mockData';
 
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [customersList, setCustomersList] = useState<Customer[]>(initialCustomers);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+
+  const addLog = useCallback((customerId: string, action: string, details: string, jobId?: string) => {
+    const log: ActivityLog = {
+      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      customerId,
+      jobId,
+      action,
+      details,
+      timestamp: new Date().toISOString(),
+    };
+    setActivityLogs(prev => [log, ...prev]);
+  }, []);
 
   const updateJobStatus = (jobId: string, status: JobStatus) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status } : j));
@@ -25,6 +38,7 @@ export function useJobs() {
       return prev.map(j => {
         const assignment = assignmentMap.get(j.id);
         if (assignment) {
+          addLog(j.customerId, 'שיבוץ', `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`, j.id);
           return {
             ...j,
             status: 'confirmed' as JobStatus,
@@ -45,9 +59,14 @@ export function useJobs() {
   };
 
   const markJobCompletion = (jobId: string, completionStatus: CompletionStatus, notes: string) => {
-    setJobs(prev => prev.map(j => 
-      j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionStatus, completionNotes: notes } : j
-    ));
+    const statusLabels: Record<CompletionStatus, string> = { done: 'בוצע', not_done: 'לא בוצע', need_return: 'צריך לחזור' };
+    setJobs(prev => {
+      const job = prev.find(j => j.id === jobId);
+      if (job) addLog(job.customerId, `דיווח טכנאי: ${statusLabels[completionStatus]}`, notes || 'ללא הערות', jobId);
+      return prev.map(j =>
+        j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionStatus, completionNotes: notes } : j
+      );
+    });
   };
 
   const closeJob = (jobId: string) => {
@@ -55,10 +74,9 @@ export function useJobs() {
       const job = prev.find(j => j.id === jobId);
       if (!job) return prev;
 
-      // Move to closed/history
+      addLog(job.customerId, 'סגירת קריאה', `קריאה ${JOB_TYPE_CONFIG[job.type].label} נסגרה`, jobId);
       setClosedJobs(old => [...old, job]);
 
-      // If filter replacement, schedule next year
       if (job.type === 'filter_replacement') {
         const customer = customersList.find(c => c.id === job.customerId);
         const currentYear = parseInt(job.createdAt.split('-')[0]);
@@ -67,6 +85,7 @@ export function useJobs() {
         const nextJobId = `filter-${nextYear}-${month}-${job.customerId}`;
         const existing = prev.find(j => j.id === nextJobId);
         if (!existing) {
+          addLog(job.customerId, 'תזמון שירות', `שירות שוטף תוזמן לשנה הבאה (${nextYear})`, nextJobId);
           const newJob: Job = {
             id: nextJobId,
             type: 'filter_replacement',
@@ -90,26 +109,14 @@ export function useJobs() {
     setJobs(prev => {
       const job = prev.find(j => j.id === jobId);
       if (!job) return prev;
-
-      if (job.type === 'filter_replacement') {
-        // Reschedule to nearest available date — just reset assignment, keep in list
-        return prev.map(j => j.id === jobId ? {
-          ...j,
-          status: 'draft' as JobStatus,
-          technicianId: undefined,
-          scheduledDate: undefined,
-          scheduledTime: undefined,
-        } : j);
-      } else {
-        // Malfunction/installation — return to unassigned pool, keep completion color
-        return prev.map(j => j.id === jobId ? {
-          ...j,
-          status: 'draft' as JobStatus,
-          technicianId: undefined,
-          scheduledDate: undefined,
-          scheduledTime: undefined,
-        } : j);
-      }
+      addLog(job.customerId, 'החזרת קריאה', `קריאה ${JOB_TYPE_CONFIG[job.type].label} הוחזרה למאגר`, jobId);
+      return prev.map(j => j.id === jobId ? {
+        ...j,
+        status: 'draft' as JobStatus,
+        technicianId: undefined,
+        scheduledDate: undefined,
+        scheduledTime: undefined,
+      } : j);
     });
   };
 
@@ -174,6 +181,7 @@ export function useJobs() {
       notes: data.notes,
       createdAt: new Date().toISOString().split('T')[0],
     };
+    addLog(data.customerId, 'פתיחת קריאה', `${config.label} — ${data.notes}`, newJob.id);
     setJobs(prev => [...prev, newJob]);
   };
 
@@ -197,5 +205,7 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, customersList, closedJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician };
+  const getCustomerLogs = (customerId: string) => activityLogs.filter(l => l.customerId === customerId);
+
+  return { jobs, customersList, closedJobs, activityLogs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs };
 }

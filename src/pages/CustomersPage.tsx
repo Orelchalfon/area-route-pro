@@ -8,7 +8,7 @@ import { LayoutDashboard, Users, Calendar, Contact, Search } from 'lucide-react'
 import { Link } from 'react-router-dom';
 
 export default function CustomersPage() {
-  const { customersList, addCustomer } = useJobsContext();
+  const { customersList, addCustomer, getCustomerLogs } = useJobsContext();
   const [search, setSearch] = useState('');
 
   const filtered = customersList.filter(c =>
@@ -65,7 +65,7 @@ export default function CustomersPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(customer => (
-            <CustomerCard key={customer.id} customer={customer} />
+            <CustomerCard key={customer.id} customer={customer} logs={getCustomerLogs(customer.id)} />
           ))}
         </div>
       </main>
