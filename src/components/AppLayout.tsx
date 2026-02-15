@@ -18,8 +18,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div dir="rtl" className="flex items-center justify-between h-16">
+        <div className="w-full px-4 sm:px-6 lg:px-10">
+          <div dir="rtl" className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3">
               <img src={logo} alt="טל חרמון" className="w-8 h-8 rounded-lg object-cover" />
               <h1 className="font-bold text-lg text-foreground">טל חרמון</h1>
@@ -33,7 +33,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     key={item.to}
                     variant="ghost"
                     size="sm"
-                    className={isActive ? 'text-foreground' : 'text-muted-foreground'}
+                    className={`text-sm ${isActive ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}
                     asChild
                   >
                     <Link to={item.to}>
@@ -47,7 +47,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="w-full px-4 sm:px-6 lg:px-10 py-5">
         {children}
       </main>
     </div>

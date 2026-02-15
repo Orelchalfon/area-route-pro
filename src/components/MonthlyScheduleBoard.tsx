@@ -105,16 +105,16 @@ function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: 
   const chipColor = job.completionStatus ? completionColorMap[job.completionStatus] : 'bg-muted/30 text-muted-foreground border-border';
 
   return (
-    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${chipColor} group relative`}>
+    <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs border ${chipColor} group relative`}>
       {typeIcons[job.type]}
-      <span className="truncate max-w-[60px]">{customer?.name}</span>
-      {isAutoScheduled && !job.completionStatus && <span className="text-[8px] opacity-60">●</span>}
-      {job.completionStatus === 'done' && <span className="text-[8px]">✓</span>}
-      {job.completionStatus === 'not_done' && <span className="text-[8px]">✗</span>}
-      {job.completionStatus === 'need_return' && <span className="text-[8px]">↻</span>}
+      <span className="truncate max-w-[90px]">{customer?.name}</span>
+      {isAutoScheduled && !job.completionStatus && <span className="text-[9px] opacity-60">●</span>}
+      {job.completionStatus === 'done' && <span className="text-[9px]">✓</span>}
+      {job.completionStatus === 'not_done' && <span className="text-[9px]">✗</span>}
+      {job.completionStatus === 'need_return' && <span className="text-[9px]">↻</span>}
       {onRemove && !job.completionStatus && (
         <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="opacity-0 group-hover:opacity-100 transition-opacity">
-          <X className="w-2.5 h-2.5" />
+          <X className="w-3 h-3" />
         </button>
       )}
     </div>
@@ -866,23 +866,23 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-4">
         {stats.map(s => (
-          <div key={s.label} className="bg-card rounded-lg shadow-card p-3 flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${s.color}`} />
+          <div key={s.label} className="bg-card rounded-xl shadow-card p-4 flex items-center gap-4">
+            <div className={`w-4 h-4 rounded-full ${s.color}`} />
             <div>
-              <p className="text-xl font-bold text-card-foreground">{s.count}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className="text-2xl font-bold text-card-foreground">{s.count}</p>
+              <p className="text-sm text-muted-foreground">{s.label}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1"><Filter className="w-3 h-3 text-info" /> שירות שוטף (אוטומטי)</div>
-        <div className="flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-destructive" /> תקלה (ידני)</div>
-        <div className="flex items-center gap-1"><Wrench className="w-3 h-3 text-secondary" /> התקנה (ידני)</div>
+      <div className="flex items-center gap-5 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1.5"><Filter className="w-4 h-4 text-info" /> שירות שוטף (אוטומטי)</div>
+        <div className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-destructive" /> תקלה (ידני)</div>
+        <div className="flex items-center gap-1.5"><Wrench className="w-4 h-4 text-secondary" /> התקנה (ידני)</div>
       </div>
 
       {/* Calendar grid */}
@@ -899,7 +899,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
             {/* Day headers */}
             <div className="grid grid-cols-7 border-b border-border">
               {DAY_HEADERS.map((d, i) => (
-                <div key={i} className={`text-center py-2 text-xs font-semibold ${i === 5 || i === 6 ? 'text-muted-foreground/50' : 'text-card-foreground'}`}>
+                <div key={i} className={`text-center py-2.5 text-sm font-semibold ${i === 5 || i === 6 ? 'text-muted-foreground/50' : 'text-card-foreground'}`}>
                   {d}
                 </div>
               ))}
@@ -908,7 +908,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
             {/* Calendar cells */}
             <div className="grid grid-cols-7">
               {Array.from({ length: emptyBefore }).map((_, i) => (
-                <div key={`empty-${i}`} className={`${isWeekView ? 'min-h-[250px]' : 'min-h-[100px]'} border-b border-r border-border bg-muted/20`} />
+                <div key={`empty-${i}`} className={`${isWeekView ? 'min-h-[280px]' : 'min-h-[130px]'} border-b border-r border-border bg-muted/20`} />
               ))}
 
               {displayDays.map(day => {
@@ -928,21 +928,21 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                 return (
                   <div
                     key={dateStr}
-                    className={`${isWeekView ? 'min-h-[250px]' : 'min-h-[100px]'} border-b border-r border-border p-1.5 transition-colors cursor-pointer hover:bg-muted/20 ${
+                    className={`${isWeekView ? 'min-h-[280px]' : 'min-h-[130px]'} border-b border-r border-border p-2 transition-colors cursor-pointer hover:bg-muted/20 ${
                       isWeekend ? 'bg-muted/30' : ''
                     } ${isToday ? 'ring-2 ring-inset ring-primary' : ''} ${!inCurrentMonth ? 'opacity-40' : ''} ${isDayApproved ? 'bg-success/5' : ''}`}
                     onClick={() => !isWeekend && inCurrentMonth && setDetailState({ open: true, dateStr })}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1">
-                        <span className={`text-xs font-medium ${isToday ? 'text-primary font-bold' : 'text-card-foreground'}`}>
+                        <span className={`text-sm font-medium ${isToday ? 'text-primary font-bold' : 'text-card-foreground'}`}>
                           {isWeekView ? format(day, 'd/M') : day.getDate()}
                         </span>
                         {isDayApproved && <CheckCircle className="w-2.5 h-2.5 text-success" />}
                       </div>
                       <div className="flex items-center gap-1">
                         {totalMinutes > 0 && !isWeekend && (
-                          <span className="text-[9px] text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground">
                             {Math.floor(totalMinutes / 60)}:{String(totalMinutes % 60).padStart(2, '0')}
                           </span>
                         )}
@@ -970,10 +970,10 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                           }}
                         >
                           <SelectTrigger
-                            className="h-4 px-1 text-[8px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full justify-start gap-0.5"
+                            className="h-5 px-1.5 text-[10px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full justify-start gap-0.5"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <MapPin className="w-2 h-2 shrink-0" />
+                            <MapPin className="w-2.5 h-2.5 shrink-0" />
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent dir="rtl">
@@ -986,18 +986,18 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                     )}
 
                     {!isWeekend && inCurrentMonth && (
-                      <div className="space-y-0.5">
+                      <div className="space-y-1">
                         {dayFilterJobs.slice(0, maxShow).map(job => (
                           <MiniJobChip key={job.id} job={job} isAutoScheduled />
                         ))}
                         {dayFilterJobs.length > maxShow && (
-                          <span className="text-[9px] text-info">+{dayFilterJobs.length - maxShow} שירות</span>
+                          <span className="text-[10px] text-info">+{dayFilterJobs.length - maxShow} שירות</span>
                         )}
                         {dayManualJobs.slice(0, maxShow).map(job => (
                           <MiniJobChip key={job.id} job={job} onRemove={() => onUnassignJob(job.id)} />
                         ))}
                         {dayManualJobs.length > maxShow && (
-                          <span className="text-[9px] text-muted-foreground">+{dayManualJobs.length - maxShow} עוד</span>
+                          <span className="text-[10px] text-muted-foreground">+{dayManualJobs.length - maxShow} עוד</span>
                         )}
 
                         <button
@@ -1010,10 +1010,10 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                               dayLabel: format(dayDate, 'EEEE d/M', { locale: he }),
                             });
                           }}
-                          className="w-full text-[8px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-0.5 rounded border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors mt-0.5"
+                          className="w-full text-[10px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-1 rounded border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors mt-1"
                           title="הוסף משימה"
                         >
-                          <Plus className="w-2.5 h-2.5" />
+                          <Plus className="w-3 h-3" />
                         </button>
                       </div>
                     )}
