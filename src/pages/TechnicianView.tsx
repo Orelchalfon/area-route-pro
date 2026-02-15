@@ -21,8 +21,9 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
 
   const tech = technicians.find(t => t.id === selectedTech)!;
+  const todayStr = new Date().toISOString().split('T')[0];
   const techJobs = jobs
-    .filter(j => j.technicianId === selectedTech)
+    .filter(j => j.technicianId === selectedTech && j.scheduledDate === todayStr)
     .sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || ''));
 
   const activeJobs = techJobs.filter(j => j.status === 'confirmed');
