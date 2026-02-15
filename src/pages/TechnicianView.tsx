@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { technicians } from '@/data/mockData';
 import { Job, CompletionStatus } from '@/types';
@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Calendar, CheckCircle2, Clock, LayoutDashboard, XCircle, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
+import { format, startOfWeek, addDays, isToday } from 'date-fns';
+import { he } from 'date-fns/locale';
 
 interface TechnicianViewProps {
   jobs: Job[];
@@ -19,11 +21,28 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [completingJobId, setCompletingJobId] = useState<string | null>(null);
   const [completionNotes, setCompletionNotes] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
+  const [selectedDay, setSelectedDay] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const tech = technicians.find(t => t.id === selectedTech)!;
-  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Current week days (Sun–Thu)
+  const weekDays = useMemo(() => {
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+    return Array.from({ length: 5 }, (_, i) => {
+      const day = addDays(weekStart, i);
+      return {
+        date: format(day, 'yyyy-MM-dd'),
+        label: format(day, 'EEEE', { locale: he }),
+        shortLabel: format(day, 'EEE', { locale: he }),
+        dayNum: format(day, 'd/M'),
+        isToday: isToday(day),
+      };
+    });
+  }, []);
+
   const techJobs = jobs
-    .filter(j => j.technicianId === selectedTech && j.scheduledDate === todayStr)
+    .filter(j => j.technicianId === selectedTech && j.scheduledDate === selectedDay)
     .sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || ''));
 
   const activeJobs = techJobs.filter(j => j.status === 'confirmed');
@@ -103,12 +122,41 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </div>
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Calendar className="w-4 h-4" />
-            <span>היום</span>
+            <span>{weekDays.find(d => d.date === selectedDay)?.label || 'היום'}</span>
           </div>
         </div>
 
+        {/* Week Day Selector */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {weekDays.map(day => {
+            const dayJobCount = jobs.filter(j => j.technicianId === selectedTech && j.scheduledDate === day.date && (j.status === 'confirmed' || j.status === 'completed')).length;
+            const isSelected = day.date === selectedDay;
+            return (
+              <button
+                key={day.date}
+                onClick={() => setSelectedDay(day.date)}
+                className={`flex-1 min-w-[60px] rounded-lg p-2 text-center transition-colors border ${
+                  isSelected
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : day.isToday
+                    ? 'bg-primary/10 border-primary/30 text-foreground'
+                    : 'bg-card border-border text-muted-foreground hover:bg-muted/50'
+                }`}
+              >
+                <div className="text-[11px] font-medium">{day.shortLabel}</div>
+                <div className="text-sm font-bold">{day.dayNum}</div>
+                {dayJobCount > 0 && (
+                  <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                    {dayJobCount} משימות
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Next Task Banner */}
-        {nextJob && (
+        {nextJob && selectedDay === new Date().toISOString().split('T')[0] && (
           <div className="bg-secondary/10 border border-secondary/20 rounded-lg p-3 flex items-center gap-2">
             <Clock className="w-4 h-4 text-secondary" />
             <span className="text-sm font-medium text-foreground">הבא בתור ב-{nextJob.scheduledTime}</span>
