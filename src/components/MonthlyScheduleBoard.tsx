@@ -708,8 +708,9 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     [filterJobs, assignedFilterIds]
   );
 
-  // Manually assigned jobs (malfunction/installation) for this tech & month
+  // Manually assigned jobs (malfunction/installation) for this tech & month — exclude filter jobs which are managed separately
   const manualJobs = jobs.filter(j =>
+    j.type !== 'filter_replacement' &&
     j.technicianId === selectedTechId &&
     j.scheduledDate &&
     j.scheduledDate.startsWith(`${year}-${String(month).padStart(2, '0')}`)
