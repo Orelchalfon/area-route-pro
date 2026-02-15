@@ -612,18 +612,28 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   });
   const futureWorkingDays = workingDays.filter(d => d >= todayDate);
 
-  // Auto-generated filter jobs for this month, merged with global state for completion status
+  // Auto-generated filter jobs for this month, merged with global state + redistributed overdue jobs
   const filterJobs = useMemo(() => {
     const generated = generateFilterJobs(month, year, customers);
-    // Merge completion data from global jobs state
     const jobMap = new Map(jobs.map(j => [j.id, j]));
-    return generated.map(gj => {
+    const generatedIds = new Set(generated.map(g => g.id));
+
+    // Merge completion data from global jobs state
+    const merged = generated.map(gj => {
       const globalJob = jobMap.get(gj.id);
       if (globalJob) {
         return { ...gj, status: globalJob.status, completionStatus: globalJob.completionStatus, completionNotes: globalJob.completionNotes };
       }
       return gj;
     });
+
+    // Add redistributed overdue filter jobs that landed in this month
+    const redistributed = jobs.filter(j =>
+      j.type === 'filter_replacement' &&
+      !generatedIds.has(j.id) &&
+      j.createdAt.startsWith(`${year}-${String(month).padStart(2, '0')}`)
+    );
+    return [...merged, ...redistributed];
   }, [month, year, jobs]);
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
   const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(new Set());
