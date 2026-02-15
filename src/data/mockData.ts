@@ -29,6 +29,36 @@ const ADDRESSES: Record<string, string[]> = {
 const FIRST_NAMES = ['שרה', 'מיכאל', 'רחל', 'דניאל', 'תמר', 'אייל', 'נועה', 'אורן', 'יעל', 'אבי', 'מורן', 'עידו', 'ליאת', 'רון', 'הדר', 'אלון', 'שירה', 'גיל', 'ענת', 'נדב', 'מיכל', 'יונתן', 'אורלי', 'דור', 'קרן', 'תומר', 'נעמי', 'עמיר', 'רותם', 'איתי', 'סיון', 'אלעד', 'ליאור', 'עדי', 'שחר', 'דנה', 'ניר', 'מעיין', 'עופר', 'טלי', 'ארז', 'הילה', 'בועז', 'שני', 'אריאל', 'יפית', 'אסף', 'מאיה', 'גלעד', 'רינת'];
 const LAST_NAMES = ['גולדשטיין', 'רובין', 'מזרחי', 'פרץ', 'אברהמי', 'כץ', 'פרידמן', 'שוורץ', 'דהן', 'מלכה', 'ביטון', 'נחמיאס', 'שמעון', 'אזולאי', 'לביא', 'סגל', 'קפלן', 'חסון', 'ברק', 'עמרם', 'אופיר', 'גרינברג', 'טל', 'אשכנזי', 'וולף', 'שלום', 'הלל', 'צור', 'חן', 'מנדל', 'רוזנפלד', 'פינקלשטיין', 'הרשקוביץ', 'שפירו', 'נאמן', 'קורן', 'אדלר', 'זיו', 'רוזנברג', 'גולן', 'חביב', 'לוין', 'פלד', 'אלקובי', 'מאירי', 'אוחיון', 'דיין', 'כהן', 'שמש', 'אלפסי'];
 
+// Generate unique full names using seeded shuffle to ensure all 1200 names are different
+function generateUniqueNames(count: number): string[] {
+  const names: string[] = [];
+  const usedNames = new Set<string>();
+  // Use all combinations first, then add suffix for extras
+  for (let li = 0; li < LAST_NAMES.length && names.length < count; li++) {
+    for (let fi = 0; fi < FIRST_NAMES.length && names.length < count; fi++) {
+      const name = `${FIRST_NAMES[fi]} ${LAST_NAMES[li]}`;
+      if (!usedNames.has(name)) {
+        usedNames.add(name);
+        names.push(name);
+      }
+    }
+  }
+  // If we still need more (1200 > 50*50=2500 so we won't), add numbered variants
+  let suffix = 2;
+  while (names.length < count) {
+    for (let li = 0; li < LAST_NAMES.length && names.length < count; li++) {
+      for (let fi = 0; fi < FIRST_NAMES.length && names.length < count; fi++) {
+        const name = `${FIRST_NAMES[fi]} ${LAST_NAMES[li]} ${suffix}`;
+        names.push(name);
+      }
+    }
+    suffix++;
+  }
+  return names;
+}
+
+const UNIQUE_NAMES = generateUniqueNames(1200);
+
 // Generate 1200 customers — 100 per month, spread across 10 regions
 function generateCustomers(): Customer[] {
   const result: Customer[] = [];
@@ -38,17 +68,16 @@ function generateCustomers(): Customer[] {
     const city = CITIES[cityIdx];
     const addressIdx = Math.floor(i / 10) % ADDRESSES[city].length;
     const address = ADDRESSES[city][addressIdx];
-    const firstName = FIRST_NAMES[i % FIRST_NAMES.length];
-    const lastName = LAST_NAMES[i % LAST_NAMES.length];
+    const fullName = UNIQUE_NAMES[i];
     const product = PRODUCTS[i % PRODUCTS.length];
 
     result.push({
       id: `c${i + 1}`,
-      name: `${firstName} ${lastName}`,
+      name: fullName,
       phone: `+972-5${i % 5}-${String(1000000 + i).slice(-7)}`,
       address,
       city,
-      email: `${firstName.toLowerCase()}${i}@email.com`,
+      email: `${fullName.split(' ')[0].toLowerCase()}${i}@email.com`,
       product,
       filterReplacementMonth: month,
     });
