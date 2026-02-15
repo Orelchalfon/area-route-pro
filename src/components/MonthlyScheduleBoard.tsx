@@ -802,7 +802,11 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       {/* View mode toggle + Navigator */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => {
+          <Button variant="ghost" size="sm" disabled={
+            viewMode === 'month'
+              ? currentMonth.getFullYear() === new Date().getFullYear() && currentMonth.getMonth() <= new Date().getMonth()
+              : currentWeekStart <= startOfWeek(new Date(), { weekStartsOn: 0 })
+          } onClick={() => {
             if (viewMode === 'month') setCurrentMonth(prev => subMonths(prev, 1));
             else setCurrentWeekStart(prev => subWeeks(prev, 1));
           }}>
