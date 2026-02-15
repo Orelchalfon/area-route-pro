@@ -18,9 +18,9 @@ function redistributeOverdueFilterJobs(jobs: Job[]): Job[] {
       !job.technicianId &&
       !job.scheduledDate
     ) {
-      const jobMonth = parseInt(job.createdAt.split('-')[1]);
-      const jobYear = parseInt(job.createdAt.split('-')[0]);
-      if (jobYear < currentYear || (jobYear === currentYear && jobMonth < currentMonth)) {
+      const jobDate = new Date(job.createdAt);
+      const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      if (jobDate < todayDate) {
         overdueFilter.push(job);
         continue;
       }
