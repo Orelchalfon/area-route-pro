@@ -172,9 +172,8 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
     if (manualIds.length > 0) onSelectManualJobs(manualIds);
     if (filterIds.length > 0) onSelectFilterJobs(filterIds, otherDayIds);
     
-    setSelectedArea(null);
     setSelectedJobIds(new Set());
-    onClose();
+    // Stay open — don't close the dialog, keep the area selected so user can continue adding
   };
 
   const handleClose = () => {
