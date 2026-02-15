@@ -1,9 +1,74 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog } from '@/types';
 import { initialJobs, customers as initialCustomers } from '@/data/mockData';
 
+// Redistribute overdue draft filter jobs to current & future months, spread by area
+function redistributeOverdueFilterJobs(jobs: Job[]): Job[] {
+  const today = new Date();
+  const currentMonth = today.getMonth() + 1; // 1-12
+  const currentYear = today.getFullYear();
+
+  const overdueFilter: Job[] = [];
+  const otherJobs: Job[] = [];
+
+  for (const job of jobs) {
+    if (
+      job.type === 'filter_replacement' &&
+      job.status === 'draft' &&
+      !job.technicianId &&
+      !job.scheduledDate
+    ) {
+      const jobMonth = parseInt(job.createdAt.split('-')[1]);
+      const jobYear = parseInt(job.createdAt.split('-')[0]);
+      if (jobYear < currentYear || (jobYear === currentYear && jobMonth < currentMonth)) {
+        overdueFilter.push(job);
+        continue;
+      }
+    }
+    otherJobs.push(job);
+  }
+
+  if (overdueFilter.length === 0) return jobs;
+
+  // Group overdue by area (city)
+  const byArea = new Map<string, Job[]>();
+  for (const job of overdueFilter) {
+    const arr = byArea.get(job.city) || [];
+    arr.push(job);
+    byArea.set(job.city, arr);
+  }
+
+  // Distribute into current month and forward months, keeping area grouping
+  // Put them into current month first, then overflow to next months
+  const redistributed: Job[] = [];
+  const areas = Array.from(byArea.keys());
+  
+  for (const area of areas) {
+    const areaJobs = byArea.get(area)!;
+    // Spread across current and future months (100 per month capacity, ~10 per area)
+    let monthOffset = 0;
+    for (let i = 0; i < areaJobs.length; i++) {
+      const targetMonth = currentMonth + monthOffset;
+      const targetYear = currentYear + Math.floor((targetMonth - 1) / 12);
+      const actualMonth = ((targetMonth - 1) % 12) + 1;
+      
+      redistributed.push({
+        ...areaJobs[i],
+        createdAt: `${targetYear}-${String(actualMonth).padStart(2, '0')}-01`,
+        notes: `${areaJobs[i].notes} (הועבר מחודש קודם)`,
+        priority: 'medium', // Bump priority for overdue
+      });
+      
+      // Move to next month every 10 jobs per area to avoid overloading
+      if ((i + 1) % 10 === 0) monthOffset++;
+    }
+  }
+
+  return [...otherJobs, ...redistributed];
+}
+
 export function useJobs() {
-  const [jobs, setJobs] = useState<Job[]>(initialJobs);
+  const [jobs, setJobs] = useState<Job[]>(() => redistributeOverdueFilterJobs(initialJobs));
   const [customersList, setCustomersList] = useState<Customer[]>(initialCustomers);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
