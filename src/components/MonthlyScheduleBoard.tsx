@@ -617,6 +617,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     const generated = generateFilterJobs(month, year, customers);
     const jobMap = new Map(jobs.map(j => [j.id, j]));
     const generatedIds = new Set(generated.map(g => g.id));
+    const generatedCustomerIds = new Set(generated.map(g => g.customerId));
 
     // Merge completion data from global jobs state
     const merged = generated.map(gj => {
@@ -627,10 +628,11 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       return gj;
     });
 
-    // Add redistributed overdue filter jobs that landed in this month
+    // Add redistributed overdue filter jobs that landed in this month (skip if customer already has a job)
     const redistributed = jobs.filter(j =>
       j.type === 'filter_replacement' &&
       !generatedIds.has(j.id) &&
+      !generatedCustomerIds.has(j.customerId) &&
       j.createdAt.startsWith(`${year}-${String(month).padStart(2, '0')}`)
     );
     return [...merged, ...redistributed];
