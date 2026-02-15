@@ -561,7 +561,7 @@ function FilterJobPicker({ jobs, onSelect, movedFromOtherDay }: { jobs: Job[]; o
 export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, onStatusChange, onAssignJob, onUnassignJob, onCloseJob, onReturnJob }: MonthlyScheduleBoardProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(technicians[0].id);
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('week');
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [pickerState, setPickerState] = useState<{ open: boolean; dateStr: string; dayLabel: string } | null>(null);
   const [detailState, setDetailState] = useState<{ open: boolean; dateStr: string } | null>(null);
@@ -603,11 +603,14 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   const monthEnd = endOfMonth(currentMonth);
   const allDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Working days (Sun-Thu, not Fri/Sat)
+  // Working days (Sun-Thu, not Fri/Sat), only today and forward for distribution
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
   const workingDays = allDays.filter(d => {
     const dow = getDay(d);
     return dow !== 5 && dow !== 6;
   });
+  const futureWorkingDays = workingDays.filter(d => d >= todayDate);
 
   // Auto-generated filter jobs for this month, merged with global state for completion status
   const filterJobs = useMemo(() => {
@@ -625,7 +628,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
   const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(new Set());
   const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string>>(new Map());
-  const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, workingDays), [filterJobs, workingDays]);
+  const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, futureWorkingDays), [filterJobs, futureWorkingDays]);
 
   // Get the effective area for a day (override or auto-determined)
   const getDayArea = (dateStr: string): string | null => {
