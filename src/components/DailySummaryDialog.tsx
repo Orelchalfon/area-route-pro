@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
+import { Job, JOB_TYPE_CONFIG, Customer, SERVICE_TRACK_CONFIG } from '@/types';
 import { customers } from '@/data/mockData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { CheckCircle, Calendar, Filter, AlertTriangle, Wrench, XCircle, RotateCc
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { DailyReportCard } from '@/components/DailyReportCard';
+import { ServiceTrackBadge } from '@/components/ServiceTrackBadge';
 
 interface DailySummaryDialogProps {
   open: boolean;
@@ -15,9 +16,10 @@ interface DailySummaryDialogProps {
   closedJobs: Job[];
   activityLogs: { id: string; customerId: string; jobId?: string; action: string; details: string; timestamp: string }[];
   onConfirmSummary: () => void;
+  allCustomers?: Customer[];
 }
 
-export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLogs, onConfirmSummary }: DailySummaryDialogProps) {
+export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLogs, onConfirmSummary, allCustomers = [] }: DailySummaryDialogProps) {
   const [confirmed, setConfirmed] = useState(false);
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -200,6 +202,40 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
                   )}
                 </ul>
               </div>
+
+              {/* Service track recalculation summary */}
+              {(() => {
+                const trackedCustomers = summary.completedToday
+                  .filter(j => j.completionStatus === 'done')
+                  .map(j => allCustomers.find(c => c.id === j.customerId))
+                  .filter(c => c?.serviceTrack);
+                if (trackedCustomers.length === 0) return null;
+                return (
+                  <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-4 space-y-2">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-secondary" />
+                      עדכון מועדי שירות חוזרים
+                    </h4>
+                    <div className="space-y-1.5">
+                      {trackedCustomers.map(c => {
+                        if (!c?.serviceTrack) return null;
+                        const config = SERVICE_TRACK_CONFIG[c.serviceTrack];
+                        return (
+                          <div key={c.id} className="flex items-center justify-between text-xs p-2 rounded-lg bg-card border border-border">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-foreground">{c.name}</span>
+                              <ServiceTrackBadge track={c.serviceTrack} />
+                            </div>
+                            <span className="text-muted-foreground">
+                              שירות הבא: {c.nextServiceDate || `+${config.intervalMonths} חודשים`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <Button variant="outline" className="w-full print:hidden" onClick={handleClose}>
                 סגירה

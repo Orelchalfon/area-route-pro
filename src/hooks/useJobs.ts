@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog } from '@/types';
+import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { initialJobs, customers as initialCustomers } from '@/data/mockData';
 
 // Redistribute overdue draft filter jobs to current & future months, spread by area
@@ -255,6 +255,32 @@ export function useJobs() {
     setCustomersList(prev => [...prev, newCustomer]);
   };
 
+  const distributeServiceTracks = (assignments: { customerId: string; track: ServiceTrack; nextServiceDate: string }[]) => {
+    setCustomersList(prev => {
+      const map = new Map(assignments.map(a => [a.customerId, a]));
+      return prev.map(c => {
+        const a = map.get(c.id);
+        if (a) {
+          addLog(c.id, 'שיוך מסלול', `שויך למסלול ${SERVICE_TRACK_CONFIG[a.track].label} — שירות הבא: ${a.nextServiceDate}`);
+          return { ...c, serviceTrack: a.track, nextServiceDate: a.nextServiceDate };
+        }
+        return c;
+      });
+    });
+  };
+
+  const recalcNextServiceDate = (customerId: string) => {
+    setCustomersList(prev => prev.map(c => {
+      if (c.id !== customerId || !c.serviceTrack) return c;
+      const interval = SERVICE_TRACK_CONFIG[c.serviceTrack].intervalMonths;
+      const next = new Date();
+      next.setMonth(next.getMonth() + interval);
+      const nextDate = next.toISOString().split('T')[0];
+      addLog(c.id, 'עדכון מועד', `שירות הבא עודכן ל-${nextDate} (${SERVICE_TRACK_CONFIG[c.serviceTrack].label})`);
+      return { ...c, nextServiceDate: nextDate };
+    }));
+  };
+
   const getUnassignedJobs = () => jobs.filter(j => !j.technicianId && !j.scheduledDate);
 
   const getJobsByArea = () => {
@@ -272,5 +298,5 @@ export function useJobs() {
 
   const getCustomerLogs = (customerId: string) => activityLogs.filter(l => l.customerId === customerId);
 
-  return { jobs, customersList, closedJobs, activityLogs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs };
+  return { jobs, customersList, closedJobs, activityLogs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate };
 }

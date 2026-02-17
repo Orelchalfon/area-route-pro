@@ -1,5 +1,14 @@
 export type JobType = 'filter_replacement' | 'malfunction' | 'installation';
 
+export type ServiceTrack = 'annual_filter' | 'external_filter' | 'bypass_siliphos' | 'service_visit';
+
+export const SERVICE_TRACK_CONFIG: Record<ServiceTrack, { label: string; intervalMonths: number; color: string; bgClass: string; textClass: string }> = {
+  annual_filter: { label: 'פילטר שנתי', intervalMonths: 12, color: 'info', bgClass: 'bg-info/15 border-info/30', textClass: 'text-info' },
+  external_filter: { label: 'פילטר חוץ', intervalMonths: 6, color: 'secondary', bgClass: 'bg-secondary/15 border-secondary/30', textClass: 'text-secondary' },
+  bypass_siliphos: { label: 'בייפס/סיליפוס', intervalMonths: 6, color: 'accent', bgClass: 'bg-accent/15 border-accent/30', textClass: 'text-accent' },
+  service_visit: { label: 'ביקור שירות', intervalMonths: 2, color: 'primary', bgClass: 'bg-primary/15 border-primary/30', textClass: 'text-primary' },
+};
+
 export interface ActivityLog {
   id: string;
   customerId: string;
@@ -29,7 +38,9 @@ export interface Customer {
   city: string;
   email: string;
   product: string;
-  filterReplacementMonth: number; // 1-12, the fixed month for annual filter replacement
+  filterReplacementMonth: number;
+  serviceTrack?: ServiceTrack;
+  nextServiceDate?: string;
   lat?: number;
   lng?: number;
 }
