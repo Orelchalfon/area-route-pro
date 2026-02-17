@@ -8,7 +8,7 @@ import { ClipboardCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
-  const { jobs, customersList, closedJobs, activityLogs, approveSchedule, approveDaySchedule, updateJobStatus, addJob, assignJob, unassignJob, closeJob, returnJob } = useJobsContext();
+  const { jobs, customersList, closedJobs, activityLogs, approveSchedule, approveDaySchedule, updateJobStatus, addJob, assignJob, unassignJob, closeJob, returnJob, recalcNextServiceDate } = useJobsContext();
   const [summaryOpen, setSummaryOpen] = useState(false);
 
   return (
@@ -45,12 +45,14 @@ export default function Dashboard() {
         jobs={jobs}
         closedJobs={closedJobs}
         activityLogs={activityLogs}
+        allCustomers={customersList}
         onConfirmSummary={() => {
           const todayStr = new Date().toISOString().split('T')[0];
           const todayJobs = jobs.filter(j => j.scheduledDate === todayStr && j.status === 'completed' && j.completionStatus);
           todayJobs.forEach(job => {
             if (job.completionStatus === 'done') {
               closeJob(job.id);
+              recalcNextServiceDate(job.customerId);
             } else {
               returnJob(job.id);
             }

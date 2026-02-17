@@ -2,25 +2,34 @@ import { useState } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { CustomerCard } from '@/components/CustomerCard';
 import { NewCustomerDialog } from '@/components/NewCustomerDialog';
+import { SmartDistributionDialog } from '@/components/SmartDistributionDialog';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 
 export default function CustomersPage() {
-  const { customersList, addCustomer, getCustomerLogs } = useJobsContext();
+  const { customersList, addCustomer, getCustomerLogs, distributeServiceTracks } = useJobsContext();
   const [search, setSearch] = useState('');
 
   const filtered = customersList.filter(c =>
     c.name.includes(search) || c.phone.includes(search) || c.city.includes(search) || c.address.includes(search)
   );
 
+  const unassignedCount = customersList.filter(c => !c.serviceTrack).length;
+
   return (
     <div dir="rtl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">כרטיסי לקוחות</h2>
-          <p className="text-sm text-muted-foreground mt-1">{filtered.length} מתוך {customersList.length} לקוחות</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {filtered.length} מתוך {customersList.length} לקוחות
+            {unassignedCount > 0 && <span className="text-warning mr-2">• {unassignedCount} ללא מסלול</span>}
+          </p>
         </div>
-        <NewCustomerDialog onAdd={addCustomer} />
+        <div className="flex items-center gap-2">
+          <SmartDistributionDialog customers={customersList} onDistribute={distributeServiceTracks} />
+          <NewCustomerDialog onAdd={addCustomer} />
+        </div>
       </div>
 
       <div className="relative mb-6">

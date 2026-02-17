@@ -3,8 +3,9 @@ import { Customer, ActivityLog } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Phone, Mail, MapPin, Package, History } from 'lucide-react';
+import { Phone, Mail, MapPin, Package, History, CalendarClock } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ServiceTrackBadge } from './ServiceTrackBadge';
 
 interface CustomerCardProps {
   customer: Customer;
@@ -19,7 +20,10 @@ export function CustomerCard({ customer, logs = [] }: CustomerCardProps) {
       <Card dir="rtl" className="hover:shadow-md transition-shadow">
         <CardContent className="p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-lg text-foreground">{customer.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-lg text-foreground">{customer.name}</h3>
+              {customer.serviceTrack && <ServiceTrackBadge track={customer.serviceTrack} />}
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -35,6 +39,12 @@ export function CustomerCard({ customer, logs = [] }: CustomerCardProps) {
               )}
             </Button>
           </div>
+          {customer.nextServiceDate && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-1.5">
+              <CalendarClock className="w-3.5 h-3.5" />
+              <span>שירות הבא: {customer.nextServiceDate}</span>
+            </div>
+          )}
           <div className="space-y-2 text-sm text-muted-foreground">
             <a href={`tel:${customer.phone}`} className="flex items-center gap-2 hover:text-primary transition-colors">
               <Phone className="w-4 h-4" />
