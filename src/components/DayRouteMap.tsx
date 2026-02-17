@@ -134,9 +134,9 @@ function DayRouteMapInner({
         onLoad={onLoad}
         options={mapOptions}
       >
-        {jobsWithCoords.length > 1 && (
+        {jobsWithCoords.length > 1 && polylinePath.length > 1 && polylinePath.every(p => p && typeof p.lat === 'number' && typeof p.lng === 'number') && (
           <Polyline
-            key={jobsWithCoords.map(jc => jc.job.id).join(',')}
+            key={`poly-${jobsWithCoords.map(jc => jc.job.id).join(',')}`}
             path={polylinePath}
             options={{ strokeColor: '#3b82f6', strokeWeight: 3, strokeOpacity: 0.7, icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 }, offset: '50%', repeat: '100px' }] }}
           />
