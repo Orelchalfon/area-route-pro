@@ -12,6 +12,7 @@ import ServiceCyclePage from "./pages/ServiceCyclePage";
 import CustomerConfirmation from "./pages/CustomerConfirmation";
 import CustomersPage from "./pages/CustomersPage";
 import NotFound from "./pages/NotFound";
+import DailyRoutePage from "./pages/DailyRoutePage";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <AppLayout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/daily-route" element={<DailyRoutePage />} />
               <Route path="/malfunctions" element={<JobCategoryPage category="malfunctions" />} />
               <Route path="/installations" element={<JobCategoryPage category="installations" />} />
               <Route path="/service" element={<ServiceCyclePage />} />
