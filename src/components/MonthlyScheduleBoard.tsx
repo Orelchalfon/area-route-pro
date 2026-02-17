@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Job, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
 import { technicians, customers } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2 } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, getDay, addMonths, subMonths, addWeeks, subWeeks, isSameMonth } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -378,15 +378,53 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
   );
 }
 
-// Day detail dialog
+// Day detail dialog with drag-and-drop reordering
 function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob, onCloseJob, onReturnJob }: {
   open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[]; onRemoveJob: (jobId: string) => void;
   onCloseJob?: (jobId: string) => void; onReturnJob?: (jobId: string) => void;
 }) {
-  const allJobs = [...filterJobs, ...dayJobs];
+  const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
+  const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
   const dayDate = new Date(dateStr + 'T00:00:00');
   const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+
+  // Sync when source data changes
+  useMemo(() => {
+    setOrderedJobs([...filterJobs, ...dayJobs]);
+  }, [filterJobs.length, dayJobs.length]);
+
+  const handleDragStart = useCallback((idx: number) => {
+    setDragIdx(idx);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setOverIdx(idx);
+  }, []);
+
+  const handleDrop = useCallback((idx: number) => {
+    if (dragIdx === null || dragIdx === idx) {
+      setDragIdx(null);
+      setOverIdx(null);
+      return;
+    }
+    setOrderedJobs(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(idx, 0, moved);
+      return next;
+    });
+    setDragIdx(null);
+    setOverIdx(null);
+  }, [dragIdx]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragIdx(null);
+    setOverIdx(null);
+  }, []);
 
   const completionColorMap: Record<string, string> = {
     done: 'border-success bg-success/10',
@@ -394,45 +432,88 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
     need_return: 'border-warning bg-warning/10',
   };
 
+  // Calculate time ranges based on current order
+  const timeRanges = useMemo(() => {
+    let currentMinutes = 10 * 60;
+    return orderedJobs.map(job => {
+      const startHour = Math.floor(currentMinutes / 60);
+      const startMin = currentMinutes % 60;
+      const endMinutes = currentMinutes + job.estimatedDuration;
+      const endHour = Math.floor(endMinutes / 60);
+      const endMin = endMinutes % 60;
+      const startTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`;
+      const endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+      currentMinutes = endMinutes;
+      return { startTime, endTime };
+    });
+  }, [orderedJobs]);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle>{dayLabel}</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>{dayLabel}</span>
+            <span className="text-xs font-normal text-muted-foreground flex items-center gap-1">
+              <GripVertical className="w-3 h-3" /> גרור לשינוי סדר
+            </span>
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
-          {allJobs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">אין משימות ליום זה</p>}
-          {allJobs.map(job => {
+          {orderedJobs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">אין משימות ליום זה</p>}
+          {orderedJobs.map((job, idx) => {
             const customer = customers.find(c => c.id === job.customerId);
             const typeConfig = JOB_TYPE_CONFIG[job.type];
             const isFilter = job.type === 'filter_replacement';
             const isCompleted = job.status === 'completed';
             const borderClass = job.completionStatus ? completionColorMap[job.completionStatus] : typeColors[job.type];
             const isExpanded = expandedJobId === job.id;
+            const isDragging = dragIdx === idx;
+            const isOver = overIdx === idx && dragIdx !== idx;
+            const time = timeRanges[idx];
 
             return (
               <div key={job.id}>
                 <div
-                  className={`p-3 rounded-lg border-2 ${borderClass} flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity`}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={() => handleDrop(idx)}
+                  onDragEnd={handleDragEnd}
+                  className={cn(
+                    `p-3 rounded-lg border-2 ${borderClass} flex items-center gap-2 cursor-grab active:cursor-grabbing transition-all`,
+                    isDragging && 'opacity-40 scale-95',
+                    isOver && 'ring-2 ring-primary ring-offset-2'
+                  )}
                   onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
                 >
-                  <div className="flex items-center gap-2">
-                    {typeIcons[job.type]}
-                    <div>
-                      <p className="text-sm font-medium">{customer?.name}</p>
-                      <p className="text-xs opacity-70">{typeConfig.label} · {job.estimatedDuration} דק׳</p>
-                      <p className="text-xs opacity-60">{job.location}</p>
-                      {isCompleted && (
-                        <p className="text-xs font-medium mt-0.5">
-                          {job.completionStatus === 'done' ? '✓ בוצע' :
-                           job.completionStatus === 'not_done' ? '✗ לא בוצע' :
-                           job.completionStatus === 'need_return' ? '↻ צריך לחזור' : ''}
-                        </p>
+                  <div className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 cursor-grab">
+                    <GripVertical className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {typeIcons[job.type]}
+                        <span className="text-sm font-medium">{customer?.name}</span>
+                      </div>
+                      {time && (
+                        <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                          {time.startTime}–{time.endTime}
+                        </span>
                       )}
                     </div>
+                    <p className="text-xs opacity-70">{typeConfig.label} · {job.estimatedDuration} דק׳</p>
+                    <p className="text-xs opacity-60">{job.location}</p>
+                    {isCompleted && (
+                      <p className="text-xs font-medium mt-0.5">
+                        {job.completionStatus === 'done' ? '✓ בוצע' :
+                         job.completionStatus === 'not_done' ? '✗ לא בוצע' :
+                         job.completionStatus === 'need_return' ? '↻ צריך לחזור' : ''}
+                      </p>
+                    )}
                   </div>
                   {!isFilter && !isCompleted && (
-                    <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10">
+                    <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10 shrink-0">
                       <X className="w-3.5 h-3.5 text-destructive" />
                     </button>
                   )}
