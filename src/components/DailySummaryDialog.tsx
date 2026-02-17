@@ -105,14 +105,23 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
                       const isReturn = job.completionStatus === 'need_return';
                       return (
                         <div key={job.id} className={`flex items-center justify-between p-3 rounded-lg border ${isDone ? 'border-success/30 bg-success/5' : isReturn ? 'border-warning/30 bg-warning/5' : 'border-destructive/30 bg-destructive/5'}`}>
-                          <div className="flex items-center gap-3">
-                            {isDone ? <CheckCircle className="w-4 h-4 text-success" /> : isReturn ? <RotateCcw className="w-4 h-4 text-warning" /> : <XCircle className="w-4 h-4 text-destructive" />}
-                            <div>
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {isDone ? <CheckCircle className="w-4 h-4 text-success shrink-0" /> : isReturn ? <RotateCcw className="w-4 h-4 text-warning shrink-0" /> : <XCircle className="w-4 h-4 text-destructive shrink-0" />}
+                            <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium">{customer?.name}</p>
-                              <p className="text-xs text-muted-foreground">{JOB_TYPE_CONFIG[job.type].label} — {job.completionNotes || job.notes}</p>
+                              <p className="text-xs text-muted-foreground">{JOB_TYPE_CONFIG[job.type].label}</p>
+                              {job.completionNotes && (
+                                <div className="mt-1 p-2 rounded bg-muted/50 border border-border/50">
+                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">הערות טכנאי:</p>
+                                  <p className="text-xs text-foreground">{job.completionNotes}</p>
+                                </div>
+                              )}
+                              {!job.completionNotes && job.notes && (
+                                <p className="text-xs text-muted-foreground mt-0.5">{job.notes}</p>
+                              )}
                             </div>
                           </div>
-                          <span className="text-xs font-medium">
+                          <span className="text-xs font-medium shrink-0">
                             {isDone ? '✓ בוצע' : isReturn ? '↻ צריך לחזור' : '✗ לא בוצע'}
                           </span>
                         </div>
