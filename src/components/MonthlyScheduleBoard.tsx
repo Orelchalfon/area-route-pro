@@ -512,8 +512,8 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                       </p>
                     )}
                   </div>
-                  {!isFilter && !isCompleted && (
-                    <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10 shrink-0">
+                  {!isCompleted && (
+                    <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10 shrink-0" title="הסר מהלו״ז">
                       <X className="w-3.5 h-3.5 text-destructive" />
                     </button>
                   )}
@@ -834,6 +834,82 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     });
   };
 
+  // Find the nearest working day (after the removed day) that has jobs in the same area
+  const findNearestAreaDay = useCallback((removedDateStr: string, jobCity: string): string | null => {
+    const removedDate = new Date(removedDateStr + 'T00:00:00');
+    // Look forward through working days for same-area days
+    const candidates = futureWorkingDays
+      .filter(d => format(d, 'yyyy-MM-dd') !== removedDateStr && d >= removedDate)
+      .map(d => format(d, 'yyyy-MM-dd'));
+    
+    // First: find a day that already has jobs in the same area
+    for (const dateStr of candidates) {
+      const area = getDayArea(dateStr);
+      if (area === jobCity) return dateStr;
+    }
+    // Fallback: find any day with capacity (fewer than 5 total jobs)
+    for (const dateStr of candidates) {
+      const filterCount = getFilterDayJobs(dateStr).length;
+      const manualCount = getManualDayJobs(dateStr).length;
+      if (filterCount + manualCount < 5) return dateStr;
+    }
+    return null;
+  }, [futureWorkingDays, filterDistribution, extraFilterAssignments, removedFromAutoIds, manualJobs]);
+
+  // Remove a filter job from its current day and reschedule to nearest same-area day
+  const handleRemoveAndRescheduleFilter = useCallback((jobId: string, fromDateStr: string) => {
+    const job = filterJobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    // Remove from current day
+    const isAuto = (filterDistribution.get(fromDateStr) || []).some(j => j.id === jobId);
+    if (isAuto) {
+      setRemovedFromAutoIds(prev => new Set(prev).add(jobId));
+    } else {
+      setExtraFilterAssignments(prev => {
+        const next = new Map(prev);
+        const dayJobs = next.get(fromDateStr) || [];
+        const filtered = dayJobs.filter(j => j.id !== jobId);
+        if (filtered.length > 0) next.set(fromDateStr, filtered);
+        else next.delete(fromDateStr);
+        return next;
+      });
+    }
+
+    // Find nearest day with same area and add there
+    const targetDate = findNearestAreaDay(fromDateStr, job.city);
+    if (targetDate) {
+      setExtraFilterAssignments(prev => {
+        const next = new Map(prev);
+        const existing = next.get(targetDate) || [];
+        next.set(targetDate, [...existing, job]);
+        return next;
+      });
+      toast.success(`שירות הועבר ל-${targetDate} (${job.city})`);
+    } else {
+      toast.info('המשימה הוסרה מהלו״ז — לא נמצא יום מתאים באותו אזור');
+    }
+  }, [filterJobs, filterDistribution, findNearestAreaDay]);
+
+  // Remove a manual job and reschedule to nearest same-area day
+  const handleRemoveAndRescheduleManual = useCallback((jobId: string, fromDateStr: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    const targetDate = findNearestAreaDay(fromDateStr, job.city);
+    if (targetDate) {
+      onUnassignJob(jobId);
+      // Small delay to let state update, then reassign
+      setTimeout(() => {
+        onAssignJob(jobId, selectedTechId, targetDate, '08:00');
+        toast.success(`${JOB_TYPE_CONFIG[job.type].label} הועבר ל-${targetDate} (${job.city})`);
+      }, 0);
+    } else {
+      onUnassignJob(jobId);
+      toast.info('המשימה הוסרה מהלו״ז — לא נמצא יום מתאים באותו אזור');
+    }
+  }, [jobs, findNearestAreaDay, onUnassignJob, onAssignJob, selectedTechId]);
+
   // Stats
   const stats = useMemo(() => {
     const filterCount = filterJobs.length;
@@ -1058,13 +1134,13 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                     {!isWeekend && inCurrentMonth && (
                       <div className="space-y-1">
                         {dayFilterJobs.slice(0, maxShow).map(job => (
-                          <MiniJobChip key={job.id} job={job} isAutoScheduled />
+                          <MiniJobChip key={job.id} job={job} isAutoScheduled onRemove={() => handleRemoveAndRescheduleFilter(job.id, dateStr)} />
                         ))}
                         {dayFilterJobs.length > maxShow && (
                           <span className="text-[10px] text-info">+{dayFilterJobs.length - maxShow} שירות</span>
                         )}
                         {dayManualJobs.slice(0, maxShow).map(job => (
-                          <MiniJobChip key={job.id} job={job} onRemove={() => onUnassignJob(job.id)} />
+                          <MiniJobChip key={job.id} job={job} onRemove={() => handleRemoveAndRescheduleManual(job.id, dateStr)} />
                         ))}
                         {dayManualJobs.length > maxShow && (
                           <span className="text-[10px] text-muted-foreground">+{dayManualJobs.length - maxShow} עוד</span>
@@ -1169,7 +1245,14 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
           dateStr={detailState.dateStr}
           dayJobs={getManualDayJobs(detailState.dateStr)}
           filterJobs={getFilterDayJobs(detailState.dateStr)}
-          onRemoveJob={onUnassignJob}
+          onRemoveJob={(jobId) => {
+            const isFilter = filterJobs.some(j => j.id === jobId);
+            if (isFilter) {
+              handleRemoveAndRescheduleFilter(jobId, detailState.dateStr);
+            } else {
+              handleRemoveAndRescheduleManual(jobId, detailState.dateStr);
+            }
+          }}
           onCloseJob={onCloseJob}
           onReturnJob={onReturnJob}
         />
