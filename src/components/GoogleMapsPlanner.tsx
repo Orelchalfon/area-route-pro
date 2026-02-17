@@ -89,6 +89,7 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
       {/* Route line */}
       {stops.length > 1 && (
         <Polyline
+          key={stops.map(s => s.id).join(',')}
           path={polylinePath}
           options={{
             strokeColor: '#3b82f6',

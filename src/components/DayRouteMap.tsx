@@ -136,6 +136,7 @@ function DayRouteMapInner({
       >
         {jobsWithCoords.length > 1 && (
           <Polyline
+            key={jobsWithCoords.map(jc => jc.job.id).join(',')}
             path={polylinePath}
             options={{ strokeColor: '#3b82f6', strokeWeight: 3, strokeOpacity: 0.7, icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 }, offset: '50%', repeat: '100px' }] }}
           />
