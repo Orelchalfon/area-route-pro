@@ -46,7 +46,16 @@ export default function Dashboard() {
         closedJobs={closedJobs}
         activityLogs={activityLogs}
         onConfirmSummary={() => {
-          toast.success('יום העבودה סוכם בהצלחה');
+          const todayStr = new Date().toISOString().split('T')[0];
+          const todayJobs = jobs.filter(j => j.scheduledDate === todayStr && j.status === 'completed' && j.completionStatus);
+          todayJobs.forEach(job => {
+            if (job.completionStatus === 'done') {
+              closeJob(job.id);
+            } else {
+              returnJob(job.id);
+            }
+          });
+          toast.success(`יום העבודה סוכם — ${todayJobs.length} משימות עובדו`);
         }}
       />
     </div>
