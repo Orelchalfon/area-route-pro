@@ -87,9 +87,9 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
       options={mapOptions}
     >
       {/* Route line */}
-      {stops.length > 1 && (
+      {stops.length > 1 && polylinePath.length > 1 && polylinePath.every(p => p && typeof p.lat === 'number' && typeof p.lng === 'number') && (
         <Polyline
-          key={stops.map(s => s.id).join(',')}
+          key={`poly-${stops.map(s => s.id).join(',')}`}
           path={polylinePath}
           options={{
             strokeColor: '#3b82f6',
