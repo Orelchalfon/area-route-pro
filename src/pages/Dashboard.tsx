@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { MonthlyScheduleBoard } from '@/components/MonthlyScheduleBoard';
 import { NewJobDialog } from '@/components/NewJobDialog';
+import { DailySummaryDialog } from '@/components/DailySummaryDialog';
 import { useJobsContext } from '@/contexts/JobsContext';
+import { Button } from '@/components/ui/button';
+import { ClipboardCheck } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Dashboard() {
-  const { jobs, customersList, approveSchedule, approveDaySchedule, updateJobStatus, addJob, assignJob, unassignJob, closeJob, returnJob } = useJobsContext();
+  const { jobs, customersList, closedJobs, activityLogs, approveSchedule, approveDaySchedule, updateJobStatus, addJob, assignJob, unassignJob, closeJob, returnJob } = useJobsContext();
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   return (
     <div dir="rtl">
@@ -14,7 +20,13 @@ export default function Dashboard() {
             שירות שוטף מתוזמן אוטומטית לפי חודש קבוע ללקוח. תקלות והתקנות משובצות ידנית.
           </p>
         </div>
-        <NewJobDialog customers={customersList} onAdd={addJob} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setSummaryOpen(true)}>
+            <ClipboardCheck className="w-4 h-4" />
+            סיכום יום
+          </Button>
+          <NewJobDialog customers={customersList} onAdd={addJob} />
+        </div>
       </div>
 
       <MonthlyScheduleBoard
@@ -26,6 +38,16 @@ export default function Dashboard() {
         onUnassignJob={unassignJob}
         onCloseJob={closeJob}
         onReturnJob={returnJob}
+      />
+      <DailySummaryDialog
+        open={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+        jobs={jobs}
+        closedJobs={closedJobs}
+        activityLogs={activityLogs}
+        onConfirmSummary={() => {
+          toast.success('יום העבودה סוכם בהצלחה');
+        }}
       />
     </div>
   );
