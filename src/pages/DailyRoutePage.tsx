@@ -12,7 +12,7 @@ import { he } from 'date-fns/locale';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { GoogleMapsPlanner } from '@/components/GoogleMapsPlanner';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
-import { getCustomerCoords } from '@/components/DayRouteMap';
+import { getCustomerCoords } from '@/lib/customerCoords';
 
 const typeIcons: Record<string, React.ReactNode> = {
   filter_replacement: <Filter className="w-3.5 h-3.5" />,

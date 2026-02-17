@@ -1,77 +1,28 @@
-import { useMemo } from 'react';
-import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
+import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
+import { Job, JOB_TYPE_CONFIG } from '@/types';
 import { customers as allCustomersData } from '@/data/mockData';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { Navigation } from 'lucide-react';
+import { getCustomerCoords } from '@/lib/customerCoords';
+import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
+import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from '@react-google-maps/api';
+import { AlertTriangle } from 'lucide-react';
 
-// Approximate coordinates for each region (center points)
-const REGION_COORDS: Record<string, { lat: number; lng: number }> = {
-  'דרום רחוק': { lat: 31.25, lng: 34.79 },
-  'דרום קרוב': { lat: 31.80, lng: 34.65 },
-  'דרום ת״א והסביבה': { lat: 32.05, lng: 34.77 },
-  'דרום תל אביב והסביבה': { lat: 32.05, lng: 34.77 },
-  'ירושלים והסביבה': { lat: 31.77, lng: 35.21 },
-  'מרכז - פתח תקווה': { lat: 32.09, lng: 34.88 },
-  'מרכז פתח תקווה': { lat: 32.09, lng: 34.88 },
-  'הרצליה, רעננה והסביבה': { lat: 32.17, lng: 34.80 },
-  'הרצליה ורעננה': { lat: 32.17, lng: 34.80 },
-  'שומרון': { lat: 32.30, lng: 35.08 },
-  'נתניה, עמק חפר': { lat: 32.33, lng: 34.86 },
-  'נתניה ועמק חפר': { lat: 32.33, lng: 34.86 },
-  'צפון קרוב': { lat: 32.80, lng: 35.00 },
-  'צפון רחוק': { lat: 32.96, lng: 35.50 },
-};
-
-export function getCustomerCoords(customer: Customer): { lat: number; lng: number } {
-  if (customer.lat && customer.lng) return { lat: customer.lat, lng: customer.lng };
-  const base = REGION_COORDS[customer.city];
-  if (!base) return { lat: 32.07, lng: 34.77 };
-  const idNum = parseInt(customer.id.replace('c', '')) || 0;
-  const latOffset = ((idNum * 137) % 100 - 50) * 0.002;
-  const lngOffset = ((idNum * 251) % 100 - 50) * 0.002;
-  return { lat: base.lat + latOffset, lng: base.lng + lngOffset };
-}
-
-function createNumberedIcon(num: number, color: string = '#3b82f6'): L.DivIcon {
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="
-      background: ${color};
-      color: white;
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: bold;
-      border: 2px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    ">${num}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
-  });
-}
-
-function FitBounds({ positions }: { positions: [number, number][] }) {
-  const map = useMap();
-  useMemo(() => {
-    if (positions.length > 0) {
-      const bounds = L.latLngBounds(positions.map(p => L.latLng(p[0], p[1])));
-      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
-    }
-  }, [positions, map]);
-  return null;
-}
+// Re-export for backward compatibility
+export { getCustomerCoords } from '@/lib/customerCoords';
 
 const typeColorMap: Record<string, string> = {
   filter_replacement: '#3b82f6',
   malfunction: '#ef4444',
   installation: '#a855f7',
+};
+
+const mapContainerStyle = { width: '100%', height: '100%' };
+
+const mapOptions: google.maps.MapOptions = {
+  disableDefaultUI: false,
+  zoomControl: true,
+  mapTypeControl: false,
+  streetViewControl: false,
+  fullscreenControl: false,
 };
 
 interface DayRouteMapProps {
@@ -80,6 +31,13 @@ interface DayRouteMapProps {
 }
 
 export function DayRouteMap({ jobs, height = '350px' }: DayRouteMapProps) {
+  const { apiKey, loading, error, fetchKey } = useGoogleMapsKey();
+  const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+
+  // Fetch key on mount
+  useEffect(() => { fetchKey(); }, [fetchKey]);
+
   const jobsWithCoords = useMemo(() =>
     jobs.map(job => {
       const customer = allCustomersData.find(c => c.id === job.customerId);
@@ -89,61 +47,123 @@ export function DayRouteMap({ jobs, height = '350px' }: DayRouteMapProps) {
     [jobs]
   );
 
-  const positions: [number, number][] = useMemo(() =>
-    jobsWithCoords.map(jc => [jc.coords.lat, jc.coords.lng]),
-    [jobsWithCoords]
-  );
+  const onLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || jobsWithCoords.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    jobsWithCoords.forEach(jc => bounds.extend(jc.coords));
+    mapRef.current.fitBounds(bounds, { top: 30, right: 30, bottom: 30, left: 30 });
+  }, [jobsWithCoords]);
 
   if (jobs.length === 0) return null;
 
+  if (loading || !apiKey) {
+    return (
+      <div className="rounded-lg overflow-hidden border border-border flex items-center justify-center bg-muted/20" style={{ height }}>
+        <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg overflow-hidden border border-border flex items-center justify-center bg-muted/20" style={{ height }}>
+        <div className="text-center">
+          <AlertTriangle className="w-6 h-6 text-destructive mx-auto mb-1" />
+          <p className="text-xs text-destructive">שגיאה בטעינת מפה</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <DayRouteMapInner
+      apiKey={apiKey}
+      jobsWithCoords={jobsWithCoords}
+      height={height}
+      activeMarkerId={activeMarkerId}
+      setActiveMarkerId={setActiveMarkerId}
+      onLoad={onLoad}
+    />
+  );
+}
+
+function DayRouteMapInner({
+  apiKey,
+  jobsWithCoords,
+  height,
+  activeMarkerId,
+  setActiveMarkerId,
+  onLoad,
+}: {
+  apiKey: string;
+  jobsWithCoords: { job: Job; customer: any; coords: { lat: number; lng: number } }[];
+  height: string;
+  activeMarkerId: string | null;
+  setActiveMarkerId: (id: string | null) => void;
+  onLoad: (map: google.maps.Map) => void;
+}) {
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey });
+
+  const center = useMemo(() => {
+    if (jobsWithCoords.length === 0) return { lat: 32.07, lng: 34.77 };
+    const avgLat = jobsWithCoords.reduce((s, jc) => s + jc.coords.lat, 0) / jobsWithCoords.length;
+    const avgLng = jobsWithCoords.reduce((s, jc) => s + jc.coords.lng, 0) / jobsWithCoords.length;
+    return { lat: avgLat, lng: avgLng };
+  }, [jobsWithCoords]);
+
+  const polylinePath = useMemo(() => jobsWithCoords.map(jc => jc.coords), [jobsWithCoords]);
+
+  if (!isLoaded) {
+    return (
+      <div className="rounded-lg overflow-hidden border border-border flex items-center justify-center bg-muted/20" style={{ height }}>
+        <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg overflow-hidden border border-border" style={{ height }}>
-      <MapContainer
-        center={[positions[0]?.[0] || 32.07, positions[0]?.[1] || 34.77]}
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={center}
         zoom={12}
-        style={{ height: '100%', width: '100%' }}
-        scrollWheelZoom={true}
+        onLoad={onLoad}
+        options={mapOptions}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <FitBounds positions={positions} />
-
-        {positions.length > 1 && (
+        {jobsWithCoords.length > 1 && (
           <Polyline
-            positions={positions}
-            pathOptions={{ color: 'hsl(221, 83%, 53%)', weight: 3, opacity: 0.7, dashArray: '8, 8' }}
+            path={polylinePath}
+            options={{ strokeColor: '#3b82f6', strokeWeight: 3, strokeOpacity: 0.7, icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 }, offset: '50%', repeat: '100px' }] }}
           />
         )}
 
         {jobsWithCoords.map((jc, idx) => {
-          const color = typeColorMap[jc.job.type] || '#3b82f6';
+          const color = jc.job.completionStatus === 'done' ? '#22c55e' : typeColorMap[jc.job.type] || '#3b82f6';
           return (
             <Marker
               key={jc.job.id}
-              position={[jc.coords.lat, jc.coords.lng]}
-              icon={createNumberedIcon(idx + 1, color)}
+              position={jc.coords}
+              label={{ text: jc.job.completionStatus === 'done' ? '✓' : String(idx + 1), color: 'white', fontWeight: 'bold', fontSize: '12px' }}
+              icon={{ path: google.maps.SymbolPath.CIRCLE, fillColor: color, fillOpacity: 1, strokeColor: 'white', strokeWeight: 2, scale: 14 }}
+              onClick={() => setActiveMarkerId(jc.job.id === activeMarkerId ? null : jc.job.id)}
             >
-              <Popup>
-                <div dir="rtl" className="min-w-[180px] text-sm">
-                  <p className="font-bold mb-1">{jc.customer?.name}</p>
-                  <p className="text-xs text-gray-500 mb-1">{JOB_TYPE_CONFIG[jc.job.type].label}</p>
-                  <p className="text-xs text-gray-600 mb-2">{jc.customer?.address}</p>
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((jc.customer?.address || '') + ', ' + (jc.customer?.city || ''))}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white rounded text-xs font-medium hover:bg-blue-600 transition-colors"
-                  >
-                    🧭 נווט
-                  </a>
-                </div>
-              </Popup>
+              {activeMarkerId === jc.job.id && (
+                <InfoWindow onCloseClick={() => setActiveMarkerId(null)}>
+                  <div dir="rtl" style={{ minWidth: 180 }}>
+                    <p style={{ fontWeight: 'bold', marginBottom: 4 }}>{jc.customer?.name}</p>
+                    <p style={{ fontSize: 12, color: '#666' }}>{JOB_TYPE_CONFIG[jc.job.type].label}</p>
+                    <p style={{ fontSize: 12, color: '#999' }}>{jc.customer?.address}</p>
+                  </div>
+                </InfoWindow>
+              )}
             </Marker>
           );
         })}
-      </MapContainer>
+      </GoogleMap>
     </div>
   );
 }
