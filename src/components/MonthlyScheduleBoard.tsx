@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { DayRouteMap } from './DayRouteMap';
 
 const REGIONS = [
   'דרום רחוק', 'דרום קרוב', 'דרום תל אביב והסביבה', 'ירושלים והסביבה',
@@ -306,7 +307,7 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isApproved && <CheckCircle className="w-5 h-5 text-success" />}
@@ -318,6 +319,9 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
           <p className="text-sm text-muted-foreground text-center py-6">אין משימות ליום זה</p>
         ) : (
           <div className="space-y-3">
+            {/* Map preview */}
+            <DayRouteMap jobs={allJobs} height="300px" />
+
             {/* Summary */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 text-sm">
               <span>{allJobs.length} משימות</span>
