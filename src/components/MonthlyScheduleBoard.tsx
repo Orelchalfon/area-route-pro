@@ -953,7 +953,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     for (const dateStr of candidates) {
       const filterCount = getFilterDayJobs(dateStr).length;
       const manualCount = getManualDayJobs(dateStr).length;
-      if (filterCount + manualCount < 5) return dateStr;
+      if (filterCount + manualCount < 15) return dateStr;
     }
     return null;
   }, [futureWorkingDays, filterDistribution, extraFilterAssignments, removedFromAutoIds, manualJobs]);
