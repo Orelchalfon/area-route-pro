@@ -54,7 +54,7 @@ function generateFilterJobs(month: number, year: number, allCustomers: Customer[
     status: 'draft' as const,
     priority: 'low' as const,
     customerId: customer.id,
-    estimatedDuration: 25,
+    estimatedDuration: 20,
     location: customer.address,
     city: customer.city,
     notes: 'החלפת פילטר שנתית',
