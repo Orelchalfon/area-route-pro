@@ -41,9 +41,19 @@ export function DayRouteMap({ jobs, height = '350px' }: DayRouteMapProps) {
   useEffect(() => { fetchKey(); }, [fetchKey]);
 
   const jobsWithCoords = useMemo(() => {
+    // Track used positions and offset duplicates so all markers are visible
+    const usedPositions = new Map<string, number>();
     const result = jobs.map(job => {
       const customer = allCustomersData.find(c => c.id === job.customerId);
-      const coords = customer ? getCustomerCoords(customer) : { lat: 32.07, lng: 34.77 };
+      let coords = customer ? getCustomerCoords(customer) : { lat: 32.07, lng: 34.77 };
+      const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
+      const count = usedPositions.get(key) || 0;
+      if (count > 0) {
+        // Offset overlapping markers in a small circle
+        const angle = (count * 60) * (Math.PI / 180);
+        coords = { lat: coords.lat + 0.0008 * Math.cos(angle), lng: coords.lng + 0.0008 * Math.sin(angle) };
+      }
+      usedPositions.set(key, count + 1);
       return { job, customer, coords };
     });
     console.log(`[DayRouteMap] Rendering ${result.length} markers for ${jobs.length} jobs`);
