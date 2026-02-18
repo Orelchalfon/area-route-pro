@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Job, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
 import { technicians, customers } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, getDay, addMonths, subMonths, addWeeks, subWeeks, isSameMonth } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -382,7 +382,7 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
   );
 }
 
-// Day detail dialog with drag-and-drop reordering
+// Day detail dialog with drag-and-drop reordering, map, and navigation
 function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob, onCloseJob, onReturnJob }: {
   open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[]; onRemoveJob: (jobId: string) => void;
   onCloseJob?: (jobId: string) => void; onReturnJob?: (jobId: string) => void;
@@ -391,6 +391,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
+  const [showMap, setShowMap] = useState(false);
   const dayDate = new Date(dateStr + 'T00:00:00');
   const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
@@ -454,15 +455,34 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>{dayLabel}</span>
-            <span className="text-xs font-normal text-muted-foreground flex items-center gap-1">
-              <GripVertical className="w-3 h-3" /> גרור לשינוי סדר
-            </span>
+            <div className="flex items-center gap-2">
+              {orderedJobs.length > 0 && (
+                <Button
+                  variant={showMap ? 'default' : 'outline'}
+                  size="sm"
+                  className="gap-1 text-xs"
+                  onClick={() => setShowMap(!showMap)}
+                >
+                  <MapPin className="w-3 h-3" />
+                  {showMap ? 'הסתר מפה' : 'הצג מפה'}
+                </Button>
+              )}
+              <span className="text-xs font-normal text-muted-foreground flex items-center gap-1">
+                <GripVertical className="w-3 h-3" /> גרור לשינוי סדר
+              </span>
+            </div>
           </DialogTitle>
         </DialogHeader>
+
+        {/* Map preview */}
+        {showMap && orderedJobs.length > 0 && (
+          <DayRouteMap jobs={orderedJobs} height="280px" />
+        )}
+
         <div className="space-y-2">
           {orderedJobs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">אין משימות ליום זה</p>}
           {orderedJobs.map((job, idx) => {
@@ -516,11 +536,26 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                       </p>
                     )}
                   </div>
-                  {!isCompleted && (
-                    <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10 shrink-0" title="הסר מהלו״ז">
-                      <X className="w-3.5 h-3.5 text-destructive" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* Navigation link */}
+                    {customer && (
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address + ', ' + customer.city)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 rounded hover:bg-primary/10 transition-colors"
+                        title="נווט"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Navigation className="w-3.5 h-3.5 text-primary" />
+                      </a>
+                    )}
+                    {!isCompleted && (
+                      <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10" title="הסר מהלו״ז">
+                        <X className="w-3.5 h-3.5 text-destructive" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Expanded details */}
