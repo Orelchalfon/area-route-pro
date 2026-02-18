@@ -843,7 +843,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     });
 
     const available = filterJobs.filter(j => j.city === newArea && !allAssignedIds.has(j.id));
-    const toAssign = available.slice(0, 3);
+    const toAssign = available.slice(0, 15);
 
     if (toAssign.length > 0) {
       setExtraFilterAssignments(prev => {
