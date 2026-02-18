@@ -40,14 +40,15 @@ export function DayRouteMap({ jobs, height = '350px' }: DayRouteMapProps) {
   // Fetch key on mount
   useEffect(() => { fetchKey(); }, [fetchKey]);
 
-  const jobsWithCoords = useMemo(() =>
-    jobs.map(job => {
+  const jobsWithCoords = useMemo(() => {
+    const result = jobs.map(job => {
       const customer = allCustomersData.find(c => c.id === job.customerId);
       const coords = customer ? getCustomerCoords(customer) : { lat: 32.07, lng: 34.77 };
       return { job, customer, coords };
-    }),
-    [jobs]
-  );
+    });
+    console.log(`[DayRouteMap] Rendering ${result.length} markers for ${jobs.length} jobs`);
+    return result;
+  }, [jobs]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -115,7 +116,13 @@ function DayRouteMapInner({
   const handleMapLoad = useCallback((map: google.maps.Map) => {
     mapInstanceRef.current = map;
     onLoad(map);
-  }, [onLoad]);
+    // Immediately fit bounds to all markers so they're all visible
+    if (jobsWithCoords.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      jobsWithCoords.forEach(jc => bounds.extend(jc.coords));
+      map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+    }
+  }, [onLoad, jobsWithCoords]);
 
   // Snap-to-roads polyline + auto-fit bounds
   const routeWaypoints = useMemo(
@@ -146,12 +153,14 @@ function DayRouteMapInner({
         onLoad={handleMapLoad}
         options={mapOptions}
       >
+        {/* Markers are rendered independently of the route polyline */}
         {jobsWithCoords.map((jc, idx) => {
           const color = jc.job.completionStatus === 'done' ? '#22c55e' : typeColorMap[jc.job.type] || '#3b82f6';
           return (
             <Marker
               key={jc.job.id}
               position={jc.coords}
+              zIndex={1000 + idx}
               label={{ text: jc.job.completionStatus === 'done' ? '✓' : String(idx + 1), color: 'white', fontWeight: 'bold', fontSize: '12px' }}
               icon={{ path: google.maps.SymbolPath.CIRCLE, fillColor: color, fillOpacity: 1, strokeColor: 'white', strokeWeight: 2, scale: 14 }}
               onClick={() => setActiveMarkerId(jc.job.id === activeMarkerId ? null : jc.job.id)}
@@ -159,7 +168,7 @@ function DayRouteMapInner({
               {activeMarkerId === jc.job.id && (
                 <InfoWindow onCloseClick={() => setActiveMarkerId(null)}>
                   <div dir="rtl" style={{ minWidth: 180 }}>
-                    <p style={{ fontWeight: 'bold', marginBottom: 4 }}>{jc.customer?.name}</p>
+                    <p style={{ fontWeight: 'bold', marginBottom: 4 }}>#{idx + 1} {jc.customer?.name}</p>
                     <p style={{ fontSize: 12, color: '#666' }}>{JOB_TYPE_CONFIG[jc.job.type].label}</p>
                     <p style={{ fontSize: 12, color: '#999' }}>{jc.customer?.address}</p>
                   </div>
