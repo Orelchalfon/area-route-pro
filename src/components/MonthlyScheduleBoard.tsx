@@ -291,53 +291,97 @@ function calculateTimeRanges(allJobs: Job[]): { job: Job; startTime: string; end
   });
 }
 
-// Day approval dialog
+// Day approval dialog with drag-and-drop reordering
 function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onApprove, approvedDays }: {
   open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[];
   onApprove: (jobIds: string[], dateStr: string) => void; approvedDays: Set<string>;
 }) {
-  const allJobs = [...filterJobs, ...dayJobs];
+  const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
+  const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
   const dayDate = new Date(dateStr + 'T00:00:00');
   const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
-  const timeRanges = calculateTimeRanges(allJobs);
   const isApproved = approvedDays.has(dateStr);
-  const totalMinutes = allJobs.reduce((s, j) => s + j.estimatedDuration, 0);
+
+  // Sync when source data changes
+  useMemo(() => {
+    setOrderedJobs([...filterJobs, ...dayJobs]);
+  }, [filterJobs.length, dayJobs.length]);
+
+  const timeRanges = useMemo(() => calculateTimeRanges(orderedJobs), [orderedJobs]);
+  const totalMinutes = orderedJobs.reduce((s, j) => s + j.estimatedDuration, 0);
   const endMinutes = 10 * 60 + totalMinutes;
   const overTime = endMinutes > 17 * 60;
+
+  const handleDragStart = useCallback((idx: number) => setDragIdx(idx), []);
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => { e.preventDefault(); setOverIdx(idx); }, []);
+  const handleDragEnd = useCallback(() => { setDragIdx(null); setOverIdx(null); }, []);
+  const handleDrop = useCallback((idx: number) => {
+    if (dragIdx === null || dragIdx === idx) { setDragIdx(null); setOverIdx(null); return; }
+    setOrderedJobs(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(idx, 0, moved);
+      return next;
+    });
+    setDragIdx(null);
+    setOverIdx(null);
+  }, [dragIdx]);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {isApproved && <CheckCircle className="w-5 h-5 text-success" />}
-            אישור לו״ז — {dayLabel}
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isApproved && <CheckCircle className="w-5 h-5 text-success" />}
+              אישור לו״ז — {dayLabel}
+            </div>
+            <span className="text-xs font-normal text-muted-foreground flex items-center gap-1">
+              <GripVertical className="w-3 h-3" /> גרור לשינוי סדר
+            </span>
           </DialogTitle>
         </DialogHeader>
 
-        {allJobs.length === 0 ? (
+        {orderedJobs.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">אין משימות ליום זה</p>
         ) : (
           <div className="space-y-3">
             {/* Map preview */}
-            <DayRouteMap jobs={allJobs} height="300px" />
+            <DayRouteMap jobs={orderedJobs} height="300px" />
 
             {/* Summary */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 text-sm">
-              <span>{allJobs.length} משימות</span>
+              <span>{orderedJobs.length} משימות</span>
               <span>10:00 – {String(Math.floor(endMinutes / 60)).padStart(2, '0')}:{String(endMinutes % 60).padStart(2, '0')}</span>
               {overTime && <span className="text-destructive font-medium">⚠ חריגה מ-17:00</span>}
             </div>
 
-            {/* Timeline */}
+            {/* Timeline with drag-and-drop */}
             <div className="space-y-1">
               {timeRanges.map(({ job, startTime, endTime }, i) => {
                 const customer = customers.find(c => c.id === job.customerId);
                 const typeConfig = JOB_TYPE_CONFIG[job.type];
+                const isDragging = dragIdx === i;
+                const isOver = overIdx === i && dragIdx !== i;
                 return (
-                  <div key={job.id} className={`p-3 rounded-lg border ${typeColors[job.type]}`}>
+                  <div
+                    key={job.id}
+                    draggable
+                    onDragStart={() => handleDragStart(i)}
+                    onDragOver={(e) => handleDragOver(e, i)}
+                    onDrop={() => handleDrop(i)}
+                    onDragEnd={handleDragEnd}
+                    className={cn(
+                      `p-3 rounded-lg border ${typeColors[job.type]} cursor-grab active:cursor-grabbing transition-all`,
+                      isDragging && 'opacity-40 scale-95',
+                      isOver && 'ring-2 ring-primary ring-offset-2'
+                    )}
+                  >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
+                        <GripVertical className="w-4 h-4 text-muted-foreground/40" />
                         {typeIcons[job.type]}
                         <span className="font-medium text-sm">{customer?.name}</span>
                       </div>
@@ -363,8 +407,8 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
               <Button
                 className="w-full gap-2 bg-success hover:bg-success/90 text-success-foreground"
                 onClick={() => {
-                  onApprove(allJobs.map(j => j.id), dateStr);
-                  toast.success(`יום ${dayLabel} אושר — ${allJobs.length} משימות שובצו לטכנאי`);
+                  onApprove(orderedJobs.map(j => j.id), dateStr);
+                  toast.success(`יום ${dayLabel} אושר — ${orderedJobs.length} משימות שובצו לטכנאי`);
                 }}
               >
                 <CheckCircle className="w-4 h-4" />
