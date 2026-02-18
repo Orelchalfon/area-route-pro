@@ -62,7 +62,7 @@ function generateFilterJobs(month: number, year: number, allCustomers: Customer[
   }));
 }
 
-// Distribute filter jobs across working days — each day gets jobs from ONE area only (3 per day)
+// Distribute filter jobs across working days — each day gets jobs from ONE area only (up to 15 per day)
 function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<string, Job[]> {
   const distribution = new Map<string, Job[]>();
   workingDays.forEach(d => distribution.set(format(d, 'yyyy-MM-dd'), []));
@@ -75,7 +75,7 @@ function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<strin
   });
 
   const dayKeys = workingDays.map(d => format(d, 'yyyy-MM-dd'));
-  const perDay = 3;
+  const perDay = 15;
   let dayIdx = 0;
 
   // Assign each area's jobs to consecutive days, 3 per day
@@ -949,7 +949,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       const area = getDayArea(dateStr);
       if (area === jobCity) return dateStr;
     }
-    // Fallback: find any day with capacity (fewer than 5 total jobs)
+    // Fallback: find any day with capacity (fewer than 15 total jobs)
     for (const dateStr of candidates) {
       const filterCount = getFilterDayJobs(dateStr).length;
       const manualCount = getManualDayJobs(dateStr).length;
