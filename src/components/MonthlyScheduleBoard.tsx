@@ -729,12 +729,27 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     const manualDayJobs = getManualDayJobs(dateStr);
     manualDayJobs.forEach(j => onUnassignJob(j.id));
 
+    // Unassign any previously approved filter jobs for this day from global state
+    // so they no longer appear in the Daily Route page
+    const approvedFilterJobsForDay = jobs.filter(
+      j => j.type === 'filter_replacement' &&
+        j.scheduledDate === dateStr &&
+        (j.status === 'confirmed' || j.status === 'in_progress')
+    );
+    approvedFilterJobsForDay.forEach(j => onUnassignJob(j.id));
+
+    // Revoke day approval so the new set must be re-approved
+    setApprovedDays(prev => {
+      const next = new Set(prev);
+      next.delete(dateStr);
+      return next;
+    });
+
     // Find unassigned filter jobs from the new area and assign up to 3
     const allAssignedIds = new Set<string>();
     filterDistribution.forEach((dayJobs, key) => {
       if (key !== dateStr) dayJobs.forEach(j => { if (!removedFromAutoIds.has(j.id)) allAssignedIds.add(j.id); });
     });
-    // Also count current removedFromAutoIds minus the ones we just removed
     currentAutoJobs.forEach(j => allAssignedIds.delete(j.id));
     extraFilterAssignments.forEach((dayJobs, key) => {
       if (key !== dateStr) dayJobs.forEach(j => allAssignedIds.add(j.id));
