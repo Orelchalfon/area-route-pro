@@ -1,7 +1,8 @@
-import { useMemo, useCallback, useRef, useEffect } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { useState } from 'react';
 import { JOB_TYPE_CONFIG, JobType } from '@/types';
+import { useDirectionsRoute } from '@/hooks/useDirectionsRoute';
 
 interface Stop {
   id: string;
@@ -37,7 +38,6 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey });
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   const center = useMemo(() => {
     if (stops.length === 0) return { lat: 32.07, lng: 34.77 };
@@ -50,47 +50,17 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
     mapRef.current = map;
   }, []);
 
-  // Fit bounds when stops change
-  useEffect(() => {
-    if (!mapRef.current || stops.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
-    stops.forEach(s => bounds.extend(s.position));
-    mapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-  }, [stops]);
+  // Snap-to-roads polyline + auto-fit bounds
+  const routeWaypoints = useMemo(
+    () => stops.map(s => ({ lat: s.position.lat, lng: s.position.lng })),
+    [stops]
+  );
 
-  // Manage polyline imperatively
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !isLoaded || stops.length < 2) {
-      if (polylineRef.current) {
-        polylineRef.current.setMap(null);
-        polylineRef.current = null;
-      }
-      return;
-    }
-
-    const path = stops.map(s => ({ lat: s.position.lat, lng: s.position.lng }));
-
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null);
-    }
-
-    polylineRef.current = new google.maps.Polyline({
-      path,
-      strokeColor: '#3b82f6',
-      strokeWeight: 3,
-      strokeOpacity: 0.7,
-      icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 }, offset: '50%', repeat: '100px' }],
-      map,
-    });
-
-    return () => {
-      if (polylineRef.current) {
-        polylineRef.current.setMap(null);
-        polylineRef.current = null;
-      }
-    };
-  }, [stops, isLoaded]);
+  useDirectionsRoute({
+    map: mapRef.current,
+    waypoints: routeWaypoints,
+    isLoaded,
+  });
 
   if (loadError) {
     return (

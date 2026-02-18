@@ -3,6 +3,7 @@ import { Job, JOB_TYPE_CONFIG } from '@/types';
 import { customers as allCustomersData } from '@/data/mockData';
 import { getCustomerCoords } from '@/lib/customerCoords';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
+import { useDirectionsRoute } from '@/hooks/useDirectionsRoute';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { AlertTriangle } from 'lucide-react';
 
@@ -51,12 +52,6 @@ export function DayRouteMap({ jobs, height = '350px' }: DayRouteMapProps) {
     mapRef.current = map;
   }, []);
 
-  useEffect(() => {
-    if (!mapRef.current || jobsWithCoords.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
-    jobsWithCoords.forEach(jc => bounds.extend(jc.coords));
-    mapRef.current.fitBounds(bounds, { top: 30, right: 30, bottom: 30, left: 30 });
-  }, [jobsWithCoords]);
 
   if (jobs.length === 0) return null;
 
@@ -108,7 +103,6 @@ function DayRouteMapInner({
 }) {
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey });
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   const center = useMemo(() => {
     if (jobsWithCoords.length === 0) return { lat: 32.07, lng: 34.77 };
@@ -122,39 +116,17 @@ function DayRouteMapInner({
     onLoad(map);
   }, [onLoad]);
 
-  // Manage polyline imperatively to avoid @react-google-maps/api Polyline bug
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !isLoaded || jobsWithCoords.length < 2) {
-      if (polylineRef.current) {
-        polylineRef.current.setMap(null);
-        polylineRef.current = null;
-      }
-      return;
-    }
+  // Snap-to-roads polyline + auto-fit bounds
+  const routeWaypoints = useMemo(
+    () => jobsWithCoords.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng })),
+    [jobsWithCoords]
+  );
 
-    const path = jobsWithCoords.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng }));
-
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null);
-    }
-
-    polylineRef.current = new google.maps.Polyline({
-      path,
-      strokeColor: '#3b82f6',
-      strokeWeight: 3,
-      strokeOpacity: 0.7,
-      icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 }, offset: '50%', repeat: '100px' }],
-      map,
-    });
-
-    return () => {
-      if (polylineRef.current) {
-        polylineRef.current.setMap(null);
-        polylineRef.current = null;
-      }
-    };
-  }, [jobsWithCoords, isLoaded]);
+  useDirectionsRoute({
+    map: mapInstanceRef.current,
+    waypoints: routeWaypoints,
+    isLoaded,
+  });
 
   if (!isLoaded) {
     return (
