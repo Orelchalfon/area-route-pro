@@ -718,12 +718,16 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       return next;
     });
 
-    // Clear extra assignments for this day
+    // Clear extra filter assignments for this day
     setExtraFilterAssignments(prev => {
       const next = new Map(prev);
       next.delete(dateStr);
       return next;
     });
+
+    // Unassign manual jobs (malfunction/installation) from this day so the route resets
+    const manualDayJobs = getManualDayJobs(dateStr);
+    manualDayJobs.forEach(j => onUnassignJob(j.id));
 
     // Find unassigned filter jobs from the new area and assign up to 3
     const allAssignedIds = new Set<string>();
@@ -747,7 +751,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       });
     }
 
-    toast.success(`האזור שונה ל-${newArea} — ${toAssign.length} פילטרים שובצו`);
+    toast.success(`האזור שונה ל-${newArea} — המשימות הקודמות הוסרו, ${toAssign.length} פילטרים חדשים שובצו`);
   };
 
   // Unassigned filter jobs (not yet distributed to any day)
