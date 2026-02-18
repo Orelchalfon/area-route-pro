@@ -3,7 +3,7 @@ import { Job, JOB_TYPE_CONFIG } from '@/types';
 import { customers as allCustomersData } from '@/data/mockData';
 import { getCustomerCoords } from '@/lib/customerCoords';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
-import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { AlertTriangle } from 'lucide-react';
 
 // Re-export for backward compatibility
@@ -107,6 +107,8 @@ function DayRouteMapInner({
   onLoad: (map: google.maps.Map) => void;
 }) {
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey });
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   const center = useMemo(() => {
     if (jobsWithCoords.length === 0) return { lat: 32.07, lng: 34.77 };
@@ -115,7 +117,44 @@ function DayRouteMapInner({
     return { lat: avgLat, lng: avgLng };
   }, [jobsWithCoords]);
 
-  const polylinePath = useMemo(() => jobsWithCoords.map(jc => jc.coords), [jobsWithCoords]);
+  const handleMapLoad = useCallback((map: google.maps.Map) => {
+    mapInstanceRef.current = map;
+    onLoad(map);
+  }, [onLoad]);
+
+  // Manage polyline imperatively to avoid @react-google-maps/api Polyline bug
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !isLoaded || jobsWithCoords.length < 2) {
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null);
+        polylineRef.current = null;
+      }
+      return;
+    }
+
+    const path = jobsWithCoords.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng }));
+
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+    }
+
+    polylineRef.current = new google.maps.Polyline({
+      path,
+      strokeColor: '#3b82f6',
+      strokeWeight: 3,
+      strokeOpacity: 0.7,
+      icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 }, offset: '50%', repeat: '100px' }],
+      map,
+    });
+
+    return () => {
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null);
+        polylineRef.current = null;
+      }
+    };
+  }, [jobsWithCoords, isLoaded]);
 
   if (!isLoaded) {
     return (
@@ -131,17 +170,9 @@ function DayRouteMapInner({
         mapContainerStyle={mapContainerStyle}
         center={center}
         zoom={12}
-        onLoad={onLoad}
+        onLoad={handleMapLoad}
         options={mapOptions}
       >
-        {jobsWithCoords.length > 1 && polylinePath.length > 1 && polylinePath.every(p => p && typeof p.lat === 'number' && typeof p.lng === 'number') && (
-          <Polyline
-            key={`poly-${jobsWithCoords.map(jc => jc.job.id).join(',')}`}
-            path={polylinePath}
-            options={{ strokeColor: '#3b82f6', strokeWeight: 3, strokeOpacity: 0.7, icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 }, offset: '50%', repeat: '100px' }] }}
-          />
-        )}
-
         {jobsWithCoords.map((jc, idx) => {
           const color = jc.job.completionStatus === 'done' ? '#22c55e' : typeColorMap[jc.job.type] || '#3b82f6';
           return (

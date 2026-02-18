@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useRef, useEffect } from 'react';
-import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { useState } from 'react';
 import { JOB_TYPE_CONFIG, JobType } from '@/types';
 
@@ -37,6 +37,7 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey });
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   const center = useMemo(() => {
     if (stops.length === 0) return { lat: 32.07, lng: 34.77 };
@@ -44,11 +45,6 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
     const avgLng = stops.reduce((s, st) => s + st.position.lng, 0) / stops.length;
     return { lat: avgLat, lng: avgLng };
   }, [stops]);
-
-  const polylinePath = useMemo(() =>
-    stops.map(s => s.position),
-    [stops]
-  );
 
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -61,6 +57,40 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
     stops.forEach(s => bounds.extend(s.position));
     mapRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
   }, [stops]);
+
+  // Manage polyline imperatively
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isLoaded || stops.length < 2) {
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null);
+        polylineRef.current = null;
+      }
+      return;
+    }
+
+    const path = stops.map(s => ({ lat: s.position.lat, lng: s.position.lng }));
+
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+    }
+
+    polylineRef.current = new google.maps.Polyline({
+      path,
+      strokeColor: '#3b82f6',
+      strokeWeight: 3,
+      strokeOpacity: 0.7,
+      icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 }, offset: '50%', repeat: '100px' }],
+      map,
+    });
+
+    return () => {
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null);
+        polylineRef.current = null;
+      }
+    };
+  }, [stops, isLoaded]);
 
   if (loadError) {
     return (
@@ -86,24 +116,6 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
       onLoad={onLoad}
       options={mapOptions}
     >
-      {/* Route line */}
-      {stops.length > 1 && polylinePath.length > 1 && polylinePath.every(p => p && typeof p.lat === 'number' && typeof p.lng === 'number') && (
-        <Polyline
-          key={`poly-${stops.map(s => s.id).join(',')}`}
-          path={polylinePath}
-          options={{
-            strokeColor: '#3b82f6',
-            strokeWeight: 3,
-            strokeOpacity: 0.7,
-            icons: [{
-              icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 },
-              offset: '50%',
-              repeat: '100px',
-            }],
-          }}
-        />
-      )}
-
       {/* Stop markers */}
       {stops.map((stop) => {
         const color = stop.isDone ? '#22c55e' : typeColorMap[stop.type] || '#3b82f6';
