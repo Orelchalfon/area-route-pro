@@ -224,7 +224,7 @@ export function useJobs() {
 
   const unassignJob = (jobId: string) => {
     setJobs(prev => prev.map(j => 
-      j.id === jobId ? { ...j, technicianId: undefined, scheduledDate: undefined, scheduledTime: undefined } : j
+      j.id === jobId ? { ...j, status: 'draft' as JobStatus, technicianId: undefined, scheduledDate: undefined, scheduledTime: undefined } : j
     ));
   };
 
