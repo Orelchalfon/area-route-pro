@@ -62,7 +62,7 @@ function generateFilterJobs(month: number, year: number, allCustomers: Customer[
   }));
 }
 
-// Distribute filter jobs across working days — each day gets jobs from ONE area only (up to 15 per day)
+// Distribute filter jobs across working days — pack up to 15 per day, mixing areas when needed
 function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<string, Job[]> {
   const distribution = new Map<string, Job[]>();
   workingDays.forEach(d => distribution.set(format(d, 'yyyy-MM-dd'), []));
@@ -78,17 +78,25 @@ function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<strin
   const perDay = 15;
   let dayIdx = 0;
 
-  // Assign each area's jobs to consecutive days, 3 per day
-  Object.values(jobsByCity).forEach(cityJobs => {
-    for (let i = 0; i < cityJobs.length; i += perDay) {
-      if (dayIdx >= dayKeys.length) break;
+  // Pack areas into days: fill each day up to perDay before moving to the next
+  for (const cityJobs of Object.values(jobsByCity)) {
+    let remaining = [...cityJobs];
+    while (remaining.length > 0 && dayIdx < dayKeys.length) {
       const dateStr = dayKeys[dayIdx];
-      const chunk = cityJobs.slice(i, i + perDay);
       const existing = distribution.get(dateStr) || [];
+      const available = perDay - existing.length;
+      if (available <= 0) {
+        dayIdx++;
+        continue;
+      }
+      const chunk = remaining.splice(0, available);
       distribution.set(dateStr, [...existing, ...chunk]);
-      dayIdx++;
+      // Only advance day if this day is now full
+      if (existing.length + chunk.length >= perDay) {
+        dayIdx++;
+      }
     }
-  });
+  }
 
   return distribution;
 }
