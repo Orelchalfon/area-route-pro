@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UserPlus } from 'lucide-react';
+import { AddressAutocomplete } from './AddressAutocomplete';
 
 interface NewCustomerDialogProps {
-  onAdd: (data: { name: string; phone: string; address: string; city: string; email: string; product: string }) => void;
+  onAdd: (data: { name: string; phone: string; address: string; city: string; email: string; product: string; lat?: number; lng?: number; placeId?: string }) => void;
 }
 
 export function NewCustomerDialog({ onAdd }: NewCustomerDialogProps) {
@@ -17,12 +18,24 @@ export function NewCustomerDialog({ onAdd }: NewCustomerDialogProps) {
   const [city, setCity] = useState('');
   const [email, setEmail] = useState('');
   const [product, setProduct] = useState('');
+  const [lat, setLat] = useState<number | undefined>();
+  const [lng, setLng] = useState<number | undefined>();
+  const [placeId, setPlaceId] = useState<string | undefined>();
+
+  const handlePlaceSelect = useCallback((place: { address: string; city: string; lat: number; lng: number; placeId: string }) => {
+    setAddress(place.address);
+    setCity(place.city);
+    setLat(place.lat);
+    setLng(place.lng);
+    setPlaceId(place.placeId);
+  }, []);
 
   const handleSubmit = () => {
     if (!name || !phone || !address || !city) return;
-    onAdd({ name, phone, address, city, email, product });
+    onAdd({ name, phone, address, city, email, product, lat, lng, placeId });
     setOpen(false);
     setName(''); setPhone(''); setAddress(''); setCity(''); setEmail(''); setProduct('');
+    setLat(undefined); setLng(undefined); setPlaceId(undefined);
   };
 
   return (
@@ -47,15 +60,21 @@ export function NewCustomerDialog({ onAdd }: NewCustomerDialogProps) {
             <Label>טלפון</Label>
             <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+972-50-0000000" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>כתובת</Label>
-              <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="רחוב ומספר" />
-            </div>
-            <div className="space-y-2">
-              <Label>עיר</Label>
-              <Input value={city} onChange={e => setCity(e.target.value)} placeholder="עיר" />
-            </div>
+          <div className="space-y-2">
+            <Label>כתובת</Label>
+            <AddressAutocomplete
+              value={address}
+              onChange={setAddress}
+              onPlaceSelect={handlePlaceSelect}
+              placeholder="הקלד כתובת..."
+            />
+            {placeId && (
+              <p className="text-xs text-muted-foreground">📍 כתובת מאומתת</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>עיר</Label>
+            <Input value={city} onChange={e => setCity(e.target.value)} placeholder="עיר" />
           </div>
           <div className="space-y-2">
             <Label>מייל</Label>
