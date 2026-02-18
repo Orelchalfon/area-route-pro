@@ -5,7 +5,6 @@ import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
   { to: '/', label: 'לוח בקרה', icon: LayoutDashboard },
-  { to: '/daily-route', label: 'מסלול יומי', icon: MapPinned },
   { to: '/malfunctions', label: 'תקלות', icon: AlertTriangle },
   { to: '/installations', label: 'התקנות', icon: Wrench },
   { to: '/service', label: 'שירות שוטף', icon: Filter },
