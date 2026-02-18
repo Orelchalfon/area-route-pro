@@ -1,5 +1,6 @@
 import { useMemo, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
+import { GOOGLE_MAPS_LIBRARIES } from '@/lib/googleMapsConfig';
 import { useState } from 'react';
 import { JOB_TYPE_CONFIG, JobType } from '@/types';
 import { useDirectionsRoute } from '@/hooks/useDirectionsRoute';
@@ -35,7 +36,7 @@ const mapOptions: google.maps.MapOptions = {
 };
 
 export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
-  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey });
+  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: GOOGLE_MAPS_LIBRARIES });
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
 

@@ -43,6 +43,7 @@ export interface Customer {
   nextServiceDate?: string;
   lat?: number;
   lng?: number;
+  placeId?: string;
 }
 
 export interface Job {

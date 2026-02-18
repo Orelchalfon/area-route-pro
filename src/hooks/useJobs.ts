@@ -250,8 +250,12 @@ export function useJobs() {
     setJobs(prev => [...prev, newJob]);
   };
 
-  const addCustomer = (data: Omit<Customer, 'id'>) => {
-    const newCustomer: Customer = { ...data, id: `c${Date.now()}` };
+  const addCustomer = (data: { name: string; phone: string; address: string; city: string; email: string; product: string; lat?: number; lng?: number; placeId?: string; filterReplacementMonth?: number }) => {
+    const newCustomer: Customer = {
+      ...data,
+      id: `c${Date.now()}`,
+      filterReplacementMonth: data.filterReplacementMonth || (new Date().getMonth() + 1),
+    };
     setCustomersList(prev => [...prev, newCustomer]);
   };
 
