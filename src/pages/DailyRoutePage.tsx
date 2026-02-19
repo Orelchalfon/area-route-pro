@@ -146,41 +146,8 @@ export default function DailyRoutePage() {
         </div>
       ) : plannerMode ? (
         /* ============ PLANNER MODE ============ */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Map */}
-          <div className="lg:col-span-2 rounded-xl overflow-hidden border border-border shadow-card" style={{ height: '600px' }}>
-            {keyLoading ? (
-              <div className="flex items-center justify-center h-full bg-muted/30">
-                <div className="text-center">
-                  <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">טוען מפה...</p>
-                </div>
-              </div>
-            ) : keyError ? (
-              <div className="flex items-center justify-center h-full bg-muted/30">
-                <div className="text-center">
-                  <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
-                  <p className="text-sm text-destructive">שגיאה בטעינת המפה</p>
-                  <p className="text-xs text-muted-foreground mt-1">{keyError}</p>
-                  <Button variant="outline" size="sm" className="mt-3" onClick={fetchKey}>נסה שוב</Button>
-                </div>
-              </div>
-            ) : apiKey ? (
-              <GoogleMapsPlanner
-                apiKey={apiKey}
-                stops={orderedJobs.map((jc, idx) => ({
-                  id: jc.job.id,
-                  position: { lat: jc.coords.lat, lng: jc.coords.lng },
-                  label: String(idx + 1),
-                  title: jc.customer?.name || '',
-                  type: jc.job.type,
-                  isDone: jc.job.completionStatus === 'done',
-                }))}
-              />
-            ) : null}
-          </div>
-
-          {/* Sidebar - DnD list */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-4">
+          {/* Sidebar - DnD list (right side in RTL = first in DOM) */}
           <div className="space-y-3">
             <div className="bg-card rounded-xl border border-border p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -266,6 +233,40 @@ export default function DailyRoutePage() {
               </DragDropContext>
             </div>
           </div>
+
+          {/* Map (left side in RTL = second in DOM) */}
+          <div className="rounded-xl overflow-hidden border border-border shadow-card" style={{ height: '80vh' }}>
+            {keyLoading ? (
+              <div className="flex items-center justify-center h-full bg-muted/30">
+                <div className="text-center">
+                  <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">טוען מפה...</p>
+                </div>
+              </div>
+            ) : keyError ? (
+              <div className="flex items-center justify-center h-full bg-muted/30">
+                <div className="text-center">
+                  <AlertTriangle className="w-8 h-8 text-destructive mx-auto mb-2" />
+                  <p className="text-sm text-destructive">שגיאה בטעינת המפה</p>
+                  <p className="text-xs text-muted-foreground mt-1">{keyError}</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={fetchKey}>נסה שוב</Button>
+                </div>
+              </div>
+            ) : apiKey ? (
+              <GoogleMapsPlanner
+                apiKey={apiKey}
+                stops={orderedJobs.map((jc, idx) => ({
+                  id: jc.job.id,
+                  position: { lat: jc.coords.lat, lng: jc.coords.lng },
+                  label: String(idx + 1),
+                  title: jc.customer?.name || '',
+                  type: jc.job.type,
+                  isDone: jc.job.completionStatus === 'done',
+                }))}
+              />
+            ) : null}
+          </div>
+
         </div>
       ) : (
         /* ============ NORMAL VIEW (no map loaded) ============ */
