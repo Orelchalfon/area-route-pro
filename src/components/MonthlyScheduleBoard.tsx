@@ -507,22 +507,11 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>{dayLabel}</span>
             <div className="flex items-center gap-2">
-              {orderedJobs.length > 0 && (
-                <Button
-                  variant={showMap ? 'default' : 'outline'}
-                  size="sm"
-                  className="gap-1 text-xs"
-                  onClick={() => setShowMap(!showMap)}
-                >
-                  <MapPin className="w-3 h-3" />
-                  {showMap ? 'הסתר מפה' : 'הצג מפה'}
-                </Button>
-              )}
               <span className="text-xs font-normal text-muted-foreground flex items-center gap-1">
                 <GripVertical className="w-3 h-3" /> גרור לשינוי סדר
               </span>
@@ -530,132 +519,145 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
           </DialogTitle>
         </DialogHeader>
 
-        {/* Map preview */}
-        {showMap && orderedJobs.length > 0 && (
-          <DayRouteMap jobs={orderedJobs} height="280px" />
-        )}
-
-        <div className="space-y-2">
-          {orderedJobs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">אין משימות ליום זה</p>}
-          {orderedJobs.map((job, idx) => {
-            const customer = customers.find(c => c.id === job.customerId);
-            const typeConfig = JOB_TYPE_CONFIG[job.type];
-            const isFilter = job.type === 'filter_replacement';
-            const isCompleted = job.status === 'completed';
-            const borderClass = job.completionStatus ? completionColorMap[job.completionStatus] : typeColors[job.type];
-            const isExpanded = expandedJobId === job.id;
-            const isDragging = dragIdx === idx;
-            const isOver = overIdx === idx && dragIdx !== idx;
-            const time = timeRanges[idx];
-
-            return (
-              <div key={job.id}>
-                <div
-                  draggable
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
-                  onDrop={() => handleDrop(idx)}
-                  onDragEnd={handleDragEnd}
-                  className={cn(
-                    `p-3 rounded-lg border-2 ${borderClass} flex items-center gap-2 cursor-grab active:cursor-grabbing transition-all`,
-                    isDragging && 'opacity-40 scale-95',
-                    isOver && 'ring-2 ring-primary ring-offset-2'
-                  )}
-                  onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                >
-                  <div className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 cursor-grab">
-                    <GripVertical className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {typeIcons[job.type]}
-                        <span className="text-sm font-medium">{customer?.name}</span>
-                      </div>
-                      {time && (
-                        <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                          {time.startTime}–{time.endTime}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs opacity-70">{typeConfig.label} · {job.estimatedDuration} דק׳</p>
-                    <p className="text-xs opacity-60">{job.location}</p>
-                    {isCompleted && (
-                      <p className="text-xs font-medium mt-0.5">
-                        {job.completionStatus === 'done' ? '✓ בוצע' :
-                         job.completionStatus === 'not_done' ? '✗ לא בוצע' :
-                         job.completionStatus === 'need_return' ? '↻ צריך לחזור' : ''}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* Navigation link */}
-                    {customer && (
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address + ', ' + customer.city)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1 rounded hover:bg-primary/10 transition-colors"
-                        title="נווט"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Navigation className="w-3.5 h-3.5 text-primary" />
-                      </a>
-                    )}
-                    {!isCompleted && (
-                      <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10" title="הסר מהלו״ז">
-                        <X className="w-3.5 h-3.5 text-destructive" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Expanded details */}
-                {isExpanded && isCompleted && (
-                  <div className="mt-1 p-3 rounded-lg bg-muted/50 border border-border space-y-2">
-                    {job.completionNotes && (
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground mb-0.5">הערות טכנאי:</p>
-                        <p className="text-sm">{job.completionNotes}</p>
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      {onCloseJob && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 text-xs"
-                          onClick={() => {
-                            onCloseJob(job.id);
-                            toast.success('הקריאה נסגרה והועברה להיסטוריה');
-                            onClose();
-                          }}
-                        >
-                          <Archive className="w-3 h-3 ml-1" />
-                          סגור קריאה
-                        </Button>
-                      )}
-                      {onReturnJob && (job.completionStatus === 'not_done' || job.completionStatus === 'need_return') && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 text-xs border-warning text-warning hover:bg-warning/10"
-                          onClick={() => {
-                            onReturnJob(job.id);
-                            toast.success(job.type === 'filter_replacement' ? 'המשימה שובצה מחדש' : 'הקריאה הוחזרה לטבלה');
-                            onClose();
-                          }}
-                        >
-                          <Undo2 className="w-3 h-3 ml-1" />
-                          החזר קריאה
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4" style={{ direction: 'ltr' }}>
+          {/* Map - LEFT side */}
+          <div className="rounded-xl overflow-hidden border border-border" style={{ height: '70vh' }}>
+            {orderedJobs.length > 0 ? (
+              <DayRouteMap jobs={orderedJobs} height="70vh" />
+            ) : (
+              <div className="flex items-center justify-center h-full bg-muted/20">
+                <p className="text-sm text-muted-foreground">אין משימות להצגה</p>
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          {/* Job list - RIGHT side */}
+          <div className="space-y-2 overflow-y-auto" dir="rtl" style={{ maxHeight: '70vh' }}>
+            {orderedJobs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">אין משימות ליום זה</p>}
+            {orderedJobs.map((job, idx) => {
+              const customer = customers.find(c => c.id === job.customerId);
+              const typeConfig = JOB_TYPE_CONFIG[job.type];
+              const isCompleted = job.status === 'completed';
+              const borderClass = job.completionStatus ? completionColorMap[job.completionStatus] : typeColors[job.type];
+              const isExpanded = expandedJobId === job.id;
+              const isDragging = dragIdx === idx;
+              const isOver = overIdx === idx && dragIdx !== idx;
+              const time = timeRanges[idx];
+
+              return (
+                <div key={job.id}>
+                  <div
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={() => handleDrop(idx)}
+                    onDragEnd={handleDragEnd}
+                    className={cn(
+                      `p-3 rounded-lg border-2 ${borderClass} flex items-center gap-2 cursor-grab active:cursor-grabbing transition-all`,
+                      isDragging && 'opacity-40 scale-95',
+                      isOver && 'ring-2 ring-primary ring-offset-2'
+                    )}
+                    onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                  >
+                    {/* Number badge */}
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
+                      isCompleted && job.completionStatus === 'done' ? 'bg-success' : 'bg-primary'
+                    }`}>
+                      {isCompleted && job.completionStatus === 'done' ? '✓' : idx + 1}
+                    </div>
+                    <div className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 cursor-grab">
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {typeIcons[job.type]}
+                          <span className="text-sm font-medium">{customer?.name}</span>
+                        </div>
+                        {time && (
+                          <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                            {time.startTime}–{time.endTime}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs opacity-70">{typeConfig.label} · {job.estimatedDuration} דק׳</p>
+                      <p className="text-xs opacity-60">{job.location}</p>
+                      {isCompleted && (
+                        <p className="text-xs font-medium mt-0.5">
+                          {job.completionStatus === 'done' ? '✓ בוצע' :
+                           job.completionStatus === 'not_done' ? '✗ לא בוצע' :
+                           job.completionStatus === 'need_return' ? '↻ צריך לחזור' : ''}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {customer && (
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address + ', ' + customer.city)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 rounded hover:bg-primary/10 transition-colors"
+                          title="נווט"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Navigation className="w-3.5 h-3.5 text-primary" />
+                        </a>
+                      )}
+                      {!isCompleted && (
+                        <button onClick={(e) => { e.stopPropagation(); onRemoveJob(job.id); }} className="p-1 rounded hover:bg-destructive/10" title="הסר מהלו״ז">
+                          <X className="w-3.5 h-3.5 text-destructive" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Expanded details */}
+                  {isExpanded && isCompleted && (
+                    <div className="mt-1 p-3 rounded-lg bg-muted/50 border border-border space-y-2">
+                      {job.completionNotes && (
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-0.5">הערות טכנאי:</p>
+                          <p className="text-sm">{job.completionNotes}</p>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        {onCloseJob && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-xs"
+                            onClick={() => {
+                              onCloseJob(job.id);
+                              toast.success('הקריאה נסגרה והועברה להיסטוריה');
+                              onClose();
+                            }}
+                          >
+                            <Archive className="w-3 h-3 ml-1" />
+                            סגור קריאה
+                          </Button>
+                        )}
+                        {onReturnJob && (job.completionStatus === 'not_done' || job.completionStatus === 'need_return') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-xs border-warning text-warning hover:bg-warning/10"
+                            onClick={() => {
+                              onReturnJob(job.id);
+                              toast.success(job.type === 'filter_replacement' ? 'המשימה שובצה מחדש' : 'הקריאה הוחזרה לטבלה');
+                              onClose();
+                            }}
+                          >
+                            <Undo2 className="w-3 h-3 ml-1" />
+                            החזר קריאה
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
