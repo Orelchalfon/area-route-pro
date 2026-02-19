@@ -28,18 +28,29 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
     const completedToday = jobs.filter(j =>
       j.scheduledDate === todayStr && j.status === 'completed' && j.completionStatus
     );
-    const closedToday = closedJobs.filter(j => {
-      const closeLog = todayLogs.find(l => l.jobId === j.id && l.action === 'סגירת קריאה');
-      return !!closeLog;
-    });
     const filtersDone = completedToday.filter(j => j.type === 'filter_replacement' && j.completionStatus === 'done');
     const malfunctionsDone = completedToday.filter(j => j.type === 'malfunction' && j.completionStatus === 'done');
     const installationsDone = completedToday.filter(j => j.type === 'installation' && j.completionStatus === 'done');
     const notCompleted = completedToday.filter(j => j.completionStatus === 'not_done' || j.completionStatus === 'need_return');
-    const assignmentLogs = todayLogs.filter(l => l.action === 'שיבוץ');
 
-    return { todayLogs, completedToday, closedToday, filtersDone, malfunctionsDone, installationsDone, notCompleted, assignmentLogs, totalActions: todayLogs.length };
-  }, [jobs, closedJobs, activityLogs, todayStr]);
+    // Build clear action list from today's logs
+    const actionItems: { customerName: string; action: string; icon: 'close' | 'return' | 'schedule' | 'other'; details: string }[] = [];
+    for (const log of todayLogs) {
+      const customer = allCustomers.find(c => c.id === log.customerId) || customers.find(c => c.id === log.customerId);
+      const name = customer?.name || log.customerId;
+      if (log.action === 'סגירת קריאה') {
+        actionItems.push({ customerName: name, action: 'קריאה נסגרה', icon: 'close', details: log.details });
+      } else if (log.action === 'החזרת קריאה') {
+        actionItems.push({ customerName: name, action: 'קריאה הוחזרה למאגר', icon: 'return', details: log.details });
+      } else if (log.action === 'תזמון שירות') {
+        actionItems.push({ customerName: name, action: 'שובץ לשנה הבאה', icon: 'schedule', details: log.details });
+      } else if (log.action === 'עדכון מועד') {
+        actionItems.push({ customerName: name, action: 'מועד שירות עודכן', icon: 'schedule', details: log.details });
+      }
+    }
+
+    return { todayLogs, completedToday, filtersDone, malfunctionsDone, installationsDone, notCompleted, actionItems, totalActions: todayLogs.length };
+  }, [jobs, closedJobs, activityLogs, todayStr, allCustomers]);
 
   const getCustomer = (customerId: string): Customer | undefined =>
     customers.find(c => c.id === customerId);
@@ -75,95 +86,60 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
         </DialogHeader>
 
         <div className="space-y-5 mt-2">
-          {/* Stats Overview */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border bg-success/10 border-success/30 p-4 text-center">
-              <div className="text-2xl font-bold text-success">{summary.completedToday.filter(j => j.completionStatus === 'done').length}</div>
-              <div className="text-xs text-success/80 mt-1">בוצעו בהצלחה</div>
-            </div>
-            <div className="rounded-xl border bg-warning/10 border-warning/30 p-4 text-center">
-              <div className="text-2xl font-bold text-warning">{summary.notCompleted.length}</div>
-              <div className="text-xs text-warning/80 mt-1">לא הושלמו</div>
-            </div>
-            <div className="rounded-xl border bg-primary/10 border-primary/30 p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{summary.totalActions}</div>
-              <div className="text-xs text-primary/80 mt-1">פעולות היום</div>
-            </div>
-          </div>
-
-          {/* Phase 1: Review (before confirm) */}
+          {/* Phase 1: Action summary (before confirm) */}
           {!confirmed && (
             <>
-              {/* Completed jobs brief */}
-              {summary.completedToday.length > 0 && (
+              {summary.actionItems.length > 0 ? (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-foreground">משימות שדווחו היום ({summary.completedToday.length})</h3>
-                  <div className="space-y-1.5">
-                    {summary.completedToday.map(job => {
-                      const customer = getCustomer(job.customerId);
-                      const isDone = job.completionStatus === 'done';
-                      const isReturn = job.completionStatus === 'need_return';
-                      return (
-                        <div key={job.id} className={`flex items-center justify-between p-3 rounded-lg border ${isDone ? 'border-success/30 bg-success/5' : isReturn ? 'border-warning/30 bg-warning/5' : 'border-destructive/30 bg-destructive/5'}`}>
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {isDone ? <CheckCircle className="w-4 h-4 text-success shrink-0" /> : isReturn ? <RotateCcw className="w-4 h-4 text-warning shrink-0" /> : <XCircle className="w-4 h-4 text-destructive shrink-0" />}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium">{customer?.name}</p>
-                              <p className="text-xs text-muted-foreground">{JOB_TYPE_CONFIG[job.type].label}</p>
-                              {job.completionNotes && (
-                                <div className="mt-1 p-2 rounded bg-muted/50 border border-border/50">
-                                  <p className="text-xs text-muted-foreground font-medium mb-0.5">הערות טכנאי:</p>
-                                  <p className="text-xs text-foreground">{job.completionNotes}</p>
-                                </div>
-                              )}
-                              {!job.completionNotes && job.notes && (
-                                <p className="text-xs text-muted-foreground mt-0.5">{job.notes}</p>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-xs font-medium shrink-0">
-                            {isDone ? '✓ בוצע' : isReturn ? '↻ צריך לחזור' : '✗ לא בוצע'}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  <h3 className="text-sm font-semibold text-foreground">פקודות שבוצעו היום ({summary.actionItems.length})</h3>
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50 border-b border-border">
+                          <th className="text-right py-2 px-3 font-medium text-muted-foreground">#</th>
+                          <th className="text-right py-2 px-3 font-medium text-muted-foreground">לקוח</th>
+                          <th className="text-right py-2 px-3 font-medium text-muted-foreground">פעולה</th>
+                          <th className="text-right py-2 px-3 font-medium text-muted-foreground">פירוט</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {summary.actionItems.map((item, i) => (
+                          <tr key={i} className="border-b border-border/50 last:border-0">
+                            <td className="py-2 px-3 text-muted-foreground">{i + 1}</td>
+                            <td className="py-2 px-3 font-medium">{item.customerName}</td>
+                            <td className="py-2 px-3">
+                              <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
+                                item.icon === 'close' ? 'bg-success/10 text-success' :
+                                item.icon === 'return' ? 'bg-warning/10 text-warning' :
+                                'bg-primary/10 text-primary'
+                              }`}>
+                                {item.icon === 'close' && <CheckCircle className="w-3 h-3" />}
+                                {item.icon === 'return' && <RotateCcw className="w-3 h-3" />}
+                                {item.icon === 'schedule' && <Calendar className="w-3 h-3" />}
+                                {item.action}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-xs text-muted-foreground max-w-[200px] truncate">{item.details}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              )}
-
-              {/* Activity Log */}
-              {summary.todayLogs.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-foreground">יומן פעילות</h3>
-                  <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-border p-3 bg-muted/30">
-                    {summary.todayLogs.slice(0, 20).map(log => {
-                      const customer = getCustomer(log.customerId);
-                      return (
-                        <div key={log.id} className="flex items-center gap-2 text-xs text-muted-foreground py-1 border-b border-border/50 last:border-0">
-                          <span className="text-[10px] font-mono opacity-60">{log.timestamp.split('T')[1]?.slice(0, 5)}</span>
-                          <span className="font-medium text-foreground">{customer?.name}</span>
-                          <ArrowRight className="w-3 h-3 opacity-40" />
-                          <span>{log.action}: {log.details}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Empty State */}
-              {summary.completedToday.length === 0 && summary.todayLogs.length === 0 && (
+              ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <ClipboardCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">אין פעילות מתועדת להיום</p>
+                  <p className="text-sm">לא בוצעו פקודות היום</p>
+                  <p className="text-xs mt-1">סגור או החזר קריאות מתוך תצוגת היום כדי לראות סיכום כאן</p>
                 </div>
               )}
 
-              {/* Confirm button */}
-              <Button className="w-full gap-2" size="lg" onClick={handleConfirm}>
-                <CheckCircle className="w-4 h-4" />
-                אישור וסיום יום עבודה
-              </Button>
+              {summary.actionItems.length > 0 && (
+                <Button className="w-full gap-2" size="lg" onClick={handleConfirm}>
+                  <CheckCircle className="w-4 h-4" />
+                  אישור וסיום יום עבודה
+                </Button>
+              )}
             </>
           )}
 
