@@ -33,21 +33,31 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
     const installationsDone = completedToday.filter(j => j.type === 'installation' && j.completionStatus === 'done');
     const notCompleted = completedToday.filter(j => j.completionStatus === 'not_done' || j.completionStatus === 'need_return');
 
-    // Build clear action list from today's logs
-    const actionItems: { customerName: string; action: string; icon: 'close' | 'return' | 'schedule' | 'other'; details: string }[] = [];
+    // Group actions per customer into one summary line
+    const customerMap = new Map<string, { customerName: string; actions: string[]; mainIcon: 'close' | 'return' | 'schedule' }>();
     for (const log of todayLogs) {
       const customer = allCustomers.find(c => c.id === log.customerId) || customers.find(c => c.id === log.customerId);
       const name = customer?.name || log.customerId;
+      const key = log.customerId;
+      if (!customerMap.has(key)) {
+        customerMap.set(key, { customerName: name, actions: [], mainIcon: 'close' });
+      }
+      const entry = customerMap.get(key)!;
       if (log.action === 'סגירת קריאה') {
-        actionItems.push({ customerName: name, action: 'קריאה נסגרה', icon: 'close', details: log.details });
+        entry.actions.push('נסגרה');
+        entry.mainIcon = 'close';
       } else if (log.action === 'החזרת קריאה') {
-        actionItems.push({ customerName: name, action: 'קריאה הוחזרה למאגר', icon: 'return', details: log.details });
+        entry.actions.push('הוחזרה למאגר');
+        entry.mainIcon = 'return';
       } else if (log.action === 'תזמון שירות') {
-        actionItems.push({ customerName: name, action: 'שובץ לשנה הבאה', icon: 'schedule', details: log.details });
+        entry.actions.push('שובץ לשנה הבאה');
+        entry.mainIcon = 'schedule';
       } else if (log.action === 'עדכון מועד') {
-        actionItems.push({ customerName: name, action: 'מועד שירות עודכן', icon: 'schedule', details: log.details });
+        entry.actions.push('מועד שירות עודכן');
+        entry.mainIcon = 'schedule';
       }
     }
+    const actionItems = Array.from(customerMap.values()).filter(e => e.actions.length > 0);
 
     return { todayLogs, completedToday, filtersDone, malfunctionsDone, installationsDone, notCompleted, actionItems, totalActions: todayLogs.length };
   }, [jobs, closedJobs, activityLogs, todayStr, allCustomers]);
@@ -98,8 +108,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
                         <tr className="bg-muted/50 border-b border-border">
                           <th className="text-right py-2 px-3 font-medium text-muted-foreground">#</th>
                           <th className="text-right py-2 px-3 font-medium text-muted-foreground">לקוח</th>
-                          <th className="text-right py-2 px-3 font-medium text-muted-foreground">פעולה</th>
-                          <th className="text-right py-2 px-3 font-medium text-muted-foreground">פירוט</th>
+                          <th className="text-right py-2 px-3 font-medium text-muted-foreground">סיכום</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -109,17 +118,16 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
                             <td className="py-2 px-3 font-medium">{item.customerName}</td>
                             <td className="py-2 px-3">
                               <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
-                                item.icon === 'close' ? 'bg-success/10 text-success' :
-                                item.icon === 'return' ? 'bg-warning/10 text-warning' :
+                                item.mainIcon === 'close' ? 'bg-success/10 text-success' :
+                                item.mainIcon === 'return' ? 'bg-warning/10 text-warning' :
                                 'bg-primary/10 text-primary'
                               }`}>
-                                {item.icon === 'close' && <CheckCircle className="w-3 h-3" />}
-                                {item.icon === 'return' && <RotateCcw className="w-3 h-3" />}
-                                {item.icon === 'schedule' && <Calendar className="w-3 h-3" />}
-                                {item.action}
+                                {item.mainIcon === 'close' && <CheckCircle className="w-3 h-3" />}
+                                {item.mainIcon === 'return' && <RotateCcw className="w-3 h-3" />}
+                                {item.mainIcon === 'schedule' && <Calendar className="w-3 h-3" />}
+                                {item.actions.join(' → ')}
                               </span>
                             </td>
-                            <td className="py-2 px-3 text-xs text-muted-foreground max-w-[200px] truncate">{item.details}</td>
                           </tr>
                         ))}
                       </tbody>
