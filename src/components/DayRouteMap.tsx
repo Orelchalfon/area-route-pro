@@ -32,7 +32,7 @@ interface DayRouteMapProps {
   height?: string;
 }
 
-export function DayRouteMap({ jobs, height = '350px' }: DayRouteMapProps) {
+export function DayRouteMap({ jobs, height = '80vh' }: DayRouteMapProps) {
   const { apiKey, loading, error, fetchKey } = useGoogleMapsKey();
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -123,14 +123,17 @@ function DayRouteMapInner({
     return { lat: avgLat, lng: avgLng };
   }, [jobsWithCoords]);
 
+  const hasFittedRef = useRef(false);
+
   const handleMapLoad = useCallback((map: google.maps.Map) => {
     mapInstanceRef.current = map;
     onLoad(map);
-    // Immediately fit bounds to all markers so they're all visible
-    if (jobsWithCoords.length > 0) {
+    // Fit bounds only on first load, not on subsequent data updates
+    if (!hasFittedRef.current && jobsWithCoords.length > 0) {
       const bounds = new google.maps.LatLngBounds();
       jobsWithCoords.forEach(jc => bounds.extend(jc.coords));
       map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+      hasFittedRef.current = true;
     }
   }, [onLoad, jobsWithCoords]);
 
