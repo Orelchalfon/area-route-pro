@@ -146,9 +146,9 @@ export default function DailyRoutePage() {
         </div>
       ) : plannerMode ? (
         /* ============ PLANNER MODE ============ */
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-4">
-          {/* Sidebar - DnD list (right side in RTL = first in DOM) */}
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4" style={{ direction: 'ltr' }}>
+          {/* Sidebar - RIGHT side */}
+          <div className="space-y-3 order-last" dir="rtl">
             <div className="bg-card rounded-xl border border-border p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-foreground flex items-center gap-2">
@@ -234,8 +234,8 @@ export default function DailyRoutePage() {
             </div>
           </div>
 
-          {/* Map (left side in RTL = second in DOM) */}
-          <div className="rounded-xl overflow-hidden border border-border shadow-card" style={{ height: '80vh' }}>
+          {/* Map - LEFT side */}
+          <div className="rounded-xl overflow-hidden border border-border shadow-card order-first" style={{ height: '80vh' }}>
             {keyLoading ? (
               <div className="flex items-center justify-center h-full bg-muted/30">
                 <div className="text-center">
