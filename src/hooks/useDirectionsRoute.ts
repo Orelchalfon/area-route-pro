@@ -42,10 +42,6 @@ export function useDirectionsRoute({
     if (stableWaypoints.length < 2) {
       cleanup();
       if (stableWaypoints.length === 1) {
-        const bounds = new google.maps.LatLngBounds();
-        bounds.extend(stableWaypoints[0]);
-        map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-        map.setZoom(15);
       }
       return cleanup;
     }
@@ -151,9 +147,7 @@ export function useDirectionsRoute({
           map,
         });
 
-        const bounds = new google.maps.LatLngBounds();
-        stitched.forEach(p => bounds.extend(p));
-        map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+        // No auto-zoom — preserve user's current view
       } else {
         // Fallback: straight-line polyline
         console.warn('DirectionsService failed for one or more chunks. Using straight-line fallback.');
@@ -171,9 +165,7 @@ export function useDirectionsRoute({
           map,
         } as google.maps.PolylineOptions);
 
-        const bounds = new google.maps.LatLngBounds();
-        stableWaypoints.forEach(wp => bounds.extend(wp));
-        map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+        // No auto-zoom — preserve user's current view
       }
     })();
 
