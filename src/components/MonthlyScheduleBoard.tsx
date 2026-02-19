@@ -639,7 +639,6 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                             onClick={() => {
                               onCloseJob(job.id);
                               toast.success('הקריאה נסגרה והועברה להיסטוריה');
-                              onClose();
                             }}
                           >
                             <Archive className="w-3 h-3 ml-1" />
@@ -654,7 +653,6 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                             onClick={() => {
                               onReturnJob(job.id);
                               toast.success(job.type === 'filter_replacement' ? 'המשימה שובצה מחדש' : 'הקריאה הוחזרה לטבלה');
-                              onClose();
                             }}
                           >
                             <Undo2 className="w-3 h-3 ml-1" />
