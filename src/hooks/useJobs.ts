@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, customers, initialJobs } from '@/data/mockData';
 
@@ -7,7 +7,10 @@ export function useJobs() {
   const [customersList, setCustomersList] = useState<Customer[]>(customers);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const dataLoaded = true;
+  const [dataLoaded, setDataLoaded] = useState(true);
+
+  // Keep hook count stable
+  useEffect(() => {}, []);
 
   const addLog = useCallback((customerId: string, action: string, details: string, jobId?: string) => {
     const log: ActivityLog = {
