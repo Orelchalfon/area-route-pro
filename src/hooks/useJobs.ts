@@ -1,30 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
-import { technicians } from '@/data/mockData';
-import { parseICS } from '@/lib/icsParser';
+import { technicians, customers, initialJobs } from '@/data/mockData';
 
 export function useJobs() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [customersList, setCustomersList] = useState<Customer[]>([]);
+  const [jobs, setJobs] = useState<Job[]>(initialJobs);
+  const [customersList, setCustomersList] = useState<Customer[]>(customers);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [dataLoaded, setDataLoaded] = useState(false);
-
-  // Load ICS data on mount
-  useEffect(() => {
-    fetch('/calendar.ics')
-      .then(res => res.text())
-      .then(text => {
-        const { customers, jobs: parsedJobs } = parseICS(text);
-        setCustomersList(customers);
-        setJobs(parsedJobs);
-        setDataLoaded(true);
-      })
-      .catch(err => {
-        console.error('Failed to load calendar.ics:', err);
-        setDataLoaded(true);
-      });
-  }, []);
+  const dataLoaded = true;
 
   const addLog = useCallback((customerId: string, action: string, details: string, jobId?: string) => {
     const log: ActivityLog = {
