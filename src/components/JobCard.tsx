@@ -1,7 +1,8 @@
-import { Job, JOB_TYPE_CONFIG, STATUS_CONFIG } from '@/types';
-import { customers, technicians } from '@/data/mockData';
+import { Job, JOB_TYPE_CONFIG, STATUS_CONFIG, Customer } from '@/types';
+import { technicians } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Clock, MapPin, User, Phone, Navigation, CheckCircle2 } from 'lucide-react';
+import { useJobsContext } from '@/contexts/JobsContext';
 
 interface JobCardProps {
   job: Job;
@@ -12,7 +13,8 @@ interface JobCardProps {
 }
 
 export function JobCard({ job, variant = 'manager', onStatusChange, onComplete, isNext }: JobCardProps) {
-  const customer = customers.find(c => c.id === job.customerId);
+  const { customersList } = useJobsContext();
+  const customer = customersList.find(c => c.id === job.customerId);
   const tech = technicians.find(t => t.id === job.technicianId);
   const typeConfig = JOB_TYPE_CONFIG[job.type];
   const statusConfig = STATUS_CONFIG[job.status];

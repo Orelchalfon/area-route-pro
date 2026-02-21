@@ -1,77 +1,30 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
-import { initialJobs, customers as initialCustomers } from '@/data/mockData';
-
-// Redistribute overdue draft filter jobs to current & future months, spread by area
-function redistributeOverdueFilterJobs(jobs: Job[]): Job[] {
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1; // 1-12
-  const currentYear = today.getFullYear();
-
-  const overdueFilter: Job[] = [];
-  const otherJobs: Job[] = [];
-
-  for (const job of jobs) {
-    if (
-      job.type === 'filter_replacement' &&
-      job.status === 'draft' &&
-      !job.technicianId &&
-      !job.scheduledDate
-    ) {
-      const jobDate = new Date(job.createdAt);
-      const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      if (jobDate < todayDate) {
-        overdueFilter.push(job);
-        continue;
-      }
-    }
-    otherJobs.push(job);
-  }
-
-  if (overdueFilter.length === 0) return jobs;
-
-  // Group overdue by area (city)
-  const byArea = new Map<string, Job[]>();
-  for (const job of overdueFilter) {
-    const arr = byArea.get(job.city) || [];
-    arr.push(job);
-    byArea.set(job.city, arr);
-  }
-
-  // Distribute into current month and forward months, keeping area grouping
-  // Put them into current month first, then overflow to next months
-  const redistributed: Job[] = [];
-  const areas = Array.from(byArea.keys());
-  
-  for (const area of areas) {
-    const areaJobs = byArea.get(area)!;
-    // Spread across current and future months (100 per month capacity, ~10 per area)
-    let monthOffset = 0;
-    for (let i = 0; i < areaJobs.length; i++) {
-      const targetMonth = currentMonth + monthOffset;
-      const targetYear = currentYear + Math.floor((targetMonth - 1) / 12);
-      const actualMonth = ((targetMonth - 1) % 12) + 1;
-      
-      redistributed.push({
-        ...areaJobs[i],
-        createdAt: `${targetYear}-${String(actualMonth).padStart(2, '0')}-01`,
-        notes: `${areaJobs[i].notes} (הועבר מחודש קודם)`,
-        priority: 'medium', // Bump priority for overdue
-      });
-      
-      // Move to next month every 10 jobs per area to avoid overloading
-      if ((i + 1) % 10 === 0) monthOffset++;
-    }
-  }
-
-  return [...otherJobs, ...redistributed];
-}
+import { technicians } from '@/data/mockData';
+import { parseICS } from '@/lib/icsParser';
 
 export function useJobs() {
-  const [jobs, setJobs] = useState<Job[]>(() => redistributeOverdueFilterJobs(initialJobs));
-  const [customersList, setCustomersList] = useState<Customer[]>(initialCustomers);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Load ICS data on mount
+  useEffect(() => {
+    fetch('/calendar.ics')
+      .then(res => res.text())
+      .then(text => {
+        const { customers, jobs: parsedJobs } = parseICS(text);
+        setCustomersList(customers);
+        setJobs(parsedJobs);
+        setDataLoaded(true);
+      })
+      .catch(err => {
+        console.error('Failed to load calendar.ics:', err);
+        setDataLoaded(true);
+      });
+  }, []);
 
   const addLog = useCallback((customerId: string, action: string, details: string, jobId?: string) => {
     const log: ActivityLog = {
@@ -302,5 +255,5 @@ export function useJobs() {
 
   const getCustomerLogs = (customerId: string) => activityLogs.filter(l => l.customerId === customerId);
 
-  return { jobs, customersList, closedJobs, activityLogs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate };
 }

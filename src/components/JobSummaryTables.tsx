@@ -1,5 +1,6 @@
 import { Job, STATUS_CONFIG } from '@/types';
-import { customers, technicians } from '@/data/mockData';
+import { technicians } from '@/data/mockData';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertTriangle, Wrench, Filter } from 'lucide-react';
@@ -37,6 +38,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 }
 
 function JobsByArea({ jobs }: { jobs: Job[] }) {
+  const { customersList: customers } = useJobsContext();
   const grouped: Record<string, Job[]> = {};
   jobs.forEach(job => {
     const city = job.city || 'לא צוין';
