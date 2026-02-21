@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { Job, JOB_TYPE_CONFIG } from '@/types';
-import { customers as allCustomersData } from '@/data/mockData';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { getCustomerCoords } from '@/lib/customerCoords';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { useDirectionsRoute } from '@/hooks/useDirectionsRoute';
@@ -33,6 +33,7 @@ interface DayRouteMapProps {
 }
 
 export function DayRouteMap({ jobs, height = '80vh' }: DayRouteMapProps) {
+  const { customersList: allCustomersData } = useJobsContext();
   const { apiKey, loading, error, fetchKey } = useGoogleMapsKey();
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);

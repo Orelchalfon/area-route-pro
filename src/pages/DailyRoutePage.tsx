@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
-import { customers as allCustomersData, technicians } from '@/data/mockData';
+import { technicians } from '@/data/mockData';
 import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -48,7 +48,7 @@ export default function DailyRoutePage() {
   // Resolve customer for each job
   const jobsWithCustomers: JobWithCustomer[] = useMemo(() =>
     todayJobs.map(job => {
-      const customer = customersList.find(c => c.id === job.customerId) || allCustomersData.find(c => c.id === job.customerId);
+      const customer = customersList.find(c => c.id === job.customerId);
       const coords = customer ? getCustomerCoords(customer) : { lat: 32.07, lng: 34.77 };
       return { job, customer, coords };
     }),

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Job, JOB_TYPE_CONFIG, Customer, SERVICE_TRACK_CONFIG } from '@/types';
-import { customers } from '@/data/mockData';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Calendar, Filter, AlertTriangle, Wrench, XCircle, RotateCcw, ClipboardCheck, ArrowRight, Printer } from 'lucide-react';
@@ -36,7 +36,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
     // Group actions per customer into one summary line
     const customerMap = new Map<string, { customerName: string; actions: string[]; mainIcon: 'close' | 'return' | 'schedule' }>();
     for (const log of todayLogs) {
-      const customer = allCustomers.find(c => c.id === log.customerId) || customers.find(c => c.id === log.customerId);
+      const customer = allCustomers.find(c => c.id === log.customerId);
       const name = customer?.name || log.customerId;
       const key = log.customerId;
       if (!customerMap.has(key)) {
@@ -63,7 +63,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
   }, [jobs, closedJobs, activityLogs, todayStr, allCustomers]);
 
   const getCustomer = (customerId: string): Customer | undefined =>
-    customers.find(c => c.id === customerId);
+    allCustomers.find(c => c.id === customerId);
 
   const getNextYearDate = (job: Job): string => {
     const customer = getCustomer(job.customerId);

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Job, JOB_TYPE_CONFIG, STATUS_CONFIG, JobType } from '@/types';
-import { technicians, customers } from '@/data/mockData';
+import { technicians } from '@/data/mockData';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ const typeIcons: Record<string, React.ReactNode> = {
 };
 
 function MiniJobCard({ job, onRemove }: { job: Job; onRemove?: () => void }) {
+  const { customersList: customers } = useJobsContext();
   const customer = customers.find(c => c.id === job.customerId);
   const typeConfig = JOB_TYPE_CONFIG[job.type];
 
@@ -92,6 +94,7 @@ interface AreaPickerDialogProps {
 }
 
 function AreaPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, dayLabel, techName }: AreaPickerDialogProps) {
+  const { customersList: customers } = useJobsContext();
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
 

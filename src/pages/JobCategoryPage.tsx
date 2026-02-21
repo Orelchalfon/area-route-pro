@@ -1,6 +1,6 @@
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Job, STATUS_CONFIG, JobType, JOB_TYPE_CONFIG } from '@/types';
-import { customers, technicians } from '@/data/mockData';
+import { technicians } from '@/data/mockData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Wrench, Filter, Clock, MapPin, CheckCircle2 } from 'lucide-react';
@@ -40,6 +40,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 }
 
 function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: boolean }) {
+  const { customersList: customers } = useJobsContext();
   const grouped: Record<string, Job[]> = {};
   jobs.forEach(job => {
     const city = job.city || 'לא צוין';

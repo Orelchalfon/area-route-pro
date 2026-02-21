@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Job, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
-import { technicians, customers } from '@/data/mockData';
+import { technicians } from '@/data/mockData';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
@@ -102,7 +103,8 @@ function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<strin
 }
 
 function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: () => void; isAutoScheduled?: boolean }) {
-  const customer = customers.find(c => c.id === job.customerId);
+  const { customersList } = useJobsContext();
+  const customer = customersList.find(c => c.id === job.customerId);
 
   // Only color chips that have a completion status from technician
   const completionColorMap: Record<string, string> = {
@@ -143,6 +145,7 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
   dayLabel: string;
   dayArea: string | null;
 }) {
+  const { customersList: customers } = useJobsContext();
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('malfunction');
@@ -306,6 +309,7 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
 }) {
   const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
+  const { customersList: customers } = useJobsContext();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const dayDate = new Date(dateStr + 'T00:00:00');
@@ -451,6 +455,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 }) {
   const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
+  const { customersList: customers } = useJobsContext();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [showMap, setShowMap] = useState(false);
@@ -673,6 +678,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 }
 // Filter job picker with checkboxes
 function FilterJobPicker({ jobs, onSelect, movedFromOtherDay }: { jobs: Job[]; onSelect: (jobIds: string[]) => void; movedFromOtherDay?: Set<string> }) {
+  const { customersList: customers } = useJobsContext();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
@@ -711,6 +717,7 @@ function FilterJobPicker({ jobs, onSelect, movedFromOtherDay }: { jobs: Job[]; o
 
 
 export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, onStatusChange, onAssignJob, onUnassignJob, onCloseJob, onReturnJob }: MonthlyScheduleBoardProps) {
+  const { customersList } = useJobsContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(technicians[0].id);
   const [viewMode, setViewMode] = useState<'month' | 'week'>('week');
@@ -766,7 +773,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
   // Auto-generated filter jobs for this month, merged with global state + redistributed overdue jobs
   const filterJobs = useMemo(() => {
-    const generated = generateFilterJobs(month, year, customers);
+    const generated = generateFilterJobs(month, year, customersList);
     const jobMap = new Map(jobs.map(j => [j.id, j]));
     const generatedIds = new Set(generated.map(g => g.id));
     const generatedCustomerIds = new Set(generated.map(g => g.customerId));
