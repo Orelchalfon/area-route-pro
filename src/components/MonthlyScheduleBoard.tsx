@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { DayRouteMap } from './DayRouteMap';
+import { CustomerInfoPopover } from './CustomerInfoPopover';
 
 const REGIONS = [
   'דרום רחוק', 'דרום קרוב', 'דרום תל אביב והסביבה', 'ירושלים והסביבה',
