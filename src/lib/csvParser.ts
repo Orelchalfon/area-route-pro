@@ -314,7 +314,7 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
       email: primaryEmail || '',
       product: '',
       notes: notesParts.length > 0 ? notesParts.join(' | ') : undefined,
-      filterReplacementMonth: new Date().getMonth() + 1,
+      filterReplacementMonth: 0,
     });
   }
   
