@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Customer, Job, JOB_TYPE_CONFIG } from '@/types';
+import { Customer, Job, JOB_TYPE_CONFIG, SERVICE_TRACK_CONFIG } from '@/types';
 
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
