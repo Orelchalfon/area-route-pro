@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Customer, Job, JOB_TYPE_CONFIG } from '@/types';
+import { Customer, Job, JOB_TYPE_CONFIG, SERVICE_TRACK_CONFIG } from '@/types';
 
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
+import { ServiceTrackBadge } from '@/components/ServiceTrackBadge';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -182,9 +183,10 @@ export default function ServiceCyclePage() {
                     {day.getDate()}
                   </div>
                   {isCurrentMonth && !isWeekend && (
-                    <div className="space-y-0.5">
+                     <div className="space-y-0.5">
                       {dayItems.map(({ customer, job }) => {
                         const isCompleted = job?.status === 'completed';
+                        const trackConfig = customer.serviceTrack ? SERVICE_TRACK_CONFIG[customer.serviceTrack] : null;
                         return (
                           <div
                             key={customer.id}
@@ -192,14 +194,16 @@ export default function ServiceCyclePage() {
                               'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border cursor-pointer group',
                               isCompleted
                                 ? 'bg-success/10 text-success border-success/30 line-through'
-                                : 'bg-info/10 text-info border-info/30 hover:bg-info/20'
+                                : trackConfig
+                                  ? `${trackConfig.bgClass} ${trackConfig.textClass}`
+                                  : 'bg-info/10 text-info border-info/30 hover:bg-info/20'
                             )}
                             onClick={() => {
                               if (job && !isCompleted) {
                                 completeFilterJob(job.id);
                               }
                             }}
-                            title={isCompleted ? 'הוחלף' : 'לחץ לסמן כהוחלף'}
+                            title={isCompleted ? 'הוחלף' : `${trackConfig?.label || 'שירות'} — לחץ לסמן כבוצע`}
                           >
                             {isCompleted ? (
                               <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />
@@ -207,6 +211,11 @@ export default function ServiceCyclePage() {
                               <Filter className="w-2.5 h-2.5 flex-shrink-0" />
                             )}
                             <span className="truncate">{customer.name}</span>
+                            {customer.serviceTrack && !isCompleted && (
+                              <span className="text-[8px] opacity-80 shrink-0">
+                                {trackConfig?.label}
+                              </span>
+                            )}
                           </div>
                         );
                       })}
@@ -219,10 +228,14 @@ export default function ServiceCyclePage() {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1"><Filter className="w-3 h-3 text-info" /> ממתין להחלפה</span>
-          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-success" /> הוחלף</span>
-          <span>לחץ על לקוח לסמן כהוחלף</span>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-success" /> בוצע</span>
+          {Object.entries(SERVICE_TRACK_CONFIG).map(([key, config]) => (
+            <span key={key} className={`flex items-center gap-1 ${config.textClass}`}>
+              <Filter className="w-3 h-3" /> {config.label}
+            </span>
+          ))}
+          <span>לחץ על לקוח לסמן כבוצע</span>
         </div>
       </div>
     );
