@@ -3,17 +3,51 @@ import { Customer, ActivityLog } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Phone, Mail, MapPin, Package, History, CalendarClock, StickyNote } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Phone, Mail, MapPin, Package, History, CalendarClock, StickyNote, Pencil } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ServiceTrackBadge } from './ServiceTrackBadge';
 
 interface CustomerCardProps {
   customer: Customer;
   logs?: ActivityLog[];
+  onUpdate?: (customerId: string, data: Partial<Customer>) => void;
 }
 
-export function CustomerCard({ customer, logs = [] }: CustomerCardProps) {
+export function CustomerCard({ customer, logs = [], onUpdate }: CustomerCardProps) {
   const [showHistory, setShowHistory] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editData, setEditData] = useState({
+    name: customer.name,
+    phone: customer.phone,
+    address: customer.address,
+    city: customer.city,
+    email: customer.email,
+    product: customer.product,
+    notes: customer.notes || '',
+  });
+
+  const openEdit = () => {
+    setEditData({
+      name: customer.name,
+      phone: customer.phone,
+      address: customer.address,
+      city: customer.city,
+      email: customer.email,
+      product: customer.product,
+      notes: customer.notes || '',
+    });
+    setShowEdit(true);
+  };
+
+  const handleSave = () => {
+    if (onUpdate) {
+      onUpdate(customer.id, editData);
+    }
+    setShowEdit(false);
+  };
 
   return (
     <>
@@ -24,20 +58,22 @@ export function CustomerCard({ customer, logs = [] }: CustomerCardProps) {
               <h3 className="font-bold text-lg text-foreground">{customer.name}</h3>
               {customer.serviceTrack && <ServiceTrackBadge track={customer.serviceTrack} />}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-primary"
-              onClick={() => setShowHistory(true)}
-            >
-              <History className="w-4 h-4 ml-1" />
-              <span className="text-xs">היסטוריה</span>
-              {logs.length > 0 && (
-                <span className="mr-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full px-1.5 py-0.5">
-                  {logs.length}
-                </span>
+            <div className="flex items-center gap-1">
+              {onUpdate && (
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={openEdit}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
               )}
-            </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={() => setShowHistory(true)}>
+                <History className="w-4 h-4 ml-1" />
+                <span className="text-xs">היסטוריה</span>
+                {logs.length > 0 && (
+                  <span className="mr-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full px-1.5 py-0.5">
+                    {logs.length}
+                  </span>
+                )}
+              </Button>
+            </div>
           </div>
           {customer.nextServiceDate && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-1.5">
@@ -74,6 +110,52 @@ export function CustomerCard({ customer, logs = [] }: CustomerCardProps) {
         </CardContent>
       </Card>
 
+      {/* Edit Dialog */}
+      <Dialog open={showEdit} onOpenChange={setShowEdit}>
+        <DialogContent dir="rtl" className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5" />
+              עריכת לקוח — {customer.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label>שם מלא</Label>
+              <Input value={editData.name} onChange={e => setEditData(d => ({ ...d, name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>טלפון</Label>
+              <Input value={editData.phone} onChange={e => setEditData(d => ({ ...d, phone: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>כתובת</Label>
+              <Input value={editData.address} onChange={e => setEditData(d => ({ ...d, address: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>עיר</Label>
+              <Input value={editData.city} onChange={e => setEditData(d => ({ ...d, city: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>מייל</Label>
+              <Input type="email" value={editData.email} onChange={e => setEditData(d => ({ ...d, email: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>מוצר</Label>
+              <Input value={editData.product} onChange={e => setEditData(d => ({ ...d, product: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>הערות</Label>
+              <Textarea value={editData.notes} onChange={e => setEditData(d => ({ ...d, notes: e.target.value }))} rows={4} />
+            </div>
+            <Button onClick={handleSave} className="w-full" disabled={!editData.name || !editData.phone}>
+              שמור שינויים
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
         <DialogContent dir="rtl" className="max-w-md">
           <DialogHeader>

@@ -209,6 +209,11 @@ export function useJobs() {
     setCustomersList(prev => [...prev, newCustomer]);
   };
 
+  const updateCustomer = (customerId: string, data: Partial<Customer>) => {
+    setCustomersList(prev => prev.map(c => c.id === customerId ? { ...c, ...data } : c));
+    addLog(customerId, 'עדכון פרטים', 'פרטי הלקוח עודכנו');
+  };
+
   const distributeServiceTracks = (assignments: { customerId: string; track: ServiceTrack; nextServiceDate: string }[]) => {
     setCustomersList(prev => {
       const map = new Map(assignments.map(a => [a.customerId, a]));
@@ -252,5 +257,5 @@ export function useJobs() {
 
   const getCustomerLogs = (customerId: string) => activityLogs.filter(l => l.customerId === customerId);
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate };
 }
