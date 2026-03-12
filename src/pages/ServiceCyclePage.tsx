@@ -199,7 +199,7 @@ export default function ServiceCyclePage() {
                                   ? `${trackConfig.bgClass} ${trackConfig.textClass}`
                                   : 'bg-info/10 text-info border-info/30'
                             )}
-                            title={isCompleted ? 'בוצע' : `${trackConfig?.label || 'שירות'}`}
+                            title={isCompleted ? 'בוצע' : (job?.notes || trackConfig?.label || 'שירות')}
                           >
                             {isCompleted ? (
                               <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />
@@ -209,11 +209,11 @@ export default function ServiceCyclePage() {
                             <CustomerInfoPopover customer={customer}>
                               <span className="truncate">{customer.name}</span>
                             </CustomerInfoPopover>
-                            {customer.serviceTrack && !isCompleted && (
-                              <span className="text-[8px] opacity-80 shrink-0">
-                                {trackConfig?.label}
-                              </span>
-                            )}
+                            <span className="text-[8px] opacity-80 shrink-0">
+                              {job?.notes
+                                ? job.notes.replace(customer.name, '').replace(/^[\s\-–—:]+/, '').trim().substring(0, 20)
+                                : trackConfig?.label || ''}
+                            </span>
                           </div>
                         );
                       })}
