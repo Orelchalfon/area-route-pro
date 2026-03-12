@@ -1,16 +1,27 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
-import { technicians, customers, initialJobs } from '@/data/mockData';
+import { technicians, initialJobs } from '@/data/mockData';
+import { loadCustomersFromCSV } from '@/lib/csvParser';
 
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
-  const [customersList, setCustomersList] = useState<Customer[]>(customers);
+  const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [dataLoaded, setDataLoaded] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Keep hook count stable
-  useEffect(() => {}, []);
+  // Load real customers from CSV
+  useEffect(() => {
+    loadCustomersFromCSV('/contacts.csv')
+      .then(customers => {
+        setCustomersList(customers);
+        setDataLoaded(true);
+      })
+      .catch(err => {
+        console.error('Failed to load customers CSV:', err);
+        setDataLoaded(true);
+      });
+  }, []);
 
   const addLog = useCallback((customerId: string, action: string, details: string, jobId?: string) => {
     const log: ActivityLog = {
