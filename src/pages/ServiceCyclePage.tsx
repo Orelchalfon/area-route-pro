@@ -22,17 +22,43 @@ export default function ServiceCyclePage() {
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
-  // Group customers by their filter replacement month
+  // Group customers by the months they actually have service jobs (from ICS)
   const customersByMonth = useMemo(() => {
     const grouped: Record<number, Customer[]> = {};
     for (let m = 1; m <= 12; m++) grouped[m] = [];
-    customersList.forEach(c => {
-      if (c.filterReplacementMonth >= 1 && c.filterReplacementMonth <= 12) {
-        grouped[c.filterReplacementMonth].push(c);
+
+    // Build a set of customerIds per month based on actual filter_replacement jobs
+    const filterJobs = jobs.filter(j => j.type === 'filter_replacement');
+    const customerIdsByMonth: Record<number, Set<string>> = {};
+    for (let m = 1; m <= 12; m++) customerIdsByMonth[m] = new Set();
+
+    filterJobs.forEach(j => {
+      const dateStr = j.scheduledDate || j.createdAt;
+      if (!dateStr) return;
+      const jobDate = new Date(dateStr);
+      if (jobDate.getFullYear() === selectedYear) {
+        customerIdsByMonth[jobDate.getMonth() + 1].add(j.customerId);
       }
     });
+
+    // Also include customers by their filterReplacementMonth if they don't have jobs yet
+    customersList.forEach(c => {
+      if (c.filterReplacementMonth >= 1 && c.filterReplacementMonth <= 12) {
+        customerIdsByMonth[c.filterReplacementMonth].add(c.id);
+      }
+    });
+
+    // Resolve customer objects
+    const customerMap = new Map(customersList.map(c => [c.id, c]));
+    for (let m = 1; m <= 12; m++) {
+      customerIdsByMonth[m].forEach(id => {
+        const c = customerMap.get(id);
+        if (c) grouped[m].push(c);
+      });
+    }
+
     return grouped;
-  }, [customersList]);
+  }, [customersList, jobs, selectedYear]);
 
   // Find filter jobs for the selected year
   const filterJobsByMonth = useMemo(() => {
@@ -41,9 +67,11 @@ export default function ServiceCyclePage() {
     jobs
       .filter(j => j.type === 'filter_replacement')
       .forEach(j => {
-        const created = new Date(j.createdAt);
-        if (created.getFullYear() === selectedYear) {
-          const month = created.getMonth() + 1;
+        const dateStr = j.scheduledDate || j.createdAt;
+        if (!dateStr) return;
+        const jobDate = new Date(dateStr);
+        if (jobDate.getFullYear() === selectedYear) {
+          const month = jobDate.getMonth() + 1;
           grouped[month].push(j);
         }
       });
