@@ -209,6 +209,11 @@ export function useJobs() {
     setCustomersList(prev => [...prev, newCustomer]);
   };
 
+  const updateCustomer = (customerId: string, data: Partial<Customer>) => {
+    setCustomersList(prev => prev.map(c => c.id === customerId ? { ...c, ...data } : c));
+    addLog(customerId, 'עדכון פרטים', 'פרטי הלקוח עודכנו');
+  };
+
   const distributeServiceTracks = (assignments: { customerId: string; track: ServiceTrack; nextServiceDate: string }[]) => {
     setCustomersList(prev => {
       const map = new Map(assignments.map(a => [a.customerId, a]));
