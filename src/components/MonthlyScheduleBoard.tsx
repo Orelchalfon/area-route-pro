@@ -119,7 +119,13 @@ function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: 
   return (
     <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs border ${chipColor} group relative`}>
       {typeIcons[job.type]}
-      <span className="truncate max-w-[90px]">{customer?.name}</span>
+      {customer ? (
+        <CustomerInfoPopover customer={customer}>
+          <span className="truncate max-w-[90px]">{customer.name}</span>
+        </CustomerInfoPopover>
+      ) : (
+        <span className="truncate max-w-[90px]">—</span>
+      )}
       {isAutoScheduled && !job.completionStatus && <span className="text-[9px] opacity-60">●</span>}
       {job.completionStatus === 'done' && <span className="text-[9px]">✓</span>}
       {job.completionStatus === 'not_done' && <span className="text-[9px]">✗</span>}
