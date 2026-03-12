@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { DayRouteMap } from './DayRouteMap';
+import { CustomerInfoPopover } from './CustomerInfoPopover';
 
 const REGIONS = [
   'דרום רחוק', 'דרום קרוב', 'דרום תל אביב והסביבה', 'ירושלים והסביבה',
@@ -118,7 +119,13 @@ function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: 
   return (
     <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs border ${chipColor} group relative`}>
       {typeIcons[job.type]}
-      <span className="truncate max-w-[90px]">{customer?.name}</span>
+      {customer ? (
+        <CustomerInfoPopover customer={customer}>
+          <span className="truncate max-w-[90px]">{customer.name}</span>
+        </CustomerInfoPopover>
+      ) : (
+        <span className="truncate max-w-[90px]">—</span>
+      )}
       {isAutoScheduled && !job.completionStatus && <span className="text-[9px] opacity-60">●</span>}
       {job.completionStatus === 'done' && <span className="text-[9px]">✓</span>}
       {job.completionStatus === 'not_done' && <span className="text-[9px]">✗</span>}
@@ -402,7 +409,13 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
                           </div>
                           <GripVertical className="w-4 h-4 text-muted-foreground/40" />
                           {typeIcons[job.type]}
-                          <span className="font-medium text-sm">{customer?.name}</span>
+                          {customer ? (
+                            <CustomerInfoPopover customer={customer}>
+                              <span className="font-medium text-sm">{customer.name}</span>
+                            </CustomerInfoPopover>
+                          ) : (
+                            <span className="font-medium text-sm">—</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 text-xs font-mono">
                           <Clock className="w-3 h-3" />
