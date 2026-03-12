@@ -3,7 +3,7 @@ import { Customer, ActivityLog } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Phone, Mail, MapPin, Package, History, CalendarClock } from 'lucide-react';
+import { Phone, Mail, MapPin, Package, History, CalendarClock, StickyNote } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ServiceTrackBadge } from './ServiceTrackBadge';
 
