@@ -409,7 +409,13 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
                           </div>
                           <GripVertical className="w-4 h-4 text-muted-foreground/40" />
                           {typeIcons[job.type]}
-                          <span className="font-medium text-sm">{customer?.name}</span>
+                          {customer ? (
+                            <CustomerInfoPopover customer={customer}>
+                              <span className="font-medium text-sm">{customer.name}</span>
+                            </CustomerInfoPopover>
+                          ) : (
+                            <span className="font-medium text-sm">—</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 text-xs font-mono">
                           <Clock className="w-3 h-3" />
