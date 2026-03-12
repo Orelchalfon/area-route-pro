@@ -82,6 +82,8 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
   const iMiddle = col('Middle Name');
   const iLast = col('Last Name');
   const iEmail = col('E-mail Address');
+  const iEmail2 = col('E-mail 2 Address');
+  const iEmail3 = col('E-mail 3 Address');
   const iMobile = col('Mobile Phone');
   const iCarPhone = col('Car Phone');
   const iHomePhone = col('Home Phone');
