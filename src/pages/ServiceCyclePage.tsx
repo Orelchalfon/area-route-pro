@@ -67,9 +67,11 @@ export default function ServiceCyclePage() {
     jobs
       .filter(j => j.type === 'filter_replacement')
       .forEach(j => {
-        const created = new Date(j.createdAt);
-        if (created.getFullYear() === selectedYear) {
-          const month = created.getMonth() + 1;
+        const dateStr = j.scheduledDate || j.createdAt;
+        if (!dateStr) return;
+        const jobDate = new Date(dateStr);
+        if (jobDate.getFullYear() === selectedYear) {
+          const month = jobDate.getMonth() + 1;
           grouped[month].push(j);
         }
       });
