@@ -125,7 +125,7 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
     address = address.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     city = city.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     
-    const email = get(iEmail);
+    const email = get(iEmail) || get(iEmail2) || get(iEmail3);
     const company = get(iCompany);
     const notesRaw = get(iNotes);
     
