@@ -44,7 +44,7 @@ export default function CustomersPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map(customer => (
-          <CustomerCard key={customer.id} customer={customer} logs={getCustomerLogs(customer.id)} />
+          <CustomerCard key={customer.id} customer={customer} logs={getCustomerLogs(customer.id)} onUpdate={updateCustomer} />
         ))}
       </div>
     </div>
