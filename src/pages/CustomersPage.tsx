@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 
 export default function CustomersPage() {
-  const { customersList, addCustomer, getCustomerLogs, distributeServiceTracks } = useJobsContext();
+  const { customersList, addCustomer, updateCustomer, getCustomerLogs, distributeServiceTracks } = useJobsContext();
   const [search, setSearch] = useState('');
 
   const filtered = customersList.filter(c =>
