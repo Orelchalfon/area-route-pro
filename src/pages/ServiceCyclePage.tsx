@@ -191,19 +191,15 @@ export default function ServiceCyclePage() {
                           <div
                             key={customer.id}
                             className={cn(
-                              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border cursor-pointer group',
+                              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border',
                               isCompleted
                                 ? 'bg-success/10 text-success border-success/30 line-through'
                                 : trackConfig
                                   ? `${trackConfig.bgClass} ${trackConfig.textClass}`
-                                  : 'bg-info/10 text-info border-info/30 hover:bg-info/20'
+                                  : 'bg-info/10 text-info border-info/30'
                             )}
-                            onClick={() => {
-                              if (job && !isCompleted) {
-                                completeFilterJob(job.id);
-                              }
-                            }}
-                            title={isCompleted ? 'הוחלף' : `${trackConfig?.label || 'שירות'} — לחץ לסמן כבוצע`}
+                            title={isCompleted ? 'בוצע' : `${trackConfig?.label || 'שירות'}`}
+                          >
                           >
                             {isCompleted ? (
                               <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />
