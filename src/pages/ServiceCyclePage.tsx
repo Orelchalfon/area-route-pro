@@ -206,7 +206,9 @@ export default function ServiceCyclePage() {
                             ) : (
                               <Filter className="w-2.5 h-2.5 flex-shrink-0" />
                             )}
-                            <span className="truncate">{customer.name}</span>
+                            <CustomerInfoPopover customer={customer}>
+                              <span className="truncate">{customer.name}</span>
+                            </CustomerInfoPopover>
                             {customer.serviceTrack && !isCompleted && (
                               <span className="text-[8px] opacity-80 shrink-0">
                                 {trackConfig?.label}
