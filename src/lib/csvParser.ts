@@ -156,6 +156,7 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
       city: city || '',
       email: email || '',
       product: '',
+      notes: notesParts.length > 0 ? notesParts.join(' | ') : undefined,
       filterReplacementMonth: new Date().getMonth() + 1,
     });
   }

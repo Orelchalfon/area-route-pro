@@ -44,6 +44,7 @@ export interface Customer {
   lat?: number;
   lng?: number;
   placeId?: string;
+  notes?: string;
 }
 
 export interface Job {

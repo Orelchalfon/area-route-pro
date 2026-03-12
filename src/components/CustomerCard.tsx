@@ -58,10 +58,18 @@ export function CustomerCard({ customer, logs = [] }: CustomerCardProps) {
               <Mail className="w-4 h-4" />
               <span>{customer.email}</span>
             </a>
-            <div className="flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              <span>{customer.product}</span>
-            </div>
+            {customer.product && (
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                <span>{customer.product}</span>
+              </div>
+            )}
+            {customer.notes && (
+              <div className="flex items-start gap-2 bg-muted/50 rounded-md px-2 py-1.5">
+                <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-accent" />
+                <span className="text-xs leading-relaxed">{customer.notes}</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
