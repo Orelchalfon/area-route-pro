@@ -82,6 +82,8 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
   const iMiddle = col('Middle Name');
   const iLast = col('Last Name');
   const iEmail = col('E-mail Address');
+  const iEmail2 = col('E-mail 2 Address');
+  const iEmail3 = col('E-mail 3 Address');
   const iMobile = col('Mobile Phone');
   const iCarPhone = col('Car Phone');
   const iHomePhone = col('Home Phone');
@@ -123,7 +125,7 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
     address = address.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     city = city.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     
-    const email = get(iEmail);
+    const email = get(iEmail) || get(iEmail2) || get(iEmail3);
     const company = get(iCompany);
     const notesRaw = get(iNotes);
     
