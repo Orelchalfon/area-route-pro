@@ -183,9 +183,10 @@ export default function ServiceCyclePage() {
                     {day.getDate()}
                   </div>
                   {isCurrentMonth && !isWeekend && (
-                    <div className="space-y-0.5">
+                     <div className="space-y-0.5">
                       {dayItems.map(({ customer, job }) => {
                         const isCompleted = job?.status === 'completed';
+                        const trackConfig = customer.serviceTrack ? SERVICE_TRACK_CONFIG[customer.serviceTrack] : null;
                         return (
                           <div
                             key={customer.id}
@@ -193,14 +194,16 @@ export default function ServiceCyclePage() {
                               'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border cursor-pointer group',
                               isCompleted
                                 ? 'bg-success/10 text-success border-success/30 line-through'
-                                : 'bg-info/10 text-info border-info/30 hover:bg-info/20'
+                                : trackConfig
+                                  ? `${trackConfig.bgClass} ${trackConfig.textClass}`
+                                  : 'bg-info/10 text-info border-info/30 hover:bg-info/20'
                             )}
                             onClick={() => {
                               if (job && !isCompleted) {
                                 completeFilterJob(job.id);
                               }
                             }}
-                            title={isCompleted ? 'הוחלף' : 'לחץ לסמן כהוחלף'}
+                            title={isCompleted ? 'הוחלף' : `${trackConfig?.label || 'שירות'} — לחץ לסמן כבוצע`}
                           >
                             {isCompleted ? (
                               <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />
@@ -208,6 +211,11 @@ export default function ServiceCyclePage() {
                               <Filter className="w-2.5 h-2.5 flex-shrink-0" />
                             )}
                             <span className="truncate">{customer.name}</span>
+                            {customer.serviceTrack && !isCompleted && (
+                              <span className="text-[8px] opacity-80 shrink-0">
+                                {trackConfig?.label}
+                              </span>
+                            )}
                           </div>
                         );
                       })}
