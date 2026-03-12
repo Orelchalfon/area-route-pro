@@ -12,7 +12,7 @@ export function CustomerInfoPopover({ customer, children }: CustomerInfoPopoverP
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className="hover:underline cursor-pointer text-inherit font-inherit text-right bg-transparent border-none p-0">
+        <button type="button" onClick={(e) => e.stopPropagation()} className="hover:underline cursor-pointer text-inherit font-inherit text-right bg-transparent border-none p-0">
           {children}
         </button>
       </PopoverTrigger>
