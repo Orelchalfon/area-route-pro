@@ -220,40 +220,5 @@ function generateFilterJobs(): Job[] {
   }));
 }
 
-// תקלות והתקנות + כל משימות החלפת הפילטרים
-export const initialJobs: Job[] = [
-  ...generateFilterJobs(),
-  // ===== תקלות (20) =====
-  { id: 'j1',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c2',  estimatedDuration: 60, location: customers[1].address,  city: customers[1].city,  notes: 'אין מים קרים — דחוף',   createdAt: todayStr },
-  { id: 'j2',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c10', estimatedDuration: 60, location: customers[9].address,  city: customers[9].city,  notes: 'תקלה בחימום',           createdAt: todayStr },
-  { id: 'j3',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c3',  estimatedDuration: 60, location: customers[2].address,  city: customers[2].city,  notes: 'נזילה ביחידה',          createdAt: todayStr },
-  { id: 'j4',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c34', estimatedDuration: 60, location: customers[33].address, city: customers[33].city, notes: 'תקלה במשאבה',           createdAt: todayStr },
-  { id: 'j5',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c11', estimatedDuration: 60, location: customers[10].address, city: customers[10].city, notes: 'רעש חריג מהמערכת',      createdAt: todayStr },
-  { id: 'j6',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c39', estimatedDuration: 60, location: customers[38].address, city: customers[38].city, notes: 'דליפה מהמערכת',         createdAt: todayStr },
-  { id: 'j7',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c14', estimatedDuration: 60, location: customers[13].address, city: customers[13].city, notes: 'לחץ מים נמוך',          createdAt: todayStr },
-  { id: 'j8',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c28', estimatedDuration: 60, location: customers[27].address, city: customers[27].city, notes: 'נזילה',                 createdAt: todayStr },
-  { id: 'j9',  type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c20', estimatedDuration: 60, location: customers[19].address, city: customers[19].city, notes: 'המערכת לא נדלקת',       createdAt: todayStr },
-  { id: 'j10', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c42', estimatedDuration: 60, location: customers[41].address, city: customers[41].city, notes: 'רעש חזק',               createdAt: todayStr },
-  { id: 'j11', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c36', estimatedDuration: 60, location: customers[35].address, city: customers[35].city, notes: 'רעש חריג',              createdAt: todayStr },
-  { id: 'j12', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c41', estimatedDuration: 60, location: customers[40].address, city: customers[40].city, notes: 'דליפה חזקה',            createdAt: todayStr },
-  { id: 'j13', type: 'malfunction', status: 'draft', priority: 'high',   customerId: 'c38', estimatedDuration: 60, location: customers[37].address, city: customers[37].city, notes: 'תקלה במשאבה',           createdAt: todayStr },
-  { id: 'j14', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c5',  estimatedDuration: 60, location: customers[4].address,  city: customers[4].city,  notes: 'טפטוף מהמסנן',          createdAt: todayStr },
-  { id: 'j15', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c9',  estimatedDuration: 60, location: customers[8].address,  city: customers[8].city,  notes: 'לחץ לא יציב',           createdAt: todayStr },
-  { id: 'j16', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c22', estimatedDuration: 60, location: customers[21].address, city: customers[21].city, notes: 'מים עכורים',            createdAt: todayStr },
-  { id: 'j17', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c30', estimatedDuration: 60, location: customers[29].address, city: customers[29].city, notes: 'ריח רע מהמים',          createdAt: todayStr },
-  { id: 'j18', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c25', estimatedDuration: 60, location: customers[24].address, city: customers[24].city, notes: 'לא מקרר',               createdAt: todayStr },
-  { id: 'j19', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c27', estimatedDuration: 60, location: customers[26].address, city: customers[26].city, notes: 'נזילה קלה',             createdAt: todayStr },
-  { id: 'j20', type: 'malfunction', status: 'draft', priority: 'medium', customerId: 'c45', estimatedDuration: 60, location: customers[44].address, city: customers[44].city, notes: 'רעש בלילה',             createdAt: todayStr },
-
-  // ===== התקנות (20) =====
-  { id: 'j21', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c15', estimatedDuration: 120, location: customers[14].address, city: customers[14].city, notes: 'התקנת בר מים תמי4',     createdAt: todayStr },
-  { id: 'j22', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c24', estimatedDuration: 120, location: customers[23].address, city: customers[23].city, notes: 'התקנת מערכת אוסמוזה',   createdAt: todayStr },
-  { id: 'j23', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c33', estimatedDuration: 120, location: customers[32].address, city: customers[32].city, notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j24', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c44', estimatedDuration: 120, location: customers[43].address, city: customers[43].city, notes: 'התקנת מערכת סינון',     createdAt: todayStr },
-  { id: 'j25', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c4',  estimatedDuration: 120, location: customers[3].address,  city: customers[3].city,  notes: 'התקנת מערכת פרימיום',    createdAt: todayStr },
-  { id: 'j26', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c26', estimatedDuration: 120, location: customers[25].address, city: customers[25].city, notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j27', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c13', estimatedDuration: 120, location: customers[12].address, city: customers[12].city, notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j28', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c18', estimatedDuration: 120, location: customers[17].address, city: customers[17].city, notes: 'התקנת בר מים',          createdAt: todayStr },
-  { id: 'j29', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c43', estimatedDuration: 120, location: customers[42].address, city: customers[42].city, notes: 'התקנה חדשה',            createdAt: todayStr },
-  { id: 'j30', type: 'installation', status: 'draft', priority: 'medium', customerId: 'c29', estimatedDuration: 120, location: customers[28].address, city: customers[28].city, notes: 'התקנת מערכת חדשה',      createdAt: todayStr },
-];
+// No mock jobs — real data comes from CSV and user input
+export const initialJobs: Job[] = [];
