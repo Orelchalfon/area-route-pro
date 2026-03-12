@@ -228,10 +228,14 @@ export default function ServiceCyclePage() {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1"><Filter className="w-3 h-3 text-info" /> ממתין להחלפה</span>
-          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-success" /> הוחלף</span>
-          <span>לחץ על לקוח לסמן כהוחלף</span>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-success" /> בוצע</span>
+          {Object.entries(SERVICE_TRACK_CONFIG).map(([key, config]) => (
+            <span key={key} className={`flex items-center gap-1 ${config.textClass}`}>
+              <Filter className="w-3 h-3" /> {config.label}
+            </span>
+          ))}
+          <span>לחץ על לקוח לסמן כבוצע</span>
         </div>
       </div>
     );
