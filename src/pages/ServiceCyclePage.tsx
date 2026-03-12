@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Customer, Job, JOB_TYPE_CONFIG, SERVICE_TRACK_CONFIG } from '@/types';
 
 import { useJobsContext } from '@/contexts/JobsContext';
+import { CustomerInfoPopover } from '@/components/CustomerInfoPopover';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
 import { ServiceTrackBadge } from '@/components/ServiceTrackBadge';
@@ -205,7 +206,9 @@ export default function ServiceCyclePage() {
                             ) : (
                               <Filter className="w-2.5 h-2.5 flex-shrink-0" />
                             )}
-                            <span className="truncate">{customer.name}</span>
+                            <CustomerInfoPopover customer={customer}>
+                              <span className="truncate">{customer.name}</span>
+                            </CustomerInfoPopover>
                             {customer.serviceTrack && !isCompleted && (
                               <span className="text-[8px] opacity-80 shrink-0">
                                 {trackConfig?.label}
