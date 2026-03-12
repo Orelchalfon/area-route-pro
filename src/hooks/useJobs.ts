@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
+import { useICSImport } from '@/hooks/useICSImport';
 
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
@@ -9,6 +10,7 @@ export function useJobs() {
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const { icsCustomers, icsJobs, icsLoaded } = useICSImport();
 
   // Load real customers from CSV
   useEffect(() => {
@@ -22,6 +24,59 @@ export function useJobs() {
         setDataLoaded(true);
       });
   }, []);
+
+  // Merge ICS calendar data: update existing customers' filterReplacementMonth & serviceTrack, add ICS-only customers, and add service jobs
+  useEffect(() => {
+    if (!icsLoaded || !dataLoaded || icsCustomers.length === 0) return;
+
+    // Update existing customers with ICS data (match by name)
+    setCustomersList(prev => {
+      const updated = prev.map(c => {
+        const icsMatch = icsCustomers.find(ic => 
+          ic.name.trim().toLowerCase() === c.name.trim().toLowerCase() ||
+          c.name.trim().includes(ic.name.trim()) ||
+          ic.name.trim().includes(c.name.trim())
+        );
+        if (icsMatch) {
+          return {
+            ...c,
+            filterReplacementMonth: icsMatch.filterReplacementMonth,
+            serviceTrack: c.serviceTrack || icsMatch.serviceTrack,
+            city: c.city || icsMatch.city,
+          };
+        }
+        return c;
+      });
+
+      // Add ICS customers that don't exist in CSV
+      const existingNames = new Set(updated.map(c => c.name.trim().toLowerCase()));
+      const newCustomers = icsCustomers.filter(ic => {
+        const icName = ic.name.trim().toLowerCase();
+        return !Array.from(existingNames).some(en => en.includes(icName) || icName.includes(en));
+      });
+
+      return [...updated, ...newCustomers];
+    });
+
+    // Add ICS service jobs, remapping customerIds to match existing customers
+    setJobs(prev => {
+      const newJobs = icsJobs.map(job => {
+        const icsCustomer = icsCustomers.find(c => c.id === job.customerId);
+        if (!icsCustomer) return job;
+
+        // Try to find matching CSV customer
+        const csvMatch = customersList.find(c =>
+          c.name.trim().toLowerCase() === icsCustomer.name.trim().toLowerCase() ||
+          c.name.trim().includes(icsCustomer.name.trim()) ||
+          icsCustomer.name.trim().includes(c.name.trim())
+        );
+        
+        return csvMatch ? { ...job, customerId: csvMatch.id } : job;
+      });
+
+      return [...prev, ...newJobs];
+    });
+  }, [icsLoaded, dataLoaded, icsCustomers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addLog = useCallback((customerId: string, action: string, details: string, jobId?: string) => {
     const log: ActivityLog = {
