@@ -130,6 +130,9 @@ export function parseICS(text: string, serviceOnly = false): { customers: Custom
     // Skip installations when serviceOnly mode
     if (serviceOnly && isInstallation(ev.summary)) continue;
 
+    // Skip completed tasks (marked with "בוצע" in Outlook, usually yellow-highlighted)
+    if (/^בוצע\b/.test(ev.summary.trim())) continue;
+
     const customerName = extractCustomerName(ev.summary);
     const city = (ev.location || '').trim();
     const serviceTrack = detectServiceTrack(ev.summary);
