@@ -824,9 +824,9 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     return Array.from(areas);
   };
 
-  // When area is overridden, rebuild that day's filter list from the new area
-  const handleAreaOverride = (dateStr: string, newArea: string) => {
-    setDayAreaOverrides(prev => new Map(prev).set(dateStr, newArea));
+  // When areas are overridden, rebuild that day's filter list from the new areas
+  const handleAreaOverride = (dateStr: string, newAreas: string[]) => {
+    setDayAreaOverrides(prev => new Map(prev).set(dateStr, newAreas));
 
     // Remove existing auto filters from this day
     const currentAutoJobs = (filterDistribution.get(dateStr) || []);
@@ -848,7 +848,6 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     manualDayJobs.forEach(j => onUnassignJob(j.id));
 
     // Unassign any previously approved filter jobs for this day from global state
-    // so they no longer appear in the Daily Route page
     const approvedFilterJobsForDay = jobs.filter(
       j => j.type === 'filter_replacement' &&
         j.scheduledDate === dateStr &&
@@ -863,7 +862,8 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       return next;
     });
 
-    // Find unassigned filter jobs from the new area and assign up to 3
+    // Find unassigned filter jobs from the new areas and assign up to 3
+    const areaSet = new Set(newAreas);
     const allAssignedIds = new Set<string>();
     filterDistribution.forEach((dayJobs, key) => {
       if (key !== dateStr) dayJobs.forEach(j => { if (!removedFromAutoIds.has(j.id)) allAssignedIds.add(j.id); });
@@ -873,7 +873,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       if (key !== dateStr) dayJobs.forEach(j => allAssignedIds.add(j.id));
     });
 
-    const available = filterJobs.filter(j => j.city === newArea && !allAssignedIds.has(j.id));
+    const available = filterJobs.filter(j => areaSet.has(j.city) && !allAssignedIds.has(j.id));
     const toAssign = available.slice(0, 3);
 
     if (toAssign.length > 0) {
@@ -884,7 +884,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       });
     }
 
-    toast.success(`האזור שונה ל-${newArea} — המשימות הקודמות הוסרו, ${toAssign.length} פילטרים חדשים שובצו`);
+    toast.success(`האזורים עודכנו (${newAreas.join(', ')}) — ${toAssign.length} פילטרים שובצו`);
   };
 
   // Unassigned filter jobs (not yet distributed to any day)
