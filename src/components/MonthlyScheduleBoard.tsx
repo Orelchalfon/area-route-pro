@@ -1348,26 +1348,27 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
       {/* Picker dialog */}
       {pickerState && (() => {
-        const dayArea = getDayArea(pickerState.dateStr);
+        const dayAreas = getDayAreas(pickerState.dateStr);
         const dayExistingFilters = getFilterDayJobs(pickerState.dateStr);
         const dayExistingIds = new Set(dayExistingFilters.map(j => j.id));
 
-        const unassignedSameAreaFilters = dayArea
-          ? unassignedFilterJobs.filter(j => j.city === dayArea)
+        const unassignedSameAreaFilters = dayAreas.length > 0
+          ? unassignedFilterJobs.filter(j => dayAreas.includes(j.city))
           : unassignedFilterJobs;
 
         const fromOtherDays: Job[] = [];
-        if (dayArea) {
+        const areaSet = new Set(dayAreas);
+        if (areaSet.size > 0) {
           filterDistribution.forEach((dayJobs, dateStr) => {
             if (dateStr === pickerState.dateStr) return;
             dayJobs.forEach(j => {
-              if (j.city === dayArea && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
+              if (areaSet.has(j.city) && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
             });
           });
           extraFilterAssignments.forEach((dayJobs, dateStr) => {
             if (dateStr === pickerState.dateStr) return;
             dayJobs.forEach(j => {
-              if (j.city === dayArea && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
+              if (areaSet.has(j.city) && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
             });
           });
         }
