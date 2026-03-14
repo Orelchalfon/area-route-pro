@@ -814,13 +814,14 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string[]>>(new Map());
   const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, futureWorkingDays), [filterJobs, futureWorkingDays]);
 
-  // Get the effective area for a day (override or auto-determined)
-  const getDayArea = (dateStr: string): string | null => {
+  // Get the effective areas for a day (override or auto-determined) — now returns array
+  const getDayAreas = (dateStr: string): string[] => {
     if (dayAreaOverrides.has(dateStr)) return dayAreaOverrides.get(dateStr)!;
     const autoJobs = (filterDistribution.get(dateStr) || []).filter(j => !removedFromAutoIds.has(j.id));
     const extraJobs = extraFilterAssignments.get(dateStr) || [];
     const allDayFilters = [...autoJobs, ...extraJobs];
-    return allDayFilters.length > 0 ? allDayFilters[0].city : null;
+    const areas = new Set(allDayFilters.map(j => j.city));
+    return Array.from(areas);
   };
 
   // When area is overridden, rebuild that day's filter list from the new area
