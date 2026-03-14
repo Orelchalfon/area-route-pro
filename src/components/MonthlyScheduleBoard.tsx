@@ -16,9 +16,8 @@ import { DayRouteMap } from './DayRouteMap';
 import { CustomerInfoPopover } from './CustomerInfoPopover';
 
 const REGIONS = [
-  'דרום רחוק', 'דרום קרוב', 'דרום תל אביב והסביבה', 'ירושלים והסביבה',
-  'מרכז פתח תקווה', 'הרצליה ורעננה', 'שומרון', 'נתניה ועמק חפר',
-  'צפון קרוב', 'צפון רחוק',
+  'דרום רחוק', 'מרכז דרום', 'תל אביב', 'ירושלים',
+  'גוש דן', 'השרון', 'נתניה', 'צפון קרוב', 'צפון רחוק',
 ];
 
 interface MonthlyScheduleBoardProps {
