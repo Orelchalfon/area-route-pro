@@ -811,7 +811,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   }, [month, year, jobs]);
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
   const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(new Set());
-  const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string>>(new Map());
+  const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string[]>>(new Map());
   const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, futureWorkingDays), [filterJobs, futureWorkingDays]);
 
   // Get the effective area for a day (override or auto-determined)
