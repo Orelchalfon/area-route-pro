@@ -985,7 +985,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     
     // First: find a day that already has jobs in the same area
     for (const dateStr of candidates) {
-      const area = getDayArea(dateStr);
+      const area = getDayAreas(dateStr);
       if (area === jobCity) return dateStr;
     }
     // Fallback: find any day with capacity (fewer than 15 total jobs)
