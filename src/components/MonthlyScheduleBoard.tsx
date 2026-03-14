@@ -1208,7 +1208,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                 const dayManualJobs = getManualDayJobs(dateStr);
                 const totalMinutes = dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) + dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
                 const maxShow = isWeekView ? 20 : 2;
-                const dayArea = !isWeekend && inCurrentMonth ? getDayArea(dateStr) : null;
+                const dayAreas = !isWeekend && inCurrentMonth ? getDayAreas(dateStr) : [];
                 const isDayApproved = approvedDays.has(dateStr);
                 const hasJobs = dayFilterJobs.length + dayManualJobs.length > 0;
 
