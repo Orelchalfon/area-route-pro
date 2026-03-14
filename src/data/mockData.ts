@@ -158,14 +158,15 @@ function generateUniqueNames(count: number): string[] {
 
 const UNIQUE_NAMES = generateUniqueNames(1200);
 
-// Generate 1200 customers — 100 per month, spread across 10 regions
+// Generate customers spread across 9 regions
 function generateCustomers(): Customer[] {
   const result: Customer[] = [];
+  const regionCount = CITIES.length; // 9
   for (let i = 0; i < 1200; i++) {
     const month = Math.floor(i / 100) + 1; // 100 per month
-    const cityIdx = i % 10;
+    const cityIdx = i % regionCount;
     const city = CITIES[cityIdx];
-    const addressEntry = ADDRESSES[city][Math.floor(i / 10) % ADDRESSES[city].length];
+    const addressEntry = ADDRESSES[city][Math.floor(i / regionCount) % ADDRESSES[city].length];
     const fullName = UNIQUE_NAMES[i];
     const product = PRODUCTS[i % PRODUCTS.length];
 
