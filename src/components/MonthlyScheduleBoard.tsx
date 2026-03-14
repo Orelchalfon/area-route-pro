@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { DayRouteMap } from './DayRouteMap';
 import { CustomerInfoPopover } from './CustomerInfoPopover';
@@ -810,21 +811,22 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   }, [month, year, jobs]);
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
   const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(new Set());
-  const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string>>(new Map());
+  const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string[]>>(new Map());
   const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, futureWorkingDays), [filterJobs, futureWorkingDays]);
 
-  // Get the effective area for a day (override or auto-determined)
-  const getDayArea = (dateStr: string): string | null => {
+  // Get the effective areas for a day (override or auto-determined) — now returns array
+  const getDayAreas = (dateStr: string): string[] => {
     if (dayAreaOverrides.has(dateStr)) return dayAreaOverrides.get(dateStr)!;
     const autoJobs = (filterDistribution.get(dateStr) || []).filter(j => !removedFromAutoIds.has(j.id));
     const extraJobs = extraFilterAssignments.get(dateStr) || [];
     const allDayFilters = [...autoJobs, ...extraJobs];
-    return allDayFilters.length > 0 ? allDayFilters[0].city : null;
+    const areas = new Set(allDayFilters.map(j => j.city));
+    return Array.from(areas);
   };
 
-  // When area is overridden, rebuild that day's filter list from the new area
-  const handleAreaOverride = (dateStr: string, newArea: string) => {
-    setDayAreaOverrides(prev => new Map(prev).set(dateStr, newArea));
+  // When areas are overridden, rebuild that day's filter list from the new areas
+  const handleAreaOverride = (dateStr: string, newAreas: string[]) => {
+    setDayAreaOverrides(prev => new Map(prev).set(dateStr, newAreas));
 
     // Remove existing auto filters from this day
     const currentAutoJobs = (filterDistribution.get(dateStr) || []);
@@ -846,7 +848,6 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     manualDayJobs.forEach(j => onUnassignJob(j.id));
 
     // Unassign any previously approved filter jobs for this day from global state
-    // so they no longer appear in the Daily Route page
     const approvedFilterJobsForDay = jobs.filter(
       j => j.type === 'filter_replacement' &&
         j.scheduledDate === dateStr &&
@@ -861,7 +862,8 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       return next;
     });
 
-    // Find unassigned filter jobs from the new area and assign up to 3
+    // Find unassigned filter jobs from the new areas and assign up to 3
+    const areaSet = new Set(newAreas);
     const allAssignedIds = new Set<string>();
     filterDistribution.forEach((dayJobs, key) => {
       if (key !== dateStr) dayJobs.forEach(j => { if (!removedFromAutoIds.has(j.id)) allAssignedIds.add(j.id); });
@@ -871,7 +873,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       if (key !== dateStr) dayJobs.forEach(j => allAssignedIds.add(j.id));
     });
 
-    const available = filterJobs.filter(j => j.city === newArea && !allAssignedIds.has(j.id));
+    const available = filterJobs.filter(j => areaSet.has(j.city) && !allAssignedIds.has(j.id));
     const toAssign = available.slice(0, 3);
 
     if (toAssign.length > 0) {
@@ -882,7 +884,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       });
     }
 
-    toast.success(`האזור שונה ל-${newArea} — המשימות הקודמות הוסרו, ${toAssign.length} פילטרים חדשים שובצו`);
+    toast.success(`האזורים עודכנו (${newAreas.join(', ')}) — ${toAssign.length} פילטרים שובצו`);
   };
 
   // Unassigned filter jobs (not yet distributed to any day)
@@ -983,8 +985,8 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     
     // First: find a day that already has jobs in the same area
     for (const dateStr of candidates) {
-      const area = getDayArea(dateStr);
-      if (area === jobCity) return dateStr;
+      const area = getDayAreas(dateStr);
+      if (area.includes(jobCity)) return dateStr;
     }
     // Fallback: find any day with capacity (fewer than 15 total jobs)
     for (const dateStr of candidates) {
@@ -1206,7 +1208,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                 const dayManualJobs = getManualDayJobs(dateStr);
                 const totalMinutes = dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) + dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
                 const maxShow = isWeekView ? 20 : 2;
-                const dayArea = !isWeekend && inCurrentMonth ? getDayArea(dateStr) : null;
+                const dayAreas = !isWeekend && inCurrentMonth ? getDayAreas(dateStr) : [];
                 const isDayApproved = approvedDays.has(dateStr);
                 const hasJobs = dayFilterJobs.length + dayManualJobs.length > 0;
 
@@ -1246,27 +1248,40 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                       </div>
                     </div>
 
-                    {dayArea && !isWeekend && inCurrentMonth && (
+                    {dayAreas.length > 0 && !isWeekend && inCurrentMonth && (
                       <div className="mb-0.5">
-                        <Select
-                          value={dayArea}
-                          onValueChange={(val) => {
-                            handleAreaOverride(dateStr, val);
-                          }}
-                        >
-                          <SelectTrigger
-                            className="h-5 px-1.5 text-[10px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full justify-start gap-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MapPin className="w-2.5 h-2.5 shrink-0" />
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent dir="rtl">
-                            {REGIONS.map(r => (
-                              <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              className="h-auto min-h-[20px] px-1.5 py-0.5 text-[10px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full text-right flex items-center gap-0.5 flex-wrap"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MapPin className="w-2.5 h-2.5 shrink-0" />
+                              <span className="truncate">{dayAreas.join(', ')}</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent dir="rtl" className="w-56 p-2" align="start">
+                            <p className="text-xs font-semibold mb-2 text-muted-foreground">בחר אזורים ליום:</p>
+                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                              {REGIONS.map(r => (
+                                <label key={r} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-xs">
+                                  <Checkbox
+                                    checked={dayAreas.includes(r)}
+                                    onCheckedChange={(checked) => {
+                                      const newAreas = checked
+                                        ? [...dayAreas, r]
+                                        : dayAreas.filter(a => a !== r);
+                                      if (newAreas.length > 0) {
+                                        handleAreaOverride(dateStr, newAreas);
+                                      }
+                                    }}
+                                  />
+                                  <span>{r}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     )}
 
@@ -1333,26 +1348,27 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
       {/* Picker dialog */}
       {pickerState && (() => {
-        const dayArea = getDayArea(pickerState.dateStr);
+        const dayAreas = getDayAreas(pickerState.dateStr);
         const dayExistingFilters = getFilterDayJobs(pickerState.dateStr);
         const dayExistingIds = new Set(dayExistingFilters.map(j => j.id));
 
-        const unassignedSameAreaFilters = dayArea
-          ? unassignedFilterJobs.filter(j => j.city === dayArea)
+        const unassignedSameAreaFilters = dayAreas.length > 0
+          ? unassignedFilterJobs.filter(j => dayAreas.includes(j.city))
           : unassignedFilterJobs;
 
         const fromOtherDays: Job[] = [];
-        if (dayArea) {
+        const areaSet = new Set(dayAreas);
+        if (areaSet.size > 0) {
           filterDistribution.forEach((dayJobs, dateStr) => {
             if (dateStr === pickerState.dateStr) return;
             dayJobs.forEach(j => {
-              if (j.city === dayArea && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
+              if (areaSet.has(j.city) && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
             });
           });
           extraFilterAssignments.forEach((dayJobs, dateStr) => {
             if (dateStr === pickerState.dateStr) return;
             dayJobs.forEach(j => {
-              if (j.city === dayArea && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
+              if (areaSet.has(j.city) && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
             });
           });
         }
@@ -1371,7 +1387,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
             onSelectManualJobs={handlePickerSelect}
             onSelectFilterJobs={(jobIds, odi) => handleFilterPickerMoveSelect(jobIds, odi, pickerState.dateStr)}
             dayLabel={pickerState.dayLabel}
-            dayArea={dayArea}
+            dayArea={dayAreas.length > 0 ? dayAreas[0] : null}
           />
         );
       })()}
