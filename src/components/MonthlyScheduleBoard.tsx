@@ -1248,27 +1248,40 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                       </div>
                     </div>
 
-                    {dayArea && !isWeekend && inCurrentMonth && (
+                    {dayAreas.length > 0 && !isWeekend && inCurrentMonth && (
                       <div className="mb-0.5">
-                        <Select
-                          value={dayArea}
-                          onValueChange={(val) => {
-                            handleAreaOverride(dateStr, val);
-                          }}
-                        >
-                          <SelectTrigger
-                            className="h-5 px-1.5 text-[10px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full justify-start gap-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MapPin className="w-2.5 h-2.5 shrink-0" />
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent dir="rtl">
-                            {REGIONS.map(r => (
-                              <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              className="h-auto min-h-[20px] px-1.5 py-0.5 text-[10px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full text-right flex items-center gap-0.5 flex-wrap"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MapPin className="w-2.5 h-2.5 shrink-0" />
+                              <span className="truncate">{dayAreas.join(', ')}</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent dir="rtl" className="w-56 p-2" align="start">
+                            <p className="text-xs font-semibold mb-2 text-muted-foreground">בחר אזורים ליום:</p>
+                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                              {REGIONS.map(r => (
+                                <label key={r} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-xs">
+                                  <Checkbox
+                                    checked={dayAreas.includes(r)}
+                                    onCheckedChange={(checked) => {
+                                      const newAreas = checked
+                                        ? [...dayAreas, r]
+                                        : dayAreas.filter(a => a !== r);
+                                      if (newAreas.length > 0) {
+                                        handleAreaOverride(dateStr, newAreas);
+                                      }
+                                    }}
+                                  />
+                                  <span>{r}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     )}
 
