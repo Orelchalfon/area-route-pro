@@ -1409,7 +1409,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
             onSelectManualJobs={handlePickerSelect}
             onSelectFilterJobs={(jobIds, odi) => handleFilterPickerMoveSelect(jobIds, odi, pickerState.dateStr)}
             dayLabel={pickerState.dayLabel}
-            dayArea={dayAreas.length > 0 ? dayAreas[0] : null}
+            dayAreas={dayAreas}
           />
         );
       })()}
