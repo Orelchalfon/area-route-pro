@@ -1376,14 +1376,36 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
         const availableFilters = [...unassignedSameAreaFilters, ...fromOtherDays];
         const otherDayIds = new Set(fromOtherDays.map(j => j.id));
 
+        // Collect ALL filter jobs from other days (not just same area) for the picker
+        const allFromOtherDays: Job[] = [];
+        const allOtherDayIdSet = new Set<string>();
+        filterDistribution.forEach((dayJobs, dStr) => {
+          if (dStr === pickerState.dateStr) return;
+          dayJobs.forEach(j => {
+            if (!dayExistingIds.has(j.id)) {
+              allFromOtherDays.push(j);
+              allOtherDayIdSet.add(j.id);
+            }
+          });
+        });
+        extraFilterAssignments.forEach((dayJobs, dStr) => {
+          if (dStr === pickerState.dateStr) return;
+          dayJobs.forEach(j => {
+            if (!dayExistingIds.has(j.id) && !allOtherDayIdSet.has(j.id)) {
+              allFromOtherDays.push(j);
+              allOtherDayIdSet.add(j.id);
+            }
+          });
+        });
+
         return (
           <UnifiedJobPickerDialog
             open={pickerState.open}
             onClose={() => setPickerState(null)}
             unassignedManualJobs={unassignedManualJobs}
-            unassignedFilterJobs={unassignedSameAreaFilters}
-            filterJobsFromOtherDays={fromOtherDays}
-            otherDayIds={otherDayIds}
+            unassignedFilterJobs={unassignedFilterJobs}
+            filterJobsFromOtherDays={allFromOtherDays}
+            otherDayIds={allOtherDayIdSet}
             onSelectManualJobs={handlePickerSelect}
             onSelectFilterJobs={(jobIds, odi) => handleFilterPickerMoveSelect(jobIds, odi, pickerState.dateStr)}
             dayLabel={pickerState.dayLabel}
