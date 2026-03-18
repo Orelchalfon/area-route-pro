@@ -140,7 +140,7 @@ function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: 
 }
 
 // Unified picker dialog for adding any job type to a day
-function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassignedFilterJobs, filterJobsFromOtherDays, otherDayIds, onSelectManualJobs, onSelectFilterJobs, dayLabel, dayArea }: {
+function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassignedFilterJobs, filterJobsFromOtherDays, otherDayIds, onSelectManualJobs, onSelectFilterJobs, dayLabel, dayAreas }: {
   open: boolean;
   onClose: () => void;
   unassignedManualJobs: Job[];
@@ -150,31 +150,36 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
   onSelectManualJobs: (jobIds: string[]) => void;
   onSelectFilterJobs: (jobIds: string[], otherDayIds: Set<string>) => void;
   dayLabel: string;
-  dayArea: string | null;
+  dayAreas: string[];
 }) {
   const { customersList: customers } = useJobsContext();
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('malfunction');
 
-  // Combine all jobs for area selection
-  const allAvailableJobs = [...unassignedManualJobs, ...unassignedFilterJobs, ...filterJobsFromOtherDays];
+  // Filter jobs to only those in the selected day areas
+  const areaFilteredManualJobs = useMemo(() => 
+    dayAreas.length > 0 ? unassignedManualJobs.filter(j => dayAreas.includes(j.city)) : unassignedManualJobs
+  , [dayAreas, unassignedManualJobs]);
+
+  const areaFilteredFilterJobs = useMemo(() => {
+    const all = [...unassignedFilterJobs, ...filterJobsFromOtherDays];
+    return dayAreas.length > 0 ? all.filter(j => dayAreas.includes(j.city)) : all;
+  }, [dayAreas, unassignedFilterJobs, filterJobsFromOtherDays]);
+
+  const allAvailableJobs = [...areaFilteredManualJobs, ...areaFilteredFilterJobs];
 
   const cities = useMemo(() => {
+    if (dayAreas.length > 0) return dayAreas;
     const citySet = new Set(allAvailableJobs.map(j => j.city));
     return Array.from(citySet).sort();
-  }, [allAvailableJobs]);
-
-  const areaJobs = useMemo(() => {
-    if (!selectedArea) return [];
-    return allAvailableJobs.filter(j => j.city === selectedArea);
-  }, [selectedArea, allAvailableJobs]);
+  }, [dayAreas, allAvailableJobs]);
 
   const jobsByType = useMemo(() => ({
-    malfunction: selectedArea ? unassignedManualJobs.filter(j => j.type === 'malfunction' && j.city === selectedArea) : [],
-    installation: selectedArea ? unassignedManualJobs.filter(j => j.type === 'installation' && j.city === selectedArea) : [],
-    filter_replacement: selectedArea ? [...unassignedFilterJobs, ...filterJobsFromOtherDays].filter(j => j.city === selectedArea) : [],
-  }), [selectedArea, unassignedManualJobs, unassignedFilterJobs, filterJobsFromOtherDays]);
+    malfunction: selectedArea ? areaFilteredManualJobs.filter(j => j.type === 'malfunction' && j.city === selectedArea) : [],
+    installation: selectedArea ? areaFilteredManualJobs.filter(j => j.type === 'installation' && j.city === selectedArea) : [],
+    filter_replacement: selectedArea ? areaFilteredFilterJobs.filter(j => j.city === selectedArea) : [],
+  }), [selectedArea, areaFilteredManualJobs, areaFilteredFilterJobs]);
 
   const toggleJob = (jobId: string) => {
     setSelectedJobIds(prev => {
@@ -1409,7 +1414,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
             onSelectManualJobs={handlePickerSelect}
             onSelectFilterJobs={(jobIds, odi) => handleFilterPickerMoveSelect(jobIds, odi, pickerState.dateStr)}
             dayLabel={pickerState.dayLabel}
-            dayArea={dayAreas.length > 0 ? dayAreas[0] : null}
+            dayAreas={dayAreas}
           />
         );
       })()}
