@@ -140,7 +140,7 @@ function MiniJobChip({ job, onRemove, isAutoScheduled }: { job: Job; onRemove?: 
 }
 
 // Unified picker dialog for adding any job type to a day
-function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassignedFilterJobs, filterJobsFromOtherDays, otherDayIds, onSelectManualJobs, onSelectFilterJobs, dayLabel, dayArea }: {
+function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassignedFilterJobs, filterJobsFromOtherDays, otherDayIds, onSelectManualJobs, onSelectFilterJobs, dayLabel, dayAreas }: {
   open: boolean;
   onClose: () => void;
   unassignedManualJobs: Job[];
@@ -150,7 +150,7 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
   onSelectManualJobs: (jobIds: string[]) => void;
   onSelectFilterJobs: (jobIds: string[], otherDayIds: Set<string>) => void;
   dayLabel: string;
-  dayArea: string | null;
+  dayAreas: string[];
 }) {
   const { customersList: customers } = useJobsContext();
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
