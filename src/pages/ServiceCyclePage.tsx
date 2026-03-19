@@ -4,11 +4,15 @@ import { Customer, Job, JOB_TYPE_CONFIG, SERVICE_TRACK_CONFIG } from '@/types';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { CustomerInfoPopover } from '@/components/CustomerInfoPopover';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
+import { CheckCircle, Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight, Trash2 } from 'lucide-react';
 import { ServiceTrackBadge } from '@/components/ServiceTrackBadge';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek } from 'date-fns';
 import { he } from 'date-fns/locale';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const MONTH_NAMES = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
@@ -18,7 +22,7 @@ const MONTH_NAMES = [
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 export default function ServiceCyclePage() {
-  const { jobs, customersList, completeFilterJob } = useJobsContext();
+  const { jobs, customersList, completeFilterJob, resetServiceCycle } = useJobsContext();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const currentMonth = new Date().getMonth() + 1;
@@ -253,6 +257,28 @@ export default function ServiceCyclePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="gap-1">
+                <Trash2 className="w-4 h-4" />
+                איפוס שירות שוטף
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent dir="rtl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>איפוס שירות שוטף</AlertDialogTitle>
+                <AlertDialogDescription>
+                  פעולה זו תמחק את כל משימות השירות השוטף (החלפת פילטרים) ותאפס את חודשי השירות של כל הלקוחות. האם להמשיך?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="flex-row-reverse gap-2">
+                <AlertDialogCancel>ביטול</AlertDialogCancel>
+                <AlertDialogAction onClick={resetServiceCycle} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  אפס הכל
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button variant="outline" size="icon" onClick={() => setSelectedYear(y => y - 1)}>
             <ChevronRight className="w-4 h-4" />
           </Button>
