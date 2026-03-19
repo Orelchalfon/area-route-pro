@@ -295,6 +295,11 @@ export function useJobs() {
     }));
   };
 
+  const resetServiceCycle = useCallback(() => {
+    setJobs(prev => prev.filter(j => j.type !== 'filter_replacement'));
+    setCustomersList(prev => prev.map(c => ({ ...c, filterReplacementMonth: 0 })));
+  }, []);
+
   const getUnassignedJobs = () => jobs.filter(j => !j.technicianId && !j.scheduledDate);
 
   const getJobsByArea = () => {
