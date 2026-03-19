@@ -22,7 +22,7 @@ const MONTH_NAMES = [
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 export default function ServiceCyclePage() {
-  const { jobs, customersList, completeFilterJob } = useJobsContext();
+  const { jobs, customersList, completeFilterJob, resetServiceCycle } = useJobsContext();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const currentMonth = new Date().getMonth() + 1;
