@@ -317,5 +317,5 @@ export function useJobs() {
 
   const getCustomerLogs = (customerId: string) => activityLogs.filter(l => l.customerId === customerId);
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }
