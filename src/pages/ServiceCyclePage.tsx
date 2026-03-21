@@ -257,28 +257,6 @@ export default function ServiceCyclePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" className="gap-1">
-                <Trash2 className="w-4 h-4" />
-                איפוס שירות שוטף
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent dir="rtl">
-              <AlertDialogHeader>
-                <AlertDialogTitle>איפוס שירות שוטף</AlertDialogTitle>
-                <AlertDialogDescription>
-                  פעולה זו תמחק את כל משימות השירות השוטף (החלפת פילטרים) ותאפס את חודשי השירות של כל הלקוחות. האם להמשיך?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter className="flex-row-reverse gap-2">
-                <AlertDialogCancel>ביטול</AlertDialogCancel>
-                <AlertDialogAction onClick={resetServiceCycle} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  אפס הכל
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
           <Button variant="outline" size="icon" onClick={() => setSelectedYear(y => y - 1)}>
             <ChevronRight className="w-4 h-4" />
           </Button>
