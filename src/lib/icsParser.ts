@@ -121,17 +121,23 @@ export function parseICS(text: string, serviceOnly = false): { customers: Custom
   const jobs: Job[] = [];
   let customerIdx = 0;
 
+  // Today's date string for filtering past events
+  const todayStr = new Date().toISOString().slice(0, 10);
+
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
     const { date, time } = parseICSDate(ev.dtstart);
     const endParsed = parseICSDate(ev.dtend);
     if (!date) continue;
 
+    // Skip past events — only import today and future
+    if (date < todayStr) continue;
+
     // Skip installations when serviceOnly mode
     if (serviceOnly && isInstallation(ev.summary)) continue;
 
-    // Skip completed tasks (marked with "בוצע" in Outlook, usually yellow-highlighted)
-    if (/^בוצע\b/.test(ev.summary.trim())) continue;
+    // Skip completed tasks (marked with "בוצע", "100%", or "completed")
+    if (/^בוצע\b|100%|completed/i.test(ev.summary.trim())) continue;
 
     const customerName = extractCustomerName(ev.summary);
     const city = (ev.location || '').trim();
