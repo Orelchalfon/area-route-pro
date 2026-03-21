@@ -1,11 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Customer, Job, JOB_TYPE_CONFIG, SERVICE_TRACK_CONFIG } from '@/types';
-
-import { useJobsContext } from '@/contexts/JobsContext';
-import { CustomerInfoPopover } from '@/components/CustomerInfoPopover';
+import { useOngoingServices, OngoingService } from '@/hooks/useOngoingServices';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
-import { ServiceTrackBadge } from '@/components/ServiceTrackBadge';
+import { Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight, List, CalendarDays, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek } from 'date-fns';
 
@@ -13,130 +9,63 @@ const MONTH_NAMES = [
   'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
   'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
 ];
-
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
+type ViewMode = 'annual' | 'month-calendar' | 'month-list';
+
 export default function ServiceCyclePage() {
-  const { jobs, customersList, completeFilterJob } = useJobsContext();
+  const { services, loading } = useOngoingServices();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('annual');
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
-  // Group customers by the months they actually have service jobs (from ICS)
-  const customersByMonth = useMemo(() => {
-    const grouped: Record<number, Customer[]> = {};
+  // Group services by month
+  const servicesByMonth = useMemo(() => {
+    const grouped: Record<number, OngoingService[]> = {};
     for (let m = 1; m <= 12; m++) grouped[m] = [];
-
-    // Build a set of customerIds per month based on actual filter_replacement jobs
-    const filterJobs = jobs.filter(j => j.type === 'filter_replacement');
-    const customerIdsByMonth: Record<number, Set<string>> = {};
-    for (let m = 1; m <= 12; m++) customerIdsByMonth[m] = new Set();
-
-    filterJobs.forEach(j => {
-      const dateStr = j.scheduledDate || j.createdAt;
-      if (!dateStr) return;
-      const jobDate = new Date(dateStr);
-      if (jobDate.getFullYear() === selectedYear) {
-        customerIdsByMonth[jobDate.getMonth() + 1].add(j.customerId);
+    services.forEach(s => {
+      const d = new Date(s.service_date);
+      if (d.getFullYear() === selectedYear) {
+        grouped[d.getMonth() + 1].push(s);
       }
     });
-
-    // Also include customers by their filterReplacementMonth if they don't have jobs yet
-    customersList.forEach(c => {
-      if (c.filterReplacementMonth >= 1 && c.filterReplacementMonth <= 12) {
-        customerIdsByMonth[c.filterReplacementMonth].add(c.id);
-      }
-    });
-
-    // Resolve customer objects
-    const customerMap = new Map(customersList.map(c => [c.id, c]));
-    for (let m = 1; m <= 12; m++) {
-      customerIdsByMonth[m].forEach(id => {
-        const c = customerMap.get(id);
-        if (c) grouped[m].push(c);
-      });
-    }
-
     return grouped;
-  }, [customersList, jobs, selectedYear]);
-
-  // Find filter jobs for the selected year
-  const filterJobsByMonth = useMemo(() => {
-    const grouped: Record<number, Job[]> = {};
-    for (let m = 1; m <= 12; m++) grouped[m] = [];
-    jobs
-      .filter(j => j.type === 'filter_replacement')
-      .forEach(j => {
-        const dateStr = j.scheduledDate || j.createdAt;
-        if (!dateStr) return;
-        const jobDate = new Date(dateStr);
-        if (jobDate.getFullYear() === selectedYear) {
-          const month = jobDate.getMonth() + 1;
-          grouped[month].push(j);
-        }
-      });
-    return grouped;
-  }, [jobs, selectedYear]);
+  }, [services, selectedYear]);
 
   const monthStats = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
       const month = i + 1;
-      const monthCustomers = customersByMonth[month];
-      const monthJobs = filterJobsByMonth[month];
-      const completed = monthJobs.filter(j => j.status === 'completed').length;
-      const total = monthCustomers.length;
+      const items = servicesByMonth[month];
       const isPast = selectedYear < currentYear || (selectedYear === currentYear && month < currentMonth);
       const isCurrent = selectedYear === currentYear && month === currentMonth;
-      return { month, total, completed, isPast, isCurrent, customers: monthCustomers, jobs: monthJobs };
+      return { month, total: items.length, isPast, isCurrent, services: items };
     });
-  }, [customersByMonth, filterJobsByMonth, selectedYear, currentMonth, currentYear]);
+  }, [servicesByMonth, selectedYear, currentMonth, currentYear]);
 
-  // Month calendar view
-  if (selectedMonth !== null) {
+  const goToMonth = (month: number, mode: ViewMode) => {
+    setSelectedMonth(month);
+    setViewMode(mode);
+  };
+
+  if (loading) {
+    return (
+      <div dir="rtl" className="flex items-center justify-center h-64">
+        <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+        <span className="mr-2 text-muted-foreground">טוען נתונים...</span>
+      </div>
+    );
+  }
+
+  // Month detail view (calendar or list)
+  if (selectedMonth !== null && viewMode !== 'annual') {
     const stat = monthStats[selectedMonth - 1];
-    const monthDate = new Date(selectedYear, selectedMonth - 1, 1);
-    const monthStart = startOfMonth(monthDate);
-    const monthEnd = endOfMonth(monthDate);
-    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
-    const calDays = eachDayOfInterval({ start: calStart, end: calEnd });
-
-    // Distribute customers across working days of the month
-    const workingDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
-      .filter(d => getDay(d) !== 6 && getDay(d) !== 5); // Exclude Fri+Sat
-
-    // Group customers by city for distribution
-    const customersByCity: Record<string, Customer[]> = {};
-    stat.customers.forEach(c => {
-      if (!customersByCity[c.city]) customersByCity[c.city] = [];
-      customersByCity[c.city].push(c);
-    });
-
-    // Distribute: 3 per day, grouped by area
-    const dayAssignments = new Map<string, { customer: Customer; job?: Job }[]>();
-    workingDays.forEach(d => dayAssignments.set(format(d, 'yyyy-MM-dd'), []));
-    const dayKeys = workingDays.map(d => format(d, 'yyyy-MM-dd'));
-    let dayIdx = 0;
-    Object.values(customersByCity).forEach(cityCustomers => {
-      for (let i = 0; i < cityCustomers.length; i += 3) {
-        if (dayIdx >= dayKeys.length) dayIdx = 0;
-        const dateStr = dayKeys[dayIdx];
-        const chunk = cityCustomers.slice(i, i + 3);
-        const existing = dayAssignments.get(dateStr) || [];
-        chunk.forEach(c => {
-          const job = stat.jobs.find(j => j.customerId === c.id);
-          existing.push({ customer: c, job });
-        });
-        dayAssignments.set(dateStr, existing);
-        dayIdx++;
-      }
-    });
 
     return (
       <div dir="rtl" className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedMonth(null)} className="gap-1">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button variant="ghost" size="sm" onClick={() => { setSelectedMonth(null); setViewMode('annual'); }} className="gap-1">
             <ArrowRight className="w-4 h-4" />
             חזרה
           </Button>
@@ -144,96 +73,30 @@ export default function ServiceCyclePage() {
             <Filter className="w-5 h-5 inline ml-2 text-primary" />
             שירות שוטף — {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
           </h2>
-          <span className="text-sm text-muted-foreground mr-auto">
-            {stat.completed}/{stat.total} הושלמו
-          </span>
-        </div>
-
-        {/* Calendar grid */}
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-border">
-            {DAY_HEADERS.map(d => (
-              <div key={d} className="p-2 text-center text-xs font-semibold text-muted-foreground bg-muted/30">
-                {d}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {calDays.map((day, idx) => {
-              const dateStr = format(day, 'yyyy-MM-dd');
-              const isCurrentMonth = day.getMonth() === selectedMonth - 1;
-              const isWeekend = getDay(day) === 5 || getDay(day) === 6;
-              const dayItems = dayAssignments.get(dateStr) || [];
-              const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
-
-              return (
-                <div
-                  key={idx}
-                  className={cn(
-                    'min-h-[120px] border-b border-r border-border p-1.5 transition-colors',
-                    !isCurrentMonth && 'bg-muted/20 opacity-40',
-                    isWeekend && isCurrentMonth && 'bg-muted/10',
-                    isToday && 'ring-2 ring-primary ring-inset',
-                  )}
-                >
-                  <div className={cn(
-                    'text-xs font-medium mb-1',
-                    isToday ? 'text-primary font-bold' : 'text-muted-foreground'
-                  )}>
-                    {day.getDate()}
-                  </div>
-                  {isCurrentMonth && !isWeekend && (
-                     <div className="space-y-0.5">
-                      {dayItems.map(({ customer, job }) => {
-                        const isCompleted = job?.status === 'completed';
-                        const trackConfig = customer.serviceTrack ? SERVICE_TRACK_CONFIG[customer.serviceTrack] : null;
-                        return (
-                          <div
-                            key={customer.id}
-                            className={cn(
-                              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border',
-                              isCompleted
-                                ? 'bg-success/10 text-success border-success/30 line-through'
-                                : trackConfig
-                                  ? `${trackConfig.bgClass} ${trackConfig.textClass}`
-                                  : 'bg-info/10 text-info border-info/30'
-                            )}
-                            title={isCompleted ? 'בוצע' : (job?.notes || trackConfig?.label || 'שירות')}
-                          >
-                            {isCompleted ? (
-                              <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />
-                            ) : (
-                              <Filter className="w-2.5 h-2.5 flex-shrink-0" />
-                            )}
-                            <CustomerInfoPopover customer={customer}>
-                              <span className="truncate">{customer.name}</span>
-                            </CustomerInfoPopover>
-                            <span className="text-[8px] opacity-80 shrink-0">
-                              {job?.notes
-                                ? job.notes.replace(customer.name, '').replace(/^[\s\-–—:]+/, '').trim().substring(0, 20)
-                                : trackConfig?.label || ''}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <span className="text-sm text-muted-foreground">{stat.total} משימות</span>
+          <div className="mr-auto flex gap-1">
+            <Button
+              variant={viewMode === 'month-list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('month-list')}
+            >
+              <List className="w-4 h-4 ml-1" /> רשימה
+            </Button>
+            <Button
+              variant={viewMode === 'month-calendar' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('month-calendar')}
+            >
+              <CalendarDays className="w-4 h-4 ml-1" /> לוח שנה
+            </Button>
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-success" /> בוצע</span>
-          {Object.entries(SERVICE_TRACK_CONFIG).map(([key, config]) => (
-            <span key={key} className={`flex items-center gap-1 ${config.textClass}`}>
-              <Filter className="w-3 h-3" /> {config.label}
-            </span>
-          ))}
-          <span>לחץ על לקוח לסמן כבוצע</span>
-        </div>
+        {viewMode === 'month-list' ? (
+          <MonthListView services={stat.services} />
+        ) : (
+          <MonthCalendarView services={stat.services} selectedMonth={selectedMonth} selectedYear={selectedYear} />
+        )}
       </div>
     );
   }
@@ -241,14 +104,14 @@ export default function ServiceCyclePage() {
   // Annual overview
   return (
     <div dir="rtl" className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <RefreshCw className="w-6 h-6 text-primary" />
             שירות שוטף — מעגל שנתי
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            מעקב אחר החלפת פילטרים — מחזור שנתי. לחץ על חודש לצפייה בלוח החודשי.
+            מעקב אחר שירות שוטף — לחץ על חודש לצפייה בלוח החודשי או ברשימה.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -262,54 +125,145 @@ export default function ServiceCyclePage() {
         </div>
       </div>
 
-      {/* 12-month grid */}
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-        {monthStats.map(stat => {
-          const pct = stat.total > 0 ? Math.round((stat.completed / stat.total) * 100) : 0;
-          const allDone = stat.total > 0 && stat.completed === stat.total;
+        {monthStats.map(stat => (
+          <div
+            key={stat.month}
+            className={cn(
+              'relative flex flex-col items-center p-4 rounded-xl border-2 transition-all hover:shadow-md cursor-pointer',
+              stat.isCurrent && 'ring-2 ring-primary ring-offset-2',
+              stat.total === 0 ? 'border-border bg-card opacity-60' : 'border-primary/30 bg-card'
+            )}
+          >
+            <span className="text-sm font-semibold text-foreground">{MONTH_NAMES[stat.month - 1]}</span>
+            <span className="text-2xl font-bold text-primary my-2">{stat.total}</span>
+            <span className="text-[11px] text-muted-foreground mb-2">משימות</span>
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" onClick={() => goToMonth(stat.month, 'month-list')}>
+                <List className="w-3 h-3 ml-0.5" /> רשימה
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-[10px]" onClick={() => goToMonth(stat.month, 'month-calendar')}>
+                <CalendarDays className="w-3 h-3 ml-0.5" /> לוח
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-sm text-muted-foreground text-center">
+        סה״כ {services.filter(s => new Date(s.service_date).getFullYear() === selectedYear).length} משימות בשנת {selectedYear}
+      </div>
+    </div>
+  );
+}
+
+function MonthListView({ services }: { services: OngoingService[] }) {
+  const sorted = [...services].sort((a, b) => a.service_date.localeCompare(b.service_date));
+  if (sorted.length === 0) {
+    return <p className="text-muted-foreground text-center py-8">אין משימות בחודש זה.</p>;
+  }
+
+  // Group by date
+  const byDate: Record<string, OngoingService[]> = {};
+  sorted.forEach(s => {
+    const key = s.service_date;
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(s);
+  });
+
+  return (
+    <div className="space-y-4">
+      {Object.entries(byDate).map(([dateStr, items]) => (
+        <div key={dateStr} className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="bg-muted/40 px-4 py-2 border-b border-border flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            <span className="font-semibold text-sm">
+              {format(new Date(dateStr), 'EEEE, dd/MM/yyyy')}
+            </span>
+            <span className="text-xs text-muted-foreground mr-auto">{items.length} משימות</span>
+          </div>
+          <div className="divide-y divide-border">
+            {items.map(s => (
+              <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
+                <Filter className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-sm font-medium text-foreground flex-1">{s.task_description}</span>
+                {s.location && (
+                  <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MonthCalendarView({ services, selectedMonth, selectedYear }: { services: OngoingService[]; selectedMonth: number; selectedYear: number }) {
+  const monthDate = new Date(selectedYear, selectedMonth - 1, 1);
+  const monthStart = startOfMonth(monthDate);
+  const monthEnd = endOfMonth(monthDate);
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  const calDays = eachDayOfInterval({ start: calStart, end: calEnd });
+
+  const servicesByDate: Record<string, OngoingService[]> = {};
+  services.forEach(s => {
+    if (!servicesByDate[s.service_date]) servicesByDate[s.service_date] = [];
+    servicesByDate[s.service_date].push(s);
+  });
+
+  return (
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="grid grid-cols-7 border-b border-border">
+        {DAY_HEADERS.map(d => (
+          <div key={d} className="p-2 text-center text-xs font-semibold text-muted-foreground bg-muted/30">
+            {d}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {calDays.map((day, idx) => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const isCurrentMonth = day.getMonth() === selectedMonth - 1;
+          const isWeekend = getDay(day) === 5 || getDay(day) === 6;
+          const dayServices = servicesByDate[dateStr] || [];
+          const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
 
           return (
-            <button
-              key={stat.month}
-              onClick={() => setSelectedMonth(stat.month)}
+            <div
+              key={idx}
               className={cn(
-                'relative flex flex-col items-center p-4 rounded-xl border-2 transition-all hover:shadow-md cursor-pointer',
-                stat.isCurrent && 'ring-2 ring-primary ring-offset-2',
-                allDone ? 'border-success bg-success/5' :
-                  stat.isPast && stat.total > 0 && !allDone ? 'border-warning bg-warning/5' :
-                    'border-border bg-card'
+                'min-h-[110px] border-b border-r border-border p-1.5 transition-colors',
+                !isCurrentMonth && 'bg-muted/20 opacity-40',
+                isWeekend && isCurrentMonth && 'bg-muted/10',
+                isToday && 'ring-2 ring-primary ring-inset',
               )}
             >
-              <span className="text-sm font-semibold text-foreground">{MONTH_NAMES[stat.month - 1]}</span>
-              
-              <div className="relative w-14 h-14 my-2">
-                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    className="stroke-muted"
-                    strokeWidth="3"
-                  />
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    className={allDone ? 'stroke-success' : 'stroke-primary'}
-                    strokeWidth="3"
-                    strokeDasharray={`${pct}, 100`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  {allDone ? (
-                    <CheckCircle className="w-5 h-5 text-success" />
-                  ) : (
-                    <span className="text-xs font-bold">{stat.completed}/{stat.total}</span>
+              <div className={cn(
+                'text-xs font-medium mb-1',
+                isToday ? 'text-primary font-bold' : 'text-muted-foreground'
+              )}>
+                {day.getDate()}
+              </div>
+              {isCurrentMonth && !isWeekend && (
+                <div className="space-y-0.5">
+                  {dayServices.slice(0, 4).map(s => (
+                    <div
+                      key={s.id}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border bg-primary/10 text-primary border-primary/30 truncate"
+                      title={`${s.task_description} — ${s.location}`}
+                    >
+                      <Filter className="w-2.5 h-2.5 flex-shrink-0" />
+                      <span className="truncate">{s.task_description}</span>
+                    </div>
+                  ))}
+                  {dayServices.length > 4 && (
+                    <span className="text-[9px] text-muted-foreground px-1">+{dayServices.length - 4} עוד</span>
                   )}
                 </div>
-              </div>
-
-              <span className="text-[11px] text-muted-foreground">{stat.total} לקוחות</span>
-            </button>
+              )}
+            </div>
           );
         })}
       </div>
