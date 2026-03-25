@@ -14,7 +14,6 @@ export function useOngoingServices() {
 
   useEffect(() => {
     async function fetchAll() {
-      const today = new Date().toISOString().slice(0, 10);
       const allServices: OngoingService[] = [];
       const PAGE_SIZE = 1000;
       let from = 0;
@@ -24,7 +23,6 @@ export function useOngoingServices() {
         const { data, error } = await supabase
           .from('ongoing_services')
           .select('*')
-          .gte('service_date', today)
           .order('service_date', { ascending: true })
           .range(from, from + PAGE_SIZE - 1);
 
