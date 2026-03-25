@@ -1,7 +1,8 @@
 import { Customer } from '@/types';
 
-// Approximate coordinates for each region (center points)
-const REGION_COORDS: Record<string, { lat: number; lng: number }> = {
+// Comprehensive city/region → coordinates mapping for Israel
+const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
+  // === Regions (legacy) ===
   'דרום רחוק': { lat: 31.25, lng: 34.79 },
   'מרכז דרום': { lat: 31.95, lng: 34.77 },
   'תל אביב': { lat: 32.07, lng: 34.78 },
@@ -11,12 +12,141 @@ const REGION_COORDS: Record<string, { lat: number; lng: number }> = {
   'נתניה': { lat: 32.33, lng: 34.86 },
   'צפון קרוב': { lat: 32.47, lng: 34.96 },
   'צפון רחוק': { lat: 32.82, lng: 35.10 },
+
+  // === Actual Israeli cities ===
+  // Sharon region
+  'רעננה': { lat: 32.184, lng: 34.871 },
+  'הרצליה': { lat: 32.162, lng: 34.844 },
+  'הרצליה פיתוח': { lat: 32.162, lng: 34.798 },
+  'הוד השרון': { lat: 32.149, lng: 34.889 },
+  'רמת השרון': { lat: 32.146, lng: 34.838 },
+  'כפר סבא': { lat: 32.175, lng: 34.907 },
+  'צפון תל אביב': { lat: 32.115, lng: 34.794 },
+  'רמת החייל': { lat: 32.113, lng: 34.823 },
+
+  // Tel Aviv area
+  'תל אביב יפו': { lat: 32.07, lng: 34.78 },
+  'יפו': { lat: 32.050, lng: 34.751 },
+  'רמת גן': { lat: 32.082, lng: 34.812 },
+  'גבעתיים': { lat: 32.071, lng: 34.810 },
+  'בני ברק': { lat: 32.084, lng: 34.834 },
+  'חולון': { lat: 32.023, lng: 34.779 },
+  'אזור': { lat: 32.026, lng: 34.794 },
+
+  // Gush Dan
+  'פתח תקוה': { lat: 32.084, lng: 34.887 },
+  'פתח תקווה': { lat: 32.084, lng: 34.887 },
+  'ראש העין': { lat: 32.096, lng: 34.957 },
+  'קריית אונו': { lat: 32.058, lng: 34.855 },
+  'יהוד': { lat: 32.033, lng: 34.888 },
+  'גבעת שמואל': { lat: 32.076, lng: 34.848 },
+  'אור יהודה': { lat: 32.027, lng: 34.852 },
+
+  // Center South
+  'בת ים': { lat: 32.017, lng: 34.745 },
+  'ראשון לציון': { lat: 31.964, lng: 34.805 },
+  'ראשלצ': { lat: 31.964, lng: 34.805 },
+  'רחובות': { lat: 31.896, lng: 34.809 },
+  'נס ציונה': { lat: 31.929, lng: 34.798 },
+  'יבנה': { lat: 31.876, lng: 34.739 },
+  'גדרה': { lat: 31.806, lng: 34.786 },
+  'לוד': { lat: 31.951, lng: 34.890 },
+  'רמלה': { lat: 31.928, lng: 34.862 },
+  'באר יעקב': { lat: 31.943, lng: 34.833 },
+  'גן יבנה': { lat: 31.786, lng: 34.705 },
+
+  // Netanya area
+  'עמק חפר': { lat: 32.354, lng: 34.901 },
+  'קדימה צורן': { lat: 32.278, lng: 34.917 },
+  'אבן יהודה': { lat: 32.274, lng: 34.884 },
+
+  // Jerusalem area
+  'מודיעין': { lat: 31.917, lng: 35.034 },
+  'מודיעין מכבים רעות': { lat: 31.902, lng: 35.007 },
+  'שוהם': { lat: 31.953, lng: 34.947 },
+  'גוש עציון': { lat: 31.655, lng: 35.123 },
+  'מעלה אדומים': { lat: 31.774, lng: 35.293 },
+  'בית שמש': { lat: 31.747, lng: 34.987 },
+  'ביתר עילית': { lat: 31.699, lng: 35.120 },
+  'מבשרת ציון': { lat: 31.800, lng: 35.148 },
+
+  // South
+  'באר שבע': { lat: 31.252, lng: 34.791 },
+  'אילת': { lat: 29.558, lng: 34.948 },
+  'דימונה': { lat: 31.069, lng: 35.033 },
+  'אשדוד': { lat: 31.804, lng: 34.655 },
+  'אשקלון': { lat: 31.669, lng: 34.574 },
+  'קריית גת': { lat: 31.610, lng: 34.764 },
+  'קרית גת': { lat: 31.610, lng: 34.764 },
+  'קריית מלאכי': { lat: 31.730, lng: 34.747 },
+  'קרית מלאכי': { lat: 31.730, lng: 34.747 },
+  'נתיבות': { lat: 31.422, lng: 34.588 },
+
+  // North close
+  'חדרה': { lat: 32.438, lng: 34.920 },
+  'בנימינה': { lat: 32.519, lng: 34.945 },
+  'פרדס חנה': { lat: 32.471, lng: 34.966 },
+  'קיסריה': { lat: 32.502, lng: 34.888 },
+  'חריש': { lat: 32.457, lng: 35.045 },
+  'אור עקיבא': { lat: 32.504, lng: 34.919 },
+  'כרכור': { lat: 32.489, lng: 34.964 },
+  'עתלית': { lat: 32.694, lng: 34.940 },
+
+  // North far
+  'חיפה': { lat: 32.810, lng: 34.994 },
+  'נהריה': { lat: 33.009, lng: 35.098 },
+  'צפת': { lat: 32.958, lng: 35.496 },
+  'כרמיאל': { lat: 32.913, lng: 35.307 },
+  'זיכרון יעקב': { lat: 32.572, lng: 34.953 },
+  'בית רימון': { lat: 32.789, lng: 35.380 },
+  'קריית שמונה': { lat: 33.208, lng: 35.570 },
+  'עכו': { lat: 32.928, lng: 35.082 },
+  'טבריה': { lat: 32.796, lng: 35.530 },
+  'נצרת': { lat: 32.699, lng: 35.303 },
+  'עפולה': { lat: 32.608, lng: 35.289 },
+
+  // Other
+  'אבני חפץ': { lat: 32.274, lng: 35.143 },
+  'מכבים': { lat: 31.899, lng: 35.023 },
+  'שילת': { lat: 31.919, lng: 34.979 },
+  'מעלה עמוס': { lat: 31.608, lng: 35.217 },
+  'עין ורד': { lat: 32.268, lng: 34.896 },
+  'מושב צפריה': { lat: 31.961, lng: 34.854 },
+  'כפר חב"ד': { lat: 31.963, lng: 34.845 },
+  'ארסוף': { lat: 32.200, lng: 34.803 },
+  'כפר הס': { lat: 32.254, lng: 34.888 },
+  'עולש': { lat: 32.308, lng: 34.891 },
+  'אליכין': { lat: 32.395, lng: 34.923 },
+  'נווה ים': { lat: 32.685, lng: 34.937 },
+  'בצרה': { lat: 31.929, lng: 34.894 },
+  'מושב מבקיעים': { lat: 31.611, lng: 34.515 },
+  'שדה ורבור': { lat: 31.747, lng: 34.689 },
 };
 
 export function getCustomerCoords(customer: Customer): { lat: number; lng: number } {
   if (customer.lat && customer.lng) return { lat: customer.lat, lng: customer.lng };
-  const base = REGION_COORDS[customer.city];
-  if (!base) return { lat: 32.07, lng: 34.77 };
+
+  // Try exact city match first
+  let base = CITY_COORDS[customer.city];
+
+  // Try partial match (e.g. "הרצליה,  טרומפלדור" → "הרצליה")
+  if (!base) {
+    const cityTrimmed = customer.city.split(',')[0].split(' ')[0].trim();
+    base = CITY_COORDS[cityTrimmed];
+  }
+
+  // Try matching from address text
+  if (!base && customer.address) {
+    for (const [cityName, coords] of Object.entries(CITY_COORDS)) {
+      if (customer.address.includes(cityName)) {
+        base = coords;
+        break;
+      }
+    }
+  }
+
+  if (!base) return { lat: 32.07, lng: 34.77 }; // fallback
+
   const idNum = parseInt(customer.id.replace('c', '')) || 0;
   const latOffset = ((idNum * 137) % 100 - 50) * 0.002;
   const lngOffset = ((idNum * 251) % 100 - 50) * 0.002;
