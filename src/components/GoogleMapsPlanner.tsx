@@ -92,7 +92,7 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
         const color = stop.isDone ? '#22c55e' : typeColorMap[stop.type] || '#3b82f6';
         return (
           <Marker
-            key={stop.id}
+            key={`${stop.id}-pos-${stop.label}`}
             position={stop.position}
             label={{
               text: stop.isDone ? '✓' : stop.label,
