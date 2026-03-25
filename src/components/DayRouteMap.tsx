@@ -184,7 +184,7 @@ function DayRouteMapInner({
                   <div dir="rtl" style={{ minWidth: 180 }}>
                     <p style={{ fontWeight: 'bold', marginBottom: 4 }}>#{idx + 1} {jc.customer?.name}</p>
                     <p style={{ fontSize: 12, color: '#666' }}>{JOB_TYPE_CONFIG[jc.job.type].label}</p>
-                    <p style={{ fontSize: 12, color: '#999' }}>{jc.customer?.address}</p>
+                    <p style={{ fontSize: 12, color: '#999' }}>{[jc.customer?.address, jc.customer?.city].filter(Boolean).join(', ')}</p>
                   </div>
                 </InfoWindow>
               )}
