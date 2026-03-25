@@ -172,7 +172,7 @@ function DayRouteMapInner({
           const color = jc.job.completionStatus === 'done' ? '#22c55e' : typeColorMap[jc.job.type] || '#3b82f6';
           return (
             <Marker
-              key={jc.job.id}
+              key={`${jc.job.id}-pos-${idx}`}
               position={jc.coords}
               zIndex={1000 + idx}
               label={{ text: jc.job.completionStatus === 'done' ? '✓' : String(idx + 1), color: 'white', fontWeight: 'bold', fontSize: '12px' }}
