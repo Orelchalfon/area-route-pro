@@ -13,20 +13,40 @@ export function useOngoingServices() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    supabase
-      .from('ongoing_services')
-      .select('*')
-      .gte('service_date', today)
-      .order('service_date', { ascending: true })
-      .then(({ data, error }) => {
+    async function fetchAll() {
+      const today = new Date().toISOString().slice(0, 10);
+      const allServices: OngoingService[] = [];
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('ongoing_services')
+          .select('*')
+          .gte('service_date', today)
+          .order('service_date', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+
         if (error) {
           console.error('Error fetching ongoing services:', error);
-        } else {
-          setServices((data as OngoingService[]) || []);
+          break;
         }
-        setLoading(false);
-      });
+
+        if (data && data.length > 0) {
+          allServices.push(...(data as OngoingService[]));
+          from += PAGE_SIZE;
+          hasMore = data.length === PAGE_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setServices(allServices);
+      setLoading(false);
+    }
+
+    fetchAll();
   }, []);
 
   return { services, loading };
