@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { useJsApiLoader } from '@react-google-maps/api';
@@ -14,14 +14,48 @@ interface AddressAutocompleteProps {
 
 export function AddressAutocomplete({ value, onChange, onPlaceSelect, placeholder, className }: AddressAutocompleteProps) {
   const { apiKey, fetchKey } = useGoogleMapsKey();
+
+  useEffect(() => {
+    void fetchKey();
+  }, [fetchKey]);
+
+  if (!apiKey) {
+    return (
+      <Input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder || 'הקלד כתובת...'}
+        className={className}
+        disabled
+      />
+    );
+  }
+
+  return (
+    <AddressAutocompleteLoaded
+      apiKey={apiKey}
+      value={value}
+      onChange={onChange}
+      onPlaceSelect={onPlaceSelect}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+}
+
+function AddressAutocompleteLoaded({
+  apiKey,
+  value,
+  onChange,
+  onPlaceSelect,
+  placeholder,
+  className,
+}: AddressAutocompleteProps & { apiKey: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => { fetchKey(); }, [fetchKey]);
 
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: apiKey || '',
+    googleMapsApiKey: apiKey,
     libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
@@ -55,7 +89,6 @@ export function AddressAutocomplete({ value, onChange, onPlaceSelect, placeholde
     });
 
     autocompleteRef.current = autocomplete;
-    setReady(true);
   }, [isLoaded, onChange, onPlaceSelect]);
 
   return (
@@ -65,7 +98,7 @@ export function AddressAutocomplete({ value, onChange, onPlaceSelect, placeholde
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder || 'הקלד כתובת...'}
       className={className}
-      disabled={!apiKey}
+      disabled={!isLoaded}
     />
   );
 }
