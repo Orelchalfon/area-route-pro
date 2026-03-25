@@ -262,6 +262,8 @@ export default function DailyRoutePage() {
                   title: jc.customer?.name || '',
                   type: jc.job.type,
                   isDone: jc.job.completionStatus === 'done',
+                  customer: jc.customer,
+                  fullAddress: [jc.customer?.address, jc.customer?.city].filter(Boolean).join(', '),
                 }))}
               />
             ) : null}
