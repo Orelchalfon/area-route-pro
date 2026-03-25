@@ -4,6 +4,7 @@ import { useJobsContext } from '@/contexts/JobsContext';
 import { getCustomerCoords } from '@/lib/customerCoords';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { useDirectionsRoute } from '@/hooks/useDirectionsRoute';
+import { useGeocodeCustomers } from '@/hooks/useGeocodeCustomers';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { GOOGLE_MAPS_LIBRARIES } from '@/lib/googleMapsConfig';
 import { AlertTriangle } from 'lucide-react';
@@ -41,25 +42,31 @@ export function DayRouteMap({ jobs, height = '80vh' }: DayRouteMapProps) {
   // Fetch key on mount
   useEffect(() => { fetchKey(); }, [fetchKey]);
 
-  const jobsWithCoords = useMemo(() => {
-    // Track used positions and offset duplicates so all markers are visible
-    const usedPositions = new Map<string, number>();
-    const result = jobs.map(job => {
+  // Resolve customers for jobs
+  const jobCustomers = useMemo(() =>
+    jobs.map(job => {
       const customer = allCustomersData.find(c => c.id === job.customerId);
+      return { job, customer };
+    }),
+    [jobs, allCustomersData]
+  );
+
+  // Pass to inner component which has google loaded
+  // For now, compute coords with fallback; inner will use geocoded coords
+  const jobsWithCoords = useMemo(() => {
+    const usedPositions = new Map<string, number>();
+    return jobCustomers.map(({ job, customer }) => {
       let coords = customer ? getCustomerCoords(customer) : { lat: 32.07, lng: 34.77 };
       const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
       const count = usedPositions.get(key) || 0;
       if (count > 0) {
-        // Offset overlapping markers in a small circle
         const angle = (count * 60) * (Math.PI / 180);
         coords = { lat: coords.lat + 0.0008 * Math.cos(angle), lng: coords.lng + 0.0008 * Math.sin(angle) };
       }
       usedPositions.set(key, count + 1);
       return { job, customer, coords };
     });
-    console.log(`[DayRouteMap] Rendering ${result.length} markers for ${jobs.length} jobs`);
-    return result;
-  }, [jobs]);
+  }, [jobCustomers]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
