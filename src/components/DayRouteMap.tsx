@@ -4,6 +4,7 @@ import { useJobsContext } from '@/contexts/JobsContext';
 import { getCustomerCoords } from '@/lib/customerCoords';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { useDirectionsRoute } from '@/hooks/useDirectionsRoute';
+import { useGeocodeCustomers } from '@/hooks/useGeocodeCustomers';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { GOOGLE_MAPS_LIBRARIES } from '@/lib/googleMapsConfig';
 import { AlertTriangle } from 'lucide-react';
@@ -41,25 +42,31 @@ export function DayRouteMap({ jobs, height = '80vh' }: DayRouteMapProps) {
   // Fetch key on mount
   useEffect(() => { fetchKey(); }, [fetchKey]);
 
-  const jobsWithCoords = useMemo(() => {
-    // Track used positions and offset duplicates so all markers are visible
-    const usedPositions = new Map<string, number>();
-    const result = jobs.map(job => {
+  // Resolve customers for jobs
+  const jobCustomers = useMemo(() =>
+    jobs.map(job => {
       const customer = allCustomersData.find(c => c.id === job.customerId);
+      return { job, customer };
+    }),
+    [jobs, allCustomersData]
+  );
+
+  // Pass to inner component which has google loaded
+  // For now, compute coords with fallback; inner will use geocoded coords
+  const jobsWithCoords = useMemo(() => {
+    const usedPositions = new Map<string, number>();
+    return jobCustomers.map(({ job, customer }) => {
       let coords = customer ? getCustomerCoords(customer) : { lat: 32.07, lng: 34.77 };
       const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
       const count = usedPositions.get(key) || 0;
       if (count > 0) {
-        // Offset overlapping markers in a small circle
         const angle = (count * 60) * (Math.PI / 180);
         coords = { lat: coords.lat + 0.0008 * Math.cos(angle), lng: coords.lng + 0.0008 * Math.sin(angle) };
       }
       usedPositions.set(key, count + 1);
       return { job, customer, coords };
     });
-    console.log(`[DayRouteMap] Rendering ${result.length} markers for ${jobs.length} jobs`);
-    return result;
-  }, [jobs]);
+  }, [jobCustomers]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -117,12 +124,32 @@ function DayRouteMapInner({
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: GOOGLE_MAPS_LIBRARIES });
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
 
+  // Geocode customer addresses for accurate map positions
+  const customers = useMemo(() => jobsWithCoords.map(jc => jc.customer), [jobsWithCoords]);
+  const geocodedMap = useGeocodeCustomers(customers, isLoaded);
+
+  // Use geocoded coords when available, fall back to dictionary coords
+  const resolvedJobs = useMemo(() => {
+    const usedPositions = new Map<string, number>();
+    return jobsWithCoords.map(jc => {
+      let coords = (jc.customer && geocodedMap.get(jc.customer.id)) || jc.coords;
+      const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
+      const count = usedPositions.get(key) || 0;
+      if (count > 0) {
+        const angle = (count * 60) * (Math.PI / 180);
+        coords = { lat: coords.lat + 0.0008 * Math.cos(angle), lng: coords.lng + 0.0008 * Math.sin(angle) };
+      }
+      usedPositions.set(key, count + 1);
+      return { ...jc, coords };
+    });
+  }, [jobsWithCoords, geocodedMap]);
+
   const center = useMemo(() => {
-    if (jobsWithCoords.length === 0) return { lat: 32.07, lng: 34.77 };
-    const avgLat = jobsWithCoords.reduce((s, jc) => s + jc.coords.lat, 0) / jobsWithCoords.length;
-    const avgLng = jobsWithCoords.reduce((s, jc) => s + jc.coords.lng, 0) / jobsWithCoords.length;
+    if (resolvedJobs.length === 0) return { lat: 32.07, lng: 34.77 };
+    const avgLat = resolvedJobs.reduce((s, jc) => s + jc.coords.lat, 0) / resolvedJobs.length;
+    const avgLng = resolvedJobs.reduce((s, jc) => s + jc.coords.lng, 0) / resolvedJobs.length;
     return { lat: avgLat, lng: avgLng };
-  }, [jobsWithCoords]);
+  }, [resolvedJobs]);
 
   const hasFittedRef = useRef(false);
 
@@ -130,18 +157,18 @@ function DayRouteMapInner({
     mapInstanceRef.current = map;
     onLoad(map);
     // Fit bounds only on first load, not on subsequent data updates
-    if (!hasFittedRef.current && jobsWithCoords.length > 0) {
+    if (!hasFittedRef.current && resolvedJobs.length > 0) {
       const bounds = new google.maps.LatLngBounds();
-      jobsWithCoords.forEach(jc => bounds.extend(jc.coords));
+      resolvedJobs.forEach(jc => bounds.extend(jc.coords));
       map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
       hasFittedRef.current = true;
     }
-  }, [onLoad, jobsWithCoords]);
+  }, [onLoad, resolvedJobs]);
 
   // Snap-to-roads polyline + auto-fit bounds
   const routeWaypoints = useMemo(
-    () => jobsWithCoords.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng })),
-    [jobsWithCoords]
+    () => resolvedJobs.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng })),
+    [resolvedJobs]
   );
 
   useDirectionsRoute({
@@ -168,7 +195,7 @@ function DayRouteMapInner({
         options={mapOptions}
       >
         {/* Markers are rendered independently of the route polyline */}
-        {jobsWithCoords.map((jc, idx) => {
+        {resolvedJobs.map((jc, idx) => {
           const color = jc.job.completionStatus === 'done' ? '#22c55e' : typeColorMap[jc.job.type] || '#3b82f6';
           return (
             <Marker
