@@ -124,12 +124,32 @@ function DayRouteMapInner({
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: GOOGLE_MAPS_LIBRARIES });
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
 
+  // Geocode customer addresses for accurate map positions
+  const customers = useMemo(() => jobsWithCoords.map(jc => jc.customer), [jobsWithCoords]);
+  const geocodedMap = useGeocodeCustomers(customers, isLoaded);
+
+  // Use geocoded coords when available, fall back to dictionary coords
+  const resolvedJobs = useMemo(() => {
+    const usedPositions = new Map<string, number>();
+    return jobsWithCoords.map(jc => {
+      let coords = (jc.customer && geocodedMap.get(jc.customer.id)) || jc.coords;
+      const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
+      const count = usedPositions.get(key) || 0;
+      if (count > 0) {
+        const angle = (count * 60) * (Math.PI / 180);
+        coords = { lat: coords.lat + 0.0008 * Math.cos(angle), lng: coords.lng + 0.0008 * Math.sin(angle) };
+      }
+      usedPositions.set(key, count + 1);
+      return { ...jc, coords };
+    });
+  }, [jobsWithCoords, geocodedMap]);
+
   const center = useMemo(() => {
-    if (jobsWithCoords.length === 0) return { lat: 32.07, lng: 34.77 };
-    const avgLat = jobsWithCoords.reduce((s, jc) => s + jc.coords.lat, 0) / jobsWithCoords.length;
-    const avgLng = jobsWithCoords.reduce((s, jc) => s + jc.coords.lng, 0) / jobsWithCoords.length;
+    if (resolvedJobs.length === 0) return { lat: 32.07, lng: 34.77 };
+    const avgLat = resolvedJobs.reduce((s, jc) => s + jc.coords.lat, 0) / resolvedJobs.length;
+    const avgLng = resolvedJobs.reduce((s, jc) => s + jc.coords.lng, 0) / resolvedJobs.length;
     return { lat: avgLat, lng: avgLng };
-  }, [jobsWithCoords]);
+  }, [resolvedJobs]);
 
   const hasFittedRef = useRef(false);
 
