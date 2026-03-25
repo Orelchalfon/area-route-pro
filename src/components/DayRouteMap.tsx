@@ -157,18 +157,18 @@ function DayRouteMapInner({
     mapInstanceRef.current = map;
     onLoad(map);
     // Fit bounds only on first load, not on subsequent data updates
-    if (!hasFittedRef.current && jobsWithCoords.length > 0) {
+    if (!hasFittedRef.current && resolvedJobs.length > 0) {
       const bounds = new google.maps.LatLngBounds();
-      jobsWithCoords.forEach(jc => bounds.extend(jc.coords));
+      resolvedJobs.forEach(jc => bounds.extend(jc.coords));
       map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
       hasFittedRef.current = true;
     }
-  }, [onLoad, jobsWithCoords]);
+  }, [onLoad, resolvedJobs]);
 
   // Snap-to-roads polyline + auto-fit bounds
   const routeWaypoints = useMemo(
-    () => jobsWithCoords.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng })),
-    [jobsWithCoords]
+    () => resolvedJobs.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng })),
+    [resolvedJobs]
   );
 
   useDirectionsRoute({
@@ -195,7 +195,7 @@ function DayRouteMapInner({
         options={mapOptions}
       >
         {/* Markers are rendered independently of the route polyline */}
-        {jobsWithCoords.map((jc, idx) => {
+        {resolvedJobs.map((jc, idx) => {
           const color = jc.job.completionStatus === 'done' ? '#22c55e' : typeColorMap[jc.job.type] || '#3b82f6';
           return (
             <Marker
