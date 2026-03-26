@@ -1282,7 +1282,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                     </div>
 
                     {!isWeekend && inCurrentMonth && (
-                      <div className="mb-0.5">
+                      <div className="mb-0.5" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                         <Popover modal={false}>
                           <PopoverTrigger asChild>
                             <button
