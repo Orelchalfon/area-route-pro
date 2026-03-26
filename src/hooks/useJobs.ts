@@ -3,6 +3,7 @@ import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, A
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
 import { loadInstallationsFromCSV } from '@/lib/installationCsvParser';
+import { loadMalfunctionsFromCSV } from '@/lib/malfunctionCsvParser';
 import { useICSImport } from '@/hooks/useICSImport';
 
 // Hook ordering stable
@@ -72,6 +73,49 @@ export function useJobs() {
         });
       })
       .catch(err => console.error('Failed to load installations CSV:', err));
+  }, [dataLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load malfunctions from CSV
+  useEffect(() => {
+    if (!dataLoaded) return;
+    loadMalfunctionsFromCSV('/malfunctions.csv')
+      .then(({ customers: malfCustomers, jobs: malfJobs }) => {
+        setCustomersList(prev => {
+          const updated = [...prev];
+          for (const mc of malfCustomers) {
+            const mcName = mc.name.trim().toLowerCase();
+            const existing = prev.find(c =>
+              c.name.trim().toLowerCase() === mcName ||
+              c.name.trim().toLowerCase().includes(mcName) ||
+              mcName.includes(c.name.trim().toLowerCase())
+            );
+            if (existing) {
+              if (!existing.city && mc.city) {
+                const idx = updated.findIndex(c => c.id === existing.id);
+                if (idx >= 0) updated[idx] = { ...updated[idx], city: mc.city };
+              }
+            } else {
+              updated.push(mc);
+            }
+          }
+          return updated;
+        });
+
+        setJobs(prev => {
+          const remapped = malfJobs.map(job => {
+            const malfCust = malfCustomers.find(c => c.id === job.customerId);
+            if (!malfCust) return job;
+            const match = customersList.find(c =>
+              c.name.trim().toLowerCase() === malfCust.name.trim().toLowerCase() ||
+              c.name.trim().toLowerCase().includes(malfCust.name.trim().toLowerCase()) ||
+              malfCust.name.trim().toLowerCase().includes(c.name.trim().toLowerCase())
+            );
+            return match ? { ...job, customerId: match.id } : job;
+          });
+          return [...prev, ...remapped];
+        });
+      })
+      .catch(err => console.error('Failed to load malfunctions CSV:', err));
   }, [dataLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Merge ICS calendar data: update existing customers' filterReplacementMonth & serviceTrack, add ICS-only customers, and add service jobs
