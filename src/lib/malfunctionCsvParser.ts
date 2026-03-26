@@ -107,6 +107,7 @@ export async function loadMalfunctionsFromCSV(url: string): Promise<{ customers:
       city: entry.city.replace(/[/,]$/, '').trim(),
       email: '',
       product: '',
+      filterReplacementMonth: 0,
     });
 
     const parsedDate = parseMalfunctionDate(entry.date);
