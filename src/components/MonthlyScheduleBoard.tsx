@@ -833,14 +833,6 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   const handleAreaOverride = (dateStr: string, newAreas: string[]) => {
     setDayAreaOverrides(prev => new Map(prev).set(dateStr, newAreas));
 
-    // Remove existing auto filters from this day
-    const currentAutoJobs = (filterDistribution.get(dateStr) || []);
-    setRemovedFromAutoIds(prev => {
-      const next = new Set(prev);
-      currentAutoJobs.forEach(j => next.add(j.id));
-      return next;
-    });
-
     // Clear extra filter assignments for this day
     setExtraFilterAssignments(prev => {
       const next = new Map(prev);
@@ -867,29 +859,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       return next;
     });
 
-    // Find unassigned filter jobs from the new areas and assign up to 3
-    const areaSet = new Set(newAreas);
-    const allAssignedIds = new Set<string>();
-    filterDistribution.forEach((dayJobs, key) => {
-      if (key !== dateStr) dayJobs.forEach(j => { if (!removedFromAutoIds.has(j.id)) allAssignedIds.add(j.id); });
-    });
-    currentAutoJobs.forEach(j => allAssignedIds.delete(j.id));
-    extraFilterAssignments.forEach((dayJobs, key) => {
-      if (key !== dateStr) dayJobs.forEach(j => allAssignedIds.add(j.id));
-    });
-
-    const available = filterJobs.filter(j => areaSet.has(j.city) && !allAssignedIds.has(j.id));
-    const toAssign = available.slice(0, 3);
-
-    if (toAssign.length > 0) {
-      setExtraFilterAssignments(prev => {
-        const next = new Map(prev);
-        next.set(dateStr, toAssign);
-        return next;
-      });
-    }
-
-    toast.success(`האזורים עודכנו (${newAreas.join(', ')}) — ${toAssign.length} פילטרים שובצו`);
+    toast.success(`אזורים עודכנו: ${newAreas.join(', ')}`);
   };
 
   // Unassigned filter jobs (not yet distributed to any day)
@@ -1171,9 +1141,9 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
       {/* Legend */}
       <div className="flex items-center gap-5 text-sm text-muted-foreground">
-        <div className="flex items-center gap-1.5"><Filter className="w-4 h-4 text-info" /> שירות שוטף (אוטומטי)</div>
-        <div className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-destructive" /> תקלה (ידני)</div>
-        <div className="flex items-center gap-1.5"><Wrench className="w-4 h-4 text-secondary" /> התקנה (ידני)</div>
+        <div className="flex items-center gap-1.5"><Filter className="w-4 h-4 text-info" /> שירות שוטף</div>
+        <div className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-destructive" /> תקלה</div>
+        <div className="flex items-center gap-1.5"><Wrench className="w-4 h-4 text-secondary" /> התקנה</div>
       </div>
 
       {/* Calendar grid */}
