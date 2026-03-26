@@ -1222,16 +1222,18 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                       </div>
                     </div>
 
-                    {dayAreas.length > 0 && !isWeekend && inCurrentMonth && (
+                    {!isWeekend && inCurrentMonth && (
                       <div className="mb-0.5">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button
-                              className="h-auto min-h-[20px] px-1.5 py-0.5 text-[10px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full text-right flex items-center gap-0.5 flex-wrap"
+                              className={`h-auto min-h-[20px] px-1.5 py-0.5 text-[10px] border-0 rounded w-full text-right flex items-center gap-0.5 flex-wrap ${
+                                dayAreas.length > 0 ? 'bg-info/10 text-info hover:bg-info/20' : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                              }`}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <MapPin className="w-2.5 h-2.5 shrink-0" />
-                              <span className="truncate">{dayAreas.join(', ')}</span>
+                              <span className="truncate">{dayAreas.length > 0 ? dayAreas.join(', ') : 'בחר אזור'}</span>
                             </button>
                           </PopoverTrigger>
                           <PopoverContent dir="rtl" className="w-56 p-2" align="start">
@@ -1247,6 +1249,13 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                                         : dayAreas.filter(a => a !== r);
                                       if (newAreas.length > 0) {
                                         handleAreaOverride(dateStr, newAreas);
+                                      } else {
+                                        // Allow clearing all areas
+                                        setDayAreaOverrides(prev => {
+                                          const next = new Map(prev);
+                                          next.delete(dateStr);
+                                          return next;
+                                        });
                                       }
                                     }}
                                   />
