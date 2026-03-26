@@ -819,27 +819,15 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string[]>>(new Map());
   const filterDistribution = useMemo(() => distributeFilterJobs(filterJobs, futureWorkingDays), [filterJobs, futureWorkingDays]);
 
-  // Get the effective areas for a day (override or auto-determined) — now returns array
   const getDayAreas = (dateStr: string): string[] => {
     if (dayAreaOverrides.has(dateStr)) return dayAreaOverrides.get(dateStr)!;
-    const autoJobs = (filterDistribution.get(dateStr) || []).filter(j => !removedFromAutoIds.has(j.id));
-    const extraJobs = extraFilterAssignments.get(dateStr) || [];
-    const allDayFilters = [...autoJobs, ...extraJobs];
-    const areas = new Set(allDayFilters.map(j => j.city));
-    return Array.from(areas);
+    // No auto-determined areas — days start empty, areas are selected manually
+    return [];
   };
 
   // When areas are overridden, rebuild that day's filter list from the new areas
   const handleAreaOverride = (dateStr: string, newAreas: string[]) => {
     setDayAreaOverrides(prev => new Map(prev).set(dateStr, newAreas));
-
-    // Remove existing auto filters from this day
-    const currentAutoJobs = (filterDistribution.get(dateStr) || []);
-    setRemovedFromAutoIds(prev => {
-      const next = new Set(prev);
-      currentAutoJobs.forEach(j => next.add(j.id));
-      return next;
-    });
 
     // Clear extra filter assignments for this day
     setExtraFilterAssignments(prev => {
@@ -867,29 +855,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       return next;
     });
 
-    // Find unassigned filter jobs from the new areas and assign up to 3
-    const areaSet = new Set(newAreas);
-    const allAssignedIds = new Set<string>();
-    filterDistribution.forEach((dayJobs, key) => {
-      if (key !== dateStr) dayJobs.forEach(j => { if (!removedFromAutoIds.has(j.id)) allAssignedIds.add(j.id); });
-    });
-    currentAutoJobs.forEach(j => allAssignedIds.delete(j.id));
-    extraFilterAssignments.forEach((dayJobs, key) => {
-      if (key !== dateStr) dayJobs.forEach(j => allAssignedIds.add(j.id));
-    });
-
-    const available = filterJobs.filter(j => areaSet.has(j.city) && !allAssignedIds.has(j.id));
-    const toAssign = available.slice(0, 3);
-
-    if (toAssign.length > 0) {
-      setExtraFilterAssignments(prev => {
-        const next = new Map(prev);
-        next.set(dateStr, toAssign);
-        return next;
-      });
-    }
-
-    toast.success(`האזורים עודכנו (${newAreas.join(', ')}) — ${toAssign.length} פילטרים שובצו`);
+    toast.success(`אזורים עודכנו: ${newAreas.join(', ')}`);
   };
 
   // Unassigned filter jobs (not yet distributed to any day)
@@ -921,7 +887,6 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
   const getManualDayJobs = (dateStr: string) => manualJobs.filter(j => j.scheduledDate === dateStr);
   const getFilterDayJobs = (dateStr: string) => [
-    ...(filterDistribution.get(dateStr) || []).filter(j => !removedFromAutoIds.has(j.id)),
     ...(extraFilterAssignments.get(dateStr) || []),
   ];
 
@@ -1172,9 +1137,9 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
       {/* Legend */}
       <div className="flex items-center gap-5 text-sm text-muted-foreground">
-        <div className="flex items-center gap-1.5"><Filter className="w-4 h-4 text-info" /> שירות שוטף (אוטומטי)</div>
-        <div className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-destructive" /> תקלה (ידני)</div>
-        <div className="flex items-center gap-1.5"><Wrench className="w-4 h-4 text-secondary" /> התקנה (ידני)</div>
+        <div className="flex items-center gap-1.5"><Filter className="w-4 h-4 text-info" /> שירות שוטף</div>
+        <div className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-destructive" /> תקלה</div>
+        <div className="flex items-center gap-1.5"><Wrench className="w-4 h-4 text-secondary" /> התקנה</div>
       </div>
 
       {/* Calendar grid */}
@@ -1253,16 +1218,18 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                       </div>
                     </div>
 
-                    {dayAreas.length > 0 && !isWeekend && inCurrentMonth && (
+                    {!isWeekend && inCurrentMonth && (
                       <div className="mb-0.5">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button
-                              className="h-auto min-h-[20px] px-1.5 py-0.5 text-[10px] border-0 bg-info/10 text-info hover:bg-info/20 rounded w-full text-right flex items-center gap-0.5 flex-wrap"
+                              className={`h-auto min-h-[20px] px-1.5 py-0.5 text-[10px] border-0 rounded w-full text-right flex items-center gap-0.5 flex-wrap ${
+                                dayAreas.length > 0 ? 'bg-info/10 text-info hover:bg-info/20' : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                              }`}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <MapPin className="w-2.5 h-2.5 shrink-0" />
-                              <span className="truncate">{dayAreas.join(', ')}</span>
+                              <span className="truncate">{dayAreas.length > 0 ? dayAreas.join(', ') : 'בחר אזור'}</span>
                             </button>
                           </PopoverTrigger>
                           <PopoverContent dir="rtl" className="w-56 p-2" align="start">
@@ -1278,6 +1245,13 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                                         : dayAreas.filter(a => a !== r);
                                       if (newAreas.length > 0) {
                                         handleAreaOverride(dateStr, newAreas);
+                                      } else {
+                                        // Allow clearing all areas
+                                        setDayAreaOverrides(prev => {
+                                          const next = new Map(prev);
+                                          next.delete(dateStr);
+                                          return next;
+                                        });
                                       }
                                     }}
                                   />
