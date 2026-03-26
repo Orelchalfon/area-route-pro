@@ -26,6 +26,53 @@ export function useJobs() {
       });
   }, []);
 
+  // Load installations from CSV
+  useEffect(() => {
+    if (!dataLoaded) return;
+    loadInstallationsFromCSV('/installations.csv')
+      .then(({ customers, jobs: instJobs }) => {
+        // Merge installation customers — match by name or add new
+        setCustomersList(prev => {
+          const updated = [...prev];
+          const existingNames = new Set(prev.map(c => c.name.trim().toLowerCase()));
+          for (const ic of customers) {
+            const icName = ic.name.trim().toLowerCase();
+            const existing = prev.find(c => 
+              c.name.trim().toLowerCase() === icName ||
+              c.name.trim().toLowerCase().includes(icName) ||
+              icName.includes(c.name.trim().toLowerCase())
+            );
+            if (existing) {
+              // Update city if missing
+              if (!existing.city && ic.city) {
+                const idx = updated.findIndex(c => c.id === existing.id);
+                if (idx >= 0) updated[idx] = { ...updated[idx], city: ic.city };
+              }
+            } else {
+              updated.push(ic);
+            }
+          }
+          return updated;
+        });
+
+        // Remap job customerIds to existing customers where possible, then add
+        setJobs(prev => {
+          const remapped = instJobs.map(job => {
+            const instCust = customers.find(c => c.id === job.customerId);
+            if (!instCust) return job;
+            const match = customersList.find(c =>
+              c.name.trim().toLowerCase() === instCust.name.trim().toLowerCase() ||
+              c.name.trim().toLowerCase().includes(instCust.name.trim().toLowerCase()) ||
+              instCust.name.trim().toLowerCase().includes(c.name.trim().toLowerCase())
+            );
+            return match ? { ...job, customerId: match.id } : job;
+          });
+          return [...prev, ...remapped];
+        });
+      })
+      .catch(err => console.error('Failed to load installations CSV:', err));
+  }, [dataLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Merge ICS calendar data: update existing customers' filterReplacementMonth & serviceTrack, add ICS-only customers, and add service jobs
   useEffect(() => {
     if (!icsLoaded || !dataLoaded || icsCustomers.length === 0) return;
