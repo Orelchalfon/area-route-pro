@@ -1283,7 +1283,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
                     {!isWeekend && inCurrentMonth && (
                       <div className="mb-0.5">
-                        <Popover>
+                        <Popover modal={false}>
                           <PopoverTrigger asChild>
                             <button
                               className={`h-auto min-h-[20px] px-1.5 py-0.5 text-[10px] border-0 rounded w-full text-right flex items-center gap-0.5 flex-wrap ${
@@ -1295,7 +1295,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
                               <span className="truncate">{dayAreas.length > 0 ? dayAreas.join(', ') : 'בחר אזור'}</span>
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent dir="rtl" className="w-56 p-2" align="start">
+                          <PopoverContent dir="rtl" className="w-56 p-2" align="start" onOpenAutoFocus={(e) => e.preventDefault()} onInteractOutside={(e) => { if ((e.target as HTMLElement)?.closest?.('[data-radix-popover-content]')) e.preventDefault(); }}>
                             <p className="text-xs font-semibold mb-2 text-muted-foreground">בחר אזורים ליום:</p>
                             <div className="space-y-1 max-h-[200px] overflow-y-auto">
                               {REGIONS.map(r => (
