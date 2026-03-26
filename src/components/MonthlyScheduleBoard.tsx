@@ -215,12 +215,12 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
 
   // Filter jobs to only those in the selected day areas
   const areaFilteredManualJobs = useMemo(() => 
-    dayAreas.length > 0 ? unassignedManualJobs.filter(j => dayAreas.includes(j.city)) : unassignedManualJobs
+    dayAreas.length > 0 ? unassignedManualJobs.filter(j => jobMatchesAreas(j, dayAreas)) : unassignedManualJobs
   , [dayAreas, unassignedManualJobs]);
 
   const areaFilteredFilterJobs = useMemo(() => {
     const all = [...unassignedFilterJobs, ...filterJobsFromOtherDays];
-    return dayAreas.length > 0 ? all.filter(j => dayAreas.includes(j.city)) : all;
+    return dayAreas.length > 0 ? all.filter(j => jobMatchesAreas(j, dayAreas)) : all;
   }, [dayAreas, unassignedFilterJobs, filterJobsFromOtherDays]);
 
   const jobsByType = useMemo(() => ({
