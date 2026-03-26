@@ -6,7 +6,7 @@ import { loadInstallationsFromCSV } from '@/lib/installationCsvParser';
 import { loadMalfunctionsFromCSV } from '@/lib/malfunctionCsvParser';
 import { useICSImport } from '@/hooks/useICSImport';
 
-// Hook ordering stable
+// Hook ordering stable v2 - malfunctions added
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
