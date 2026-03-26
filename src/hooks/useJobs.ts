@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
+import { loadInstallationsFromCSV } from '@/lib/installationCsvParser';
 import { useICSImport } from '@/hooks/useICSImport';
 
 export function useJobs() {
