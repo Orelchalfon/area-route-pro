@@ -271,7 +271,7 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
                     {job.priority === 'high' ? 'גבוהה' : job.priority === 'medium' ? 'בינונית' : 'נמוכה'}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{job.location}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{job.location}{job.city ? `, ${job.city}` : ''}</p>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{job.estimatedDuration} דק׳</span>
                   <span>{job.notes}</span>
