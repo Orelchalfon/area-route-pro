@@ -921,7 +921,6 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
   const getManualDayJobs = (dateStr: string) => manualJobs.filter(j => j.scheduledDate === dateStr);
   const getFilterDayJobs = (dateStr: string) => [
-    ...(filterDistribution.get(dateStr) || []).filter(j => !removedFromAutoIds.has(j.id)),
     ...(extraFilterAssignments.get(dateStr) || []),
   ];
 
