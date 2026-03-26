@@ -5,6 +5,7 @@ import { loadCustomersFromCSV } from '@/lib/csvParser';
 import { loadInstallationsFromCSV } from '@/lib/installationCsvParser';
 import { useICSImport } from '@/hooks/useICSImport';
 
+// Hook ordering stable
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
