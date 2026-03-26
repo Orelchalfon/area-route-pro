@@ -153,7 +153,6 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
   dayAreas: string[];
 }) {
   const { customersList: customers } = useJobsContext();
-  const [selectedArea, setSelectedArea] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('malfunction');
 
@@ -167,19 +166,11 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
     return dayAreas.length > 0 ? all.filter(j => dayAreas.includes(j.city)) : all;
   }, [dayAreas, unassignedFilterJobs, filterJobsFromOtherDays]);
 
-  const allAvailableJobs = [...areaFilteredManualJobs, ...areaFilteredFilterJobs];
-
-  const cities = useMemo(() => {
-    if (dayAreas.length > 0) return dayAreas;
-    const citySet = new Set(allAvailableJobs.map(j => j.city));
-    return Array.from(citySet).sort();
-  }, [dayAreas, allAvailableJobs]);
-
   const jobsByType = useMemo(() => ({
-    malfunction: selectedArea ? areaFilteredManualJobs.filter(j => j.type === 'malfunction' && j.city === selectedArea) : [],
-    installation: selectedArea ? areaFilteredManualJobs.filter(j => j.type === 'installation' && j.city === selectedArea) : [],
-    filter_replacement: selectedArea ? areaFilteredFilterJobs.filter(j => j.city === selectedArea) : [],
-  }), [selectedArea, areaFilteredManualJobs, areaFilteredFilterJobs]);
+    malfunction: areaFilteredManualJobs.filter(j => j.type === 'malfunction'),
+    installation: areaFilteredManualJobs.filter(j => j.type === 'installation'),
+    filter_replacement: areaFilteredFilterJobs,
+  }), [areaFilteredManualJobs, areaFilteredFilterJobs]);
 
   const toggleJob = (jobId: string) => {
     setSelectedJobIds(prev => {
@@ -197,11 +188,9 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
     if (filterIds.length > 0) onSelectFilterJobs(filterIds, otherDayIds);
     
     setSelectedJobIds(new Set());
-    // Stay open — don't close the dialog, keep the area selected so user can continue adding
   };
 
   const handleClose = () => {
-    setSelectedArea(null);
     setSelectedJobIds(new Set());
     onClose();
   };
@@ -244,53 +233,32 @@ function UnifiedJobPickerDialog({ open, onClose, unassignedManualJobs, unassigne
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle>הוספת משימה — {dayLabel}</DialogTitle>
+          {dayAreas.length > 0 && (
+            <p className="text-xs text-muted-foreground">אזורים: {dayAreas.join(', ')}</p>
+          )}
         </DialogHeader>
 
-        {!selectedArea ? (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground mb-3">בחר אזור:</p>
-            <div className="grid grid-cols-2 gap-2">
-              {cities.map(city => {
-                const count = allAvailableJobs.filter(j => j.city === city).length;
-                return (
-                  <Button key={city} variant="outline" className="justify-between h-auto py-3" onClick={() => setSelectedArea(city)}>
-                    <span className="font-medium text-xs">{city}</span>
-                    <span className="text-xs text-muted-foreground">{count}</span>
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => { setSelectedArea(null); setSelectedJobIds(new Set()); }}>← חזרה</Button>
-              <span className="font-semibold">{selectedArea}</span>
-            </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="malfunction" className="gap-1">
+              <AlertTriangle className="w-3.5 h-3.5" />תקלות ({jobsByType.malfunction.length})
+            </TabsTrigger>
+            <TabsTrigger value="installation" className="gap-1">
+              <Wrench className="w-3.5 h-3.5" />התקנות ({jobsByType.installation.length})
+            </TabsTrigger>
+            <TabsTrigger value="filter_replacement" className="gap-1">
+              <Filter className="w-3.5 h-3.5" />שירות ({jobsByType.filter_replacement.length})
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="malfunction">{renderJobList(jobsByType.malfunction)}</TabsContent>
+          <TabsContent value="installation">{renderJobList(jobsByType.installation)}</TabsContent>
+          <TabsContent value="filter_replacement">{renderJobList(jobsByType.filter_replacement, true)}</TabsContent>
+        </Tabs>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="malfunction" className="gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" />תקלות ({jobsByType.malfunction.length})
-                </TabsTrigger>
-                <TabsTrigger value="installation" className="gap-1">
-                  <Wrench className="w-3.5 h-3.5" />התקנות ({jobsByType.installation.length})
-                </TabsTrigger>
-                <TabsTrigger value="filter_replacement" className="gap-1">
-                  <Filter className="w-3.5 h-3.5" />שירות ({jobsByType.filter_replacement.length})
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="malfunction">{renderJobList(jobsByType.malfunction)}</TabsContent>
-              <TabsContent value="installation">{renderJobList(jobsByType.installation)}</TabsContent>
-              <TabsContent value="filter_replacement">{renderJobList(jobsByType.filter_replacement, true)}</TabsContent>
-            </Tabs>
-
-            {selectedJobIds.size > 0 && (
-              <div className="sticky bottom-0 bg-card border-t border-border pt-3 flex items-center justify-between">
-                <span className="text-sm font-medium">{selectedJobIds.size} נבחרו</span>
-                <Button onClick={handleConfirm}><Plus className="w-4 h-4 ml-1" />הוסף</Button>
-              </div>
-            )}
+        {selectedJobIds.size > 0 && (
+          <div className="sticky bottom-0 bg-card border-t border-border pt-3 flex items-center justify-between">
+            <span className="text-sm font-medium">{selectedJobIds.size} נבחרו</span>
+            <Button onClick={handleConfirm}><Plus className="w-4 h-4 ml-1" />הוסף</Button>
           </div>
         )}
       </DialogContent>
