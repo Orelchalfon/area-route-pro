@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Calendar, CheckCircle2, Clock, LayoutDashboard, XCircle, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, startOfWeek, addDays, isToday } from 'date-fns';
+import { format, startOfWeek, addDays, isToday, addWeeks, subWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
 
 interface TechnicianViewProps {
@@ -22,13 +22,14 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [completionNotes, setCompletionNotes] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
   const [selectedDay, setSelectedDay] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const tech = technicians.find(t => t.id === selectedTech)!;
 
-  // Current week days (Sun–Thu)
+  // Week days based on offset
   const weekDays = useMemo(() => {
-    const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+    const base = weekOffset === 0 ? new Date() : addWeeks(new Date(), weekOffset);
+    const weekStart = startOfWeek(base, { weekStartsOn: 0 });
     return Array.from({ length: 5 }, (_, i) => {
       const day = addDays(weekStart, i);
       return {
@@ -39,7 +40,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
         isToday: isToday(day),
       };
     });
-  }, []);
+  }, [weekOffset]);
 
   const techJobs = jobs
     .filter(j => j.technicianId === selectedTech && j.scheduledDate === selectedDay)
