@@ -137,7 +137,7 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
             onClick={() => setActiveMarkerId(stop.id === activeMarkerId ? null : stop.id)}
           >
             {activeMarkerId === stop.id && (
-              <InfoWindow onCloseClick={() => setActiveMarkerId(null)}>
+              <InfoWindow position={stop.position} onCloseClick={() => setActiveMarkerId(null)}>
                 <div dir="rtl" style={{ minWidth: 180 }}>
                   <p style={{ fontWeight: 'bold', marginBottom: 4 }}>#{stop.label} {stop.title}</p>
                   <p style={{ fontSize: 12, color: '#666' }}>{JOB_TYPE_CONFIG[stop.type].label}</p>
