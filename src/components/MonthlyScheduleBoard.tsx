@@ -782,6 +782,44 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     );
     return [...merged, ...redistributed];
   }, [month, year, jobs]);
+
+  // Generate filter jobs for a 2-week range around a given date (for the picker)
+  const getFilterJobsInRange = useCallback((targetDateStr: string): Job[] => {
+    const targetDate = new Date(targetDateStr + 'T00:00:00');
+    const twoWeeksBefore = new Date(targetDate);
+    twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+    const twoWeeksAfter = new Date(targetDate);
+    twoWeeksAfter.setDate(twoWeeksAfter.getDate() + 14);
+
+    // Collect unique year-month combos in the range
+    const monthsInRange = new Set<string>();
+    const d = new Date(twoWeeksBefore);
+    while (d <= twoWeeksAfter) {
+      monthsInRange.add(`${d.getFullYear()}-${d.getMonth() + 1}`);
+      d.setDate(d.getDate() + 1);
+    }
+
+    const jobMap = new Map(jobs.map(j => [j.id, j]));
+    const allRangeJobs: Job[] = [];
+    const seenCustomerIds = new Set<string>();
+
+    monthsInRange.forEach(key => {
+      const [y, m] = key.split('-').map(Number);
+      const generated = generateFilterJobs(m, y, customersList);
+      generated.forEach(gj => {
+        if (seenCustomerIds.has(gj.customerId)) return;
+        seenCustomerIds.add(gj.customerId);
+        const globalJob = jobMap.get(gj.id);
+        if (globalJob) {
+          allRangeJobs.push({ ...gj, status: globalJob.status, completionStatus: globalJob.completionStatus, completionNotes: globalJob.completionNotes });
+        } else {
+          allRangeJobs.push(gj);
+        }
+      });
+    });
+
+    return allRangeJobs;
+  }, [customersList, jobs]);
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<Map<string, Job[]>>(new Map());
   const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(new Set());
   const [dayAreaOverrides, setDayAreaOverrides] = useState<Map<string, string[]>>(new Map());
