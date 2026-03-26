@@ -1337,47 +1337,24 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
         const dayExistingFilters = getFilterDayJobs(pickerState.dateStr);
         const dayExistingIds = new Set(dayExistingFilters.map(j => j.id));
 
-        const unassignedSameAreaFilters = dayAreas.length > 0
-          ? unassignedFilterJobs.filter(j => dayAreas.includes(j.city))
-          : unassignedFilterJobs;
+        // Get filter jobs within 2-week range of this day
+        const rangedFilterJobs = getFilterJobsInRange(pickerState.dateStr);
+        const assignedIds = new Set<string>();
+        extraFilterAssignments.forEach(dayJobs => dayJobs.forEach(j => assignedIds.add(j.id)));
+        // Also mark jobs already assigned via global state
+        jobs.filter(j => j.type === 'filter_replacement' && j.scheduledDate).forEach(j => assignedIds.add(j.id));
+
+        const unassignedRangedFilters = rangedFilterJobs.filter(j => 
+          !assignedIds.has(j.id) && !dayExistingIds.has(j.id)
+        );
 
         const fromOtherDays: Job[] = [];
-        const areaSet = new Set(dayAreas);
-        if (areaSet.size > 0) {
-          filterDistribution.forEach((dayJobs, dateStr) => {
-            if (dateStr === pickerState.dateStr) return;
-            dayJobs.forEach(j => {
-              if (areaSet.has(j.city) && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
-            });
-          });
-          extraFilterAssignments.forEach((dayJobs, dateStr) => {
-            if (dateStr === pickerState.dateStr) return;
-            dayJobs.forEach(j => {
-              if (areaSet.has(j.city) && !dayExistingIds.has(j.id)) fromOtherDays.push(j);
-            });
-          });
-        }
-
-        const availableFilters = [...unassignedSameAreaFilters, ...fromOtherDays];
-        const otherDayIds = new Set(fromOtherDays.map(j => j.id));
-
-        // Collect ALL filter jobs from other days (not just same area) for the picker
-        const allFromOtherDays: Job[] = [];
         const allOtherDayIdSet = new Set<string>();
-        filterDistribution.forEach((dayJobs, dStr) => {
-          if (dStr === pickerState.dateStr) return;
-          dayJobs.forEach(j => {
-            if (!dayExistingIds.has(j.id)) {
-              allFromOtherDays.push(j);
-              allOtherDayIdSet.add(j.id);
-            }
-          });
-        });
         extraFilterAssignments.forEach((dayJobs, dStr) => {
           if (dStr === pickerState.dateStr) return;
           dayJobs.forEach(j => {
-            if (!dayExistingIds.has(j.id) && !allOtherDayIdSet.has(j.id)) {
-              allFromOtherDays.push(j);
+            if (!dayExistingIds.has(j.id)) {
+              fromOtherDays.push(j);
               allOtherDayIdSet.add(j.id);
             }
           });
@@ -1388,8 +1365,8 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
             open={pickerState.open}
             onClose={() => setPickerState(null)}
             unassignedManualJobs={unassignedManualJobs}
-            unassignedFilterJobs={unassignedFilterJobs}
-            filterJobsFromOtherDays={allFromOtherDays}
+            unassignedFilterJobs={unassignedRangedFilters}
+            filterJobsFromOtherDays={fromOtherDays}
             otherDayIds={allOtherDayIdSet}
             onSelectManualJobs={handlePickerSelect}
             onSelectFilterJobs={(jobIds, odi) => handleFilterPickerMoveSelect(jobIds, odi, pickerState.dateStr)}
