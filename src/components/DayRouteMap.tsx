@@ -207,7 +207,7 @@ function DayRouteMapInner({
               onClick={() => setActiveMarkerId(jc.job.id === activeMarkerId ? null : jc.job.id)}
             >
               {activeMarkerId === jc.job.id && (
-                <InfoWindow onCloseClick={() => setActiveMarkerId(null)}>
+                <InfoWindow position={jc.coords} onCloseClick={() => setActiveMarkerId(null)}>
                   <div dir="rtl" style={{ minWidth: 180 }}>
                     <p style={{ fontWeight: 'bold', marginBottom: 4 }}>#{idx + 1} {jc.customer?.name}</p>
                     <p style={{ fontSize: 12, color: '#666' }}>{JOB_TYPE_CONFIG[jc.job.type].label}</p>
