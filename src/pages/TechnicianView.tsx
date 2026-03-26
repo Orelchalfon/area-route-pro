@@ -6,9 +6,9 @@ import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Calendar, CheckCircle2, Clock, LayoutDashboard, XCircle, RotateCcw } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronRight, ChevronLeft, Clock, LayoutDashboard, XCircle, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, startOfWeek, addDays, isToday } from 'date-fns';
+import { format, startOfWeek, addDays, isToday, addWeeks, subWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
 
 interface TechnicianViewProps {
@@ -22,13 +22,14 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [completionNotes, setCompletionNotes] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
   const [selectedDay, setSelectedDay] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const tech = technicians.find(t => t.id === selectedTech)!;
 
-  // Current week days (Sun–Thu)
+  // Week days based on offset
   const weekDays = useMemo(() => {
-    const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+    const base = weekOffset === 0 ? new Date() : addWeeks(new Date(), weekOffset);
+    const weekStart = startOfWeek(base, { weekStartsOn: 0 });
     return Array.from({ length: 5 }, (_, i) => {
       const day = addDays(weekStart, i);
       return {
@@ -39,7 +40,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
         isToday: isToday(day),
       };
     });
-  }, []);
+  }, [weekOffset]);
 
   const techJobs = jobs
     .filter(j => j.technicianId === selectedTech && j.scheduledDate === selectedDay)
@@ -126,34 +127,47 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </div>
         </div>
 
-        {/* Week Day Selector */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {weekDays.map(day => {
-            const dayJobCount = jobs.filter(j => j.technicianId === selectedTech && j.scheduledDate === day.date && (j.status === 'confirmed' || j.status === 'completed')).length;
-            const isSelected = day.date === selectedDay;
-            return (
-              <button
-                key={day.date}
-                onClick={() => setSelectedDay(day.date)}
-                className={`flex-1 min-w-[60px] rounded-lg p-2 text-center transition-colors border ${
-                  isSelected
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : day.isToday
-                    ? 'bg-primary/10 border-primary/30 text-foreground'
-                    : 'bg-card border-border text-muted-foreground hover:bg-muted/50'
-                }`}
-              >
-                <div className="text-[11px] font-medium">{day.shortLabel}</div>
-                <div className="text-sm font-bold">{day.dayNum}</div>
-                {dayJobCount > 0 && (
-                  <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                    {dayJobCount} משימות
-                  </div>
-                )}
-              </button>
-            );
-          })}
+        {/* Week Navigation + Day Selector */}
+        <div className="flex items-center gap-1">
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setWeekOffset(w => w + 1); }}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+            {weekDays.map(day => {
+              const dayJobCount = jobs.filter(j => j.technicianId === selectedTech && j.scheduledDate === day.date && (j.status === 'confirmed' || j.status === 'completed')).length;
+              const isSelected = day.date === selectedDay;
+              return (
+                <button
+                  key={day.date}
+                  onClick={() => setSelectedDay(day.date)}
+                  className={`flex-1 min-w-[60px] rounded-lg p-2 text-center transition-colors border ${
+                    isSelected
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : day.isToday
+                      ? 'bg-primary/10 border-primary/30 text-foreground'
+                      : 'bg-card border-border text-muted-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  <div className="text-[11px] font-medium">{day.shortLabel}</div>
+                  <div className="text-sm font-bold">{day.dayNum}</div>
+                  {dayJobCount > 0 && (
+                    <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                      {dayJobCount} משימות
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setWeekOffset(w => w - 1); }}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
         </div>
+        {weekOffset !== 0 && (
+          <Button size="sm" variant="link" className="text-xs text-muted-foreground p-0 h-auto" onClick={() => { setWeekOffset(0); setSelectedDay(new Date().toISOString().split('T')[0]); }}>
+            חזור להיום
+          </Button>
+        )}
 
         {/* Next Task Banner */}
         {nextJob && selectedDay === new Date().toISOString().split('T')[0] && (
