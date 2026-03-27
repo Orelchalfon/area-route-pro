@@ -96,7 +96,30 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
             <ClipboardCheck className="w-5 h-5 text-primary print:hidden" />
             {confirmed ? 'דו״ח פעילות יומי' : 'סיכום יום עבודה'}
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">{todayLabel}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 text-sm font-normal">
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {dateLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <CalendarPicker
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(d) => d && setSelectedDate(d)}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-5 mt-2">
