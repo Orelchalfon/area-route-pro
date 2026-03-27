@@ -87,7 +87,7 @@ interface MonthlyScheduleBoardProps {
   onUnassignJob: (jobId: string) => void;
   onCloseJob?: (jobId: string) => void;
   onReturnJob?: (jobId: string) => void;
-  onAddJob?: (job: Omit<Job, 'id'>) => void;
+  onAddJob?: (job: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string }) => void;
 }
 
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -700,7 +700,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                             variant="outline"
                             className="flex-1 text-xs border-secondary text-secondary hover:bg-secondary/10"
                             onClick={() => {
-                              const customer = customersList.find(c => c.id === job.customerId);
+                              const customer = customers.find(c => c.id === job.customerId);
                               onAddJob({
                                 type: 'malfunction',
                                 status: 'draft',
