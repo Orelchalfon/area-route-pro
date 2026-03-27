@@ -513,22 +513,39 @@ function FollowUpTasksPopover({ job, customers, onAddJob }: {
     setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const now = new Date();
+    const inserts: { service_date: string; task_description: string; location: string }[] = [];
     selected.forEach(optionId => {
       const option = FOLLOW_UP_OPTIONS.find(o => o.id === optionId)!;
       const futureDate = new Date(now);
       futureDate.setMonth(futureDate.getMonth() + option.monthsFromNow);
       const scheduledDate = format(futureDate, 'yyyy-MM-dd');
+      const taskDesc = `${option.label} — ${customer?.name || ''}`;
       onAddJob({
         type: 'filter_replacement',
         customerId: job.customerId,
         technicianId: '',
         scheduledDate,
         scheduledTime: '',
-        notes: `${option.label} — המשך התקנה אצל ${customer?.name || ''}`,
+        notes: `${taskDesc} — המשך התקנה`,
+      });
+      inserts.push({
+        service_date: scheduledDate,
+        task_description: taskDesc,
+        location: customer?.city || job.city || '',
       });
     });
+
+    // Also insert into ongoing_services so they appear in the service cycle
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { error } = await supabase.from('ongoing_services').insert(inserts);
+      if (error) console.error('Failed to insert follow-up to ongoing_services:', error);
+    } catch (e) {
+      console.error('Error inserting follow-up services:', e);
+    }
+
     toast.success(`${selected.length} משימות המשך נוצרו בהצלחה`);
     setSelected([]);
     setPopoverOpen(false);
