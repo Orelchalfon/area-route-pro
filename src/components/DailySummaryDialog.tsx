@@ -28,9 +28,9 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
 
   const summary = useMemo(() => {
-    const todayLogs = activityLogs.filter(l => l.timestamp.startsWith(todayStr));
+    const todayLogs = activityLogs.filter(l => l.timestamp.startsWith(selectedDateStr));
     const completedToday = jobs.filter(j =>
-      j.scheduledDate === todayStr && j.status === 'completed' && j.completionStatus
+      j.scheduledDate === selectedDateStr && j.status === 'completed' && j.completionStatus
     );
     const filtersDone = completedToday.filter(j => j.type === 'filter_replacement' && j.completionStatus === 'done');
     const malfunctionsDone = completedToday.filter(j => j.type === 'malfunction' && j.completionStatus === 'done');
@@ -64,7 +64,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
     const actionItems = Array.from(customerMap.values()).filter(e => e.actions.length > 0);
 
     return { todayLogs, completedToday, filtersDone, malfunctionsDone, installationsDone, notCompleted, actionItems, totalActions: todayLogs.length };
-  }, [jobs, closedJobs, activityLogs, todayStr, allCustomers]);
+  }, [jobs, closedJobs, activityLogs, selectedDateStr, allCustomers]);
 
   const getCustomer = (customerId: string): Customer | undefined =>
     allCustomers.find(c => c.id === customerId);
@@ -76,10 +76,10 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
     return `01/${String(month).padStart(2, '0')}/${currentYear + 1}`;
   };
 
-  const todayLabel = format(new Date(), 'EEEE, d בMMMM yyyy', { locale: he });
+  const dateLabel = format(selectedDate, 'EEEE, d בMMMM yyyy', { locale: he });
 
   const handleConfirm = () => {
-    onConfirmSummary();
+    onConfirmSummary(selectedDateStr);
     setConfirmed(true);
   };
 
