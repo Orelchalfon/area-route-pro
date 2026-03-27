@@ -3,11 +3,14 @@ import { Job, JOB_TYPE_CONFIG, Customer, SERVICE_TRACK_CONFIG } from '@/types';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Calendar, Filter, AlertTriangle, Wrench, XCircle, RotateCcw, ClipboardCheck, ArrowRight, Printer } from 'lucide-react';
-import { format } from 'date-fns';
+import { CheckCircle, Calendar, CalendarIcon, Filter, AlertTriangle, Wrench, XCircle, RotateCcw, ClipboardCheck, ArrowRight, Printer, ChevronRight, ChevronLeft } from 'lucide-react';
+import { format, addDays, subDays } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { DailyReportCard } from '@/components/DailyReportCard';
 import { ServiceTrackBadge } from '@/components/ServiceTrackBadge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 interface DailySummaryDialogProps {
   open: boolean;
@@ -15,13 +18,14 @@ interface DailySummaryDialogProps {
   jobs: Job[];
   closedJobs: Job[];
   activityLogs: { id: string; customerId: string; jobId?: string; action: string; details: string; timestamp: string }[];
-  onConfirmSummary: () => void;
+  onConfirmSummary: (dateStr: string) => void;
   allCustomers?: Customer[];
 }
 
 export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLogs, onConfirmSummary, allCustomers = [] }: DailySummaryDialogProps) {
   const [confirmed, setConfirmed] = useState(false);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
 
   const summary = useMemo(() => {
     const todayLogs = activityLogs.filter(l => l.timestamp.startsWith(todayStr));
