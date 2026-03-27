@@ -87,6 +87,7 @@ interface MonthlyScheduleBoardProps {
   onUnassignJob: (jobId: string) => void;
   onCloseJob?: (jobId: string) => void;
   onReturnJob?: (jobId: string) => void;
+  onAddJob?: (job: Omit<Job, 'id'>) => void;
 }
 
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
