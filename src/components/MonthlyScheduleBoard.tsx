@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Job, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
+import { Job, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
 import { technicians } from '@/data/mockData';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
