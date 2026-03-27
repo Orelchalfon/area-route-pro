@@ -38,6 +38,7 @@ export default function Dashboard() {
         onUnassignJob={unassignJob}
         onCloseJob={closeJob}
         onReturnJob={returnJob}
+        onAddJob={addJob}
       />
       <DailySummaryDialog
         open={summaryOpen}
