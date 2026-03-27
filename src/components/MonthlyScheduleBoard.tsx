@@ -703,14 +703,11 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                               const customer = customers.find(c => c.id === job.customerId);
                               onAddJob({
                                 type: 'malfunction',
-                                status: 'draft',
-                                priority: 'medium',
                                 customerId: job.customerId,
-                                estimatedDuration: 60,
-                                location: customer?.address || job.location,
-                                city: customer?.city || job.city,
+                                technicianId: job.technicianId || '',
+                                scheduledDate: '',
+                                scheduledTime: '',
                                 notes: `משימת המשך להתקנה — ${customer?.name || ''}`,
-                                createdAt: new Date().toISOString().split('T')[0],
                               });
                               toast.success('משימת המשך נוצרה בהצלחה');
                             }}
