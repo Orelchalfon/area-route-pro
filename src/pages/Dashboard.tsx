@@ -46,10 +46,9 @@ export default function Dashboard() {
         closedJobs={closedJobs}
         activityLogs={activityLogs}
         allCustomers={customersList}
-        onConfirmSummary={() => {
-          const todayStr = new Date().toISOString().split('T')[0];
-          const todayJobs = jobs.filter(j => j.scheduledDate === todayStr && j.status === 'completed' && j.completionStatus);
-          todayJobs.forEach(job => {
+        onConfirmSummary={(dateStr: string) => {
+          const dayJobs = jobs.filter(j => j.scheduledDate === dateStr && j.status === 'completed' && j.completionStatus);
+          dayJobs.forEach(job => {
             if (job.completionStatus === 'done') {
               closeJob(job.id);
               recalcNextServiceDate(job.customerId);
@@ -57,7 +56,7 @@ export default function Dashboard() {
               returnJob(job.id);
             }
           });
-          toast.success(`יום העבודה סוכם — ${todayJobs.length} משימות עובדו`);
+          toast.success(`יום העבודה סוכם — ${dayJobs.length} משימות עובדו`);
         }}
       />
     </div>

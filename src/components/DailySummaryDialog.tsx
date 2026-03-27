@@ -3,11 +3,14 @@ import { Job, JOB_TYPE_CONFIG, Customer, SERVICE_TRACK_CONFIG } from '@/types';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Calendar, Filter, AlertTriangle, Wrench, XCircle, RotateCcw, ClipboardCheck, ArrowRight, Printer } from 'lucide-react';
-import { format } from 'date-fns';
+import { CheckCircle, Calendar, CalendarIcon, Filter, AlertTriangle, Wrench, XCircle, RotateCcw, ClipboardCheck, ArrowRight, Printer, ChevronRight, ChevronLeft } from 'lucide-react';
+import { format, addDays, subDays } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { DailyReportCard } from '@/components/DailyReportCard';
 import { ServiceTrackBadge } from '@/components/ServiceTrackBadge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 interface DailySummaryDialogProps {
   open: boolean;
@@ -15,18 +18,19 @@ interface DailySummaryDialogProps {
   jobs: Job[];
   closedJobs: Job[];
   activityLogs: { id: string; customerId: string; jobId?: string; action: string; details: string; timestamp: string }[];
-  onConfirmSummary: () => void;
+  onConfirmSummary: (dateStr: string) => void;
   allCustomers?: Customer[];
 }
 
 export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLogs, onConfirmSummary, allCustomers = [] }: DailySummaryDialogProps) {
   const [confirmed, setConfirmed] = useState(false);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
 
   const summary = useMemo(() => {
-    const todayLogs = activityLogs.filter(l => l.timestamp.startsWith(todayStr));
+    const todayLogs = activityLogs.filter(l => l.timestamp.startsWith(selectedDateStr));
     const completedToday = jobs.filter(j =>
-      j.scheduledDate === todayStr && j.status === 'completed' && j.completionStatus
+      j.scheduledDate === selectedDateStr && j.status === 'completed' && j.completionStatus
     );
     const filtersDone = completedToday.filter(j => j.type === 'filter_replacement' && j.completionStatus === 'done');
     const malfunctionsDone = completedToday.filter(j => j.type === 'malfunction' && j.completionStatus === 'done');
@@ -60,7 +64,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
     const actionItems = Array.from(customerMap.values()).filter(e => e.actions.length > 0);
 
     return { todayLogs, completedToday, filtersDone, malfunctionsDone, installationsDone, notCompleted, actionItems, totalActions: todayLogs.length };
-  }, [jobs, closedJobs, activityLogs, todayStr, allCustomers]);
+  }, [jobs, closedJobs, activityLogs, selectedDateStr, allCustomers]);
 
   const getCustomer = (customerId: string): Customer | undefined =>
     allCustomers.find(c => c.id === customerId);
@@ -72,10 +76,10 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
     return `01/${String(month).padStart(2, '0')}/${currentYear + 1}`;
   };
 
-  const todayLabel = format(new Date(), 'EEEE, d בMMMM yyyy', { locale: he });
+  const dateLabel = format(selectedDate, 'EEEE, d בMMMM yyyy', { locale: he });
 
   const handleConfirm = () => {
-    onConfirmSummary();
+    onConfirmSummary(selectedDateStr);
     setConfirmed(true);
   };
 
@@ -92,7 +96,30 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
             <ClipboardCheck className="w-5 h-5 text-primary print:hidden" />
             {confirmed ? 'דו״ח פעילות יומי' : 'סיכום יום עבודה'}
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">{todayLabel}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 text-sm font-normal">
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {dateLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <CalendarPicker
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(d) => d && setSelectedDate(d)}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-5 mt-2">
