@@ -520,6 +520,10 @@ function FollowUpTasksPopover({ job, customers, onAddJob }: {
       const option = FOLLOW_UP_OPTIONS.find(o => o.id === optionId)!;
       const futureDate = new Date(now);
       futureDate.setMonth(futureDate.getMonth() + option.monthsFromNow);
+      // Skip Friday (5) and Saturday (6) — move to next Sunday
+      while (futureDate.getDay() === 5 || futureDate.getDay() === 6) {
+        futureDate.setDate(futureDate.getDate() + 1);
+      }
       const scheduledDate = format(futureDate, 'yyyy-MM-dd');
       const taskDesc = `${option.label} — ${customer?.name || ''}`;
       onAddJob({
