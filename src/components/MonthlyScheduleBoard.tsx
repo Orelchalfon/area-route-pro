@@ -695,26 +695,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                           </Button>
                         )}
                         {job.type === 'installation' && job.completionStatus === 'done' && onAddJob && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 text-xs border-secondary text-secondary hover:bg-secondary/10"
-                            onClick={() => {
-                              const customer = customers.find(c => c.id === job.customerId);
-                              onAddJob({
-                                type: 'malfunction',
-                                customerId: job.customerId,
-                                technicianId: job.technicianId || '',
-                                scheduledDate: '',
-                                scheduledTime: '',
-                                notes: `משימת המשך להתקנה — ${customer?.name || ''}`,
-                              });
-                              toast.success('משימת המשך נוצרה בהצלחה');
-                            }}
-                          >
-                            <ListPlus className="w-3 h-3 ml-1" />
-                            משימות להמשך
-                          </Button>
+                          <FollowUpTasksPopover job={job} customers={customers} onAddJob={onAddJob} />
                         )}
                         {onReturnJob && (job.completionStatus === 'not_done' || job.completionStatus === 'need_return') && (
                           <Button
