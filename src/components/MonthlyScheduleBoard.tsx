@@ -3,7 +3,7 @@ import { Job, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/types';
 import { technicians } from '@/data/mockData';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical, Navigation } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical, Navigation, ListPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, getDay, addMonths, subMonths, addWeeks, subWeeks, isSameMonth } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -493,9 +493,9 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
 }
 
 // Day detail dialog with drag-and-drop reordering, map, and navigation
-function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob, onCloseJob, onReturnJob }: {
+function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob, onCloseJob, onReturnJob, onAddJob }: {
   open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[]; onRemoveJob: (jobId: string) => void;
-  onCloseJob?: (jobId: string) => void; onReturnJob?: (jobId: string) => void;
+  onCloseJob?: (jobId: string) => void; onReturnJob?: (jobId: string) => void; onAddJob?: (job: Omit<Job, 'id'>) => void;
 }) {
   const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
@@ -679,7 +679,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                           <p className="text-sm">{job.completionNotes}</p>
                         </div>
                       )}
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {onCloseJob && (
                           <Button
                             size="sm"
@@ -692,6 +692,31 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                           >
                             <Archive className="w-3 h-3 ml-1" />
                             סגור קריאה
+                          </Button>
+                        )}
+                        {job.type === 'installation' && job.completionStatus === 'done' && onAddJob && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-xs border-secondary text-secondary hover:bg-secondary/10"
+                            onClick={() => {
+                              const customer = customersList.find(c => c.id === job.customerId);
+                              onAddJob({
+                                type: 'malfunction',
+                                status: 'draft',
+                                priority: 'medium',
+                                customerId: job.customerId,
+                                estimatedDuration: 60,
+                                location: customer?.address || job.location,
+                                city: customer?.city || job.city,
+                                notes: `משימת המשך להתקנה — ${customer?.name || ''}`,
+                                createdAt: new Date().toISOString().split('T')[0],
+                              });
+                              toast.success('משימת המשך נוצרה בהצלחה');
+                            }}
+                          >
+                            <ListPlus className="w-3 h-3 ml-1" />
+                            משימות להמשך
                           </Button>
                         )}
                         {onReturnJob && (job.completionStatus === 'not_done' || job.completionStatus === 'need_return') && (
@@ -760,7 +785,7 @@ function FilterJobPicker({ jobs, onSelect, movedFromOtherDay }: { jobs: Job[]; o
 }
 
 
-export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, onStatusChange, onAssignJob, onUnassignJob, onCloseJob, onReturnJob }: MonthlyScheduleBoardProps) {
+export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, onStatusChange, onAssignJob, onUnassignJob, onCloseJob, onReturnJob, onAddJob }: MonthlyScheduleBoardProps) {
   const { customersList } = useJobsContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(technicians[0].id);
@@ -1452,6 +1477,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
           }}
           onCloseJob={onCloseJob}
           onReturnJob={onReturnJob}
+          onAddJob={onAddJob}
         />
       )}
 
