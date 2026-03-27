@@ -87,7 +87,7 @@ interface MonthlyScheduleBoardProps {
   onUnassignJob: (jobId: string) => void;
   onCloseJob?: (jobId: string) => void;
   onReturnJob?: (jobId: string) => void;
-  onAddJob?: (job: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string }) => void;
+  onAddJob?: (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string }) => void;
 }
 
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -495,7 +495,7 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
 // Day detail dialog with drag-and-drop reordering, map, and navigation
 function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemoveJob, onCloseJob, onReturnJob, onAddJob }: {
   open: boolean; onClose: () => void; dateStr: string; dayJobs: Job[]; filterJobs: Job[]; onRemoveJob: (jobId: string) => void;
-  onCloseJob?: (jobId: string) => void; onReturnJob?: (jobId: string) => void; onAddJob?: (job: Omit<Job, 'id'>) => void;
+  onCloseJob?: (jobId: string) => void; onReturnJob?: (jobId: string) => void; onAddJob?: (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string }) => void;
 }) {
   const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
