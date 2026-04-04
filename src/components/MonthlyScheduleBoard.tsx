@@ -1074,7 +1074,12 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   ];
 
   const handleFilterPickerSelect = (jobIds: string[], dateStr: string) => {
-    const selected = filterJobs.filter(j => jobIds.includes(j.id));
+    // Search in ranged jobs (not just current month) so adjacent-month jobs are found
+    const ranged = getFilterJobsInRange(dateStr);
+    const allCandidates = [...filterJobs, ...ranged];
+    const seen = new Set<string>();
+    const unique = allCandidates.filter(j => { if (seen.has(j.id)) return false; seen.add(j.id); return true; });
+    const selected = unique.filter(j => jobIds.includes(j.id));
     setExtraFilterAssignments(prev => {
       const next = new Map(prev);
       const existing = next.get(dateStr) || [];
@@ -1084,7 +1089,12 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   };
 
   const handleFilterPickerMoveSelect = (jobIds: string[], otherDayIdsSet: Set<string>, dateStr: string) => {
-    const selected = filterJobs.filter(j => jobIds.includes(j.id));
+    // Search in ranged jobs (not just current month) so adjacent-month jobs are found
+    const ranged = getFilterJobsInRange(dateStr);
+    const allCandidates = [...filterJobs, ...ranged];
+    const seen = new Set<string>();
+    const unique = allCandidates.filter(j => { if (seen.has(j.id)) return false; seen.add(j.id); return true; });
+    const selected = unique.filter(j => jobIds.includes(j.id));
     const movedIds = new Set(jobIds.filter(id => otherDayIdsSet.has(id)));
 
     const autoMovedIds = new Set<string>();
