@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, addWeeks, subWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
 
+const getTodayStr = () => format(new Date(), 'yyyy-MM-dd');
+
 interface TechnicianViewProps {
   jobs: Job[];
   onMarkCompletion: (jobId: string, status: CompletionStatus, notes: string) => void;
@@ -21,8 +23,9 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [completingJobId, setCompletingJobId] = useState<string | null>(null);
   const [completionNotes, setCompletionNotes] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
-  const [selectedDay, setSelectedDay] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDay, setSelectedDay] = useState<string>(getTodayStr);
   const [weekOffset, setWeekOffset] = useState(0);
+  const todayStr = getTodayStr();
 
   const tech = technicians.find(t => t.id === selectedTech)!;
 
@@ -164,13 +167,13 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </Button>
         </div>
         {weekOffset !== 0 && (
-          <Button size="sm" variant="link" className="text-xs text-muted-foreground p-0 h-auto" onClick={() => { setWeekOffset(0); setSelectedDay(new Date().toISOString().split('T')[0]); }}>
+          <Button size="sm" variant="link" className="text-xs text-muted-foreground p-0 h-auto" onClick={() => { setWeekOffset(0); setSelectedDay(todayStr); }}>
             חזור להיום
           </Button>
         )}
 
         {/* Next Task Banner */}
-        {nextJob && selectedDay === new Date().toISOString().split('T')[0] && (
+        {nextJob && selectedDay === todayStr && (
           <div className="bg-secondary/10 border border-secondary/20 rounded-lg p-3 flex items-center gap-2">
             <Clock className="w-4 h-4 text-secondary" />
             <span className="text-sm font-medium text-foreground">הבא בתור ב-{nextJob.scheduledTime}</span>
