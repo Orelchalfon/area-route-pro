@@ -81,7 +81,7 @@ function jobMatchesAreas(job: Job, areas: string[]): boolean {
 interface MonthlyScheduleBoardProps {
   jobs: Job[];
   onApprove: (jobIds: string[]) => void;
-  onApproveDaySchedule: (assignments: { jobId: string; technicianId: string; scheduledDate: string; scheduledTime: string }[]) => void;
+  onApproveDaySchedule: (assignments: { jobId: string; technicianId: string; scheduledDate: string; scheduledTime: string }[], jobObjects?: Job[]) => void;
   onStatusChange: (jobId: string, status: string) => void;
   onAssignJob: (jobId: string, technicianId: string, scheduledDate: string, scheduledTime: string) => void;
   onUnassignJob: (jobId: string) => void;
