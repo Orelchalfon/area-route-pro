@@ -35,26 +35,8 @@ export function useJobs() {
       .then(({ customers, jobs: instJobs }) => {
         // Merge installation customers — match by name or add new
         setCustomersList(prev => {
-          const updated = [...prev];
-          const existingNames = new Set(prev.map(c => c.name.trim().toLowerCase()));
-          for (const ic of customers) {
-            const icName = ic.name.trim().toLowerCase();
-            const existing = prev.find(c => 
-              c.name.trim().toLowerCase() === icName ||
-              c.name.trim().toLowerCase().includes(icName) ||
-              icName.includes(c.name.trim().toLowerCase())
-            );
-            if (existing) {
-              // Update city if missing
-              if (!existing.city && ic.city) {
-                const idx = updated.findIndex(c => c.id === existing.id);
-                if (idx >= 0) updated[idx] = { ...updated[idx], city: ic.city };
-              }
-            } else {
-              updated.push(ic);
-            }
-          }
-          return updated;
+          // Installation customers are always separate — never merge with existing customers
+          return [...prev, ...customers];
         });
 
         // Remap job customerIds to existing customers where possible, then add
