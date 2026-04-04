@@ -810,7 +810,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                             סגור קריאה
                           </Button>
                         )}
-                        {job.type === 'installation' && job.completionStatus === 'done' && onAddJob && (
+                        {job.completionStatus === 'done' && onAddJob && (
                           <FollowUpTasksPopover job={job} customers={customers} onAddJob={onAddJob} />
                         )}
                         {onReturnJob && (job.completionStatus === 'not_done' || job.completionStatus === 'need_return') && (
