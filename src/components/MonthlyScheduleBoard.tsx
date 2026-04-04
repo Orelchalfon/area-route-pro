@@ -892,11 +892,12 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
 
   const handleApproveDay = (jobIds: string[], dateStr: string) => {
     // Calculate time ranges for assignments
+    const filterDayJobs = getFilterDayJobs(dateStr);
+    const manualDayJobs = getManualDayJobs(dateStr);
+    const allDayJobs = [...filterDayJobs, ...manualDayJobs];
+    
     const allJobs = jobIds.map(id => {
-      // Find job from filter distribution, extra assignments, or main jobs
-      const filterDayJobs = getFilterDayJobs(dateStr);
-      const manualDayJobs = getManualDayJobs(dateStr);
-      return [...filterDayJobs, ...manualDayJobs].find(j => j.id === id);
+      return allDayJobs.find(j => j.id === id);
     }).filter(Boolean) as Job[];
 
     let currentMinutes = 10 * 60; // Start at 10:00
@@ -913,7 +914,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       };
     });
 
-    onApproveDaySchedule(assignments);
+    onApproveDaySchedule(assignments, allJobs);
     setApprovedDays(prev => new Set(prev).add(dateStr));
   };
 
