@@ -84,11 +84,17 @@ export function useJobs() {
           const updated = [...prev];
           for (const mc of malfCustomers) {
             const mcName = mc.name.trim().toLowerCase();
-            const existing = prev.find(c =>
-              c.name.trim().toLowerCase() === mcName ||
-              c.name.trim().toLowerCase().includes(mcName) ||
-              mcName.includes(c.name.trim().toLowerCase())
-            );
+            const mcCity = mc.city.trim().toLowerCase();
+            const existing = prev.find(c => {
+              const cName = c.name.trim().toLowerCase();
+              const nameMatch = cName === mcName || cName.includes(mcName) || mcName.includes(cName);
+              if (!nameMatch) return false;
+              // If both have city, require city match too
+              if (mcCity && c.city) {
+                return c.city.trim().toLowerCase().includes(mcCity) || mcCity.includes(c.city.trim().toLowerCase());
+              }
+              return true;
+            });
             if (existing) {
               if (!existing.city && mc.city) {
                 const idx = updated.findIndex(c => c.id === existing.id);
@@ -105,12 +111,27 @@ export function useJobs() {
           const remapped = malfJobs.map(job => {
             const malfCust = malfCustomers.find(c => c.id === job.customerId);
             if (!malfCust) return job;
-            const match = customersList.find(c =>
-              c.name.trim().toLowerCase() === malfCust.name.trim().toLowerCase() ||
-              c.name.trim().toLowerCase().includes(malfCust.name.trim().toLowerCase()) ||
-              malfCust.name.trim().toLowerCase().includes(c.name.trim().toLowerCase())
-            );
-            return match ? { ...job, customerId: match.id } : job;
+            const malfName = malfCust.name.trim().toLowerCase();
+            const malfCity = malfCust.city.trim().toLowerCase();
+            const match = customersList.find(c => {
+              const cName = c.name.trim().toLowerCase();
+              const nameMatch = cName === malfName || cName.includes(malfName) || malfName.includes(cName);
+              if (!nameMatch) return false;
+              if (malfCity && c.city) {
+                return c.city.trim().toLowerCase().includes(malfCity) || malfCity.includes(c.city.trim().toLowerCase());
+              }
+              return true;
+            });
+            if (match) {
+              // Auto-fill address and location from existing customer
+              return {
+                ...job,
+                customerId: match.id,
+                location: match.address || job.location,
+                city: match.city || job.city,
+              };
+            }
+            return job;
           });
           return [...prev, ...remapped];
         });
