@@ -1185,24 +1185,11 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
     }
   }, [filterJobs, filterDistribution, findNearestAreaDay]);
 
-  // Remove a manual job and reschedule to nearest same-area day
-  const handleRemoveAndRescheduleManual = useCallback((jobId: string, fromDateStr: string) => {
-    const job = jobs.find(j => j.id === jobId);
-    if (!job) return;
-
-    const targetDate = findNearestAreaDay(fromDateStr, job.city);
-    if (targetDate) {
-      onUnassignJob(jobId);
-      // Small delay to let state update, then reassign
-      setTimeout(() => {
-        onAssignJob(jobId, selectedTechId, targetDate, '08:00');
-        toast.success(`${JOB_TYPE_CONFIG[job.type].label} הועבר ל-${targetDate} (${job.city})`);
-      }, 0);
-    } else {
-      onUnassignJob(jobId);
-      toast.info('המשימה הוסרה מהלו״ז — לא נמצא יום מתאים באותו אזור');
-    }
-  }, [jobs, findNearestAreaDay, onUnassignJob, onAssignJob, selectedTechId]);
+  // Remove a manual job — return it to the unassigned pool
+  const handleRemoveAndRescheduleManual = useCallback((jobId: string, _fromDateStr: string) => {
+    onUnassignJob(jobId);
+    toast.info('המשימה הוסרה מהלו״ז וחזרה למאגר');
+  }, [onUnassignJob]);
 
   // Stats
   const stats = useMemo(() => {
