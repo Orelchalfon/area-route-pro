@@ -39,20 +39,8 @@ export function useJobs() {
           return [...prev, ...customers];
         });
 
-        // Remap job customerIds to existing customers where possible, then add
-        setJobs(prev => {
-          const remapped = instJobs.map(job => {
-            const instCust = customers.find(c => c.id === job.customerId);
-            if (!instCust) return job;
-            const match = customersList.find(c =>
-              c.name.trim().toLowerCase() === instCust.name.trim().toLowerCase() ||
-              c.name.trim().toLowerCase().includes(instCust.name.trim().toLowerCase()) ||
-              instCust.name.trim().toLowerCase().includes(c.name.trim().toLowerCase())
-            );
-            return match ? { ...job, customerId: match.id } : job;
-          });
-          return [...prev, ...remapped];
-        });
+        // Installation jobs keep their own customerIds — no remapping
+        setJobs(prev => [...prev, ...instJobs]);
       })
       .catch(err => console.error('Failed to load installations CSV:', err));
   }, [dataLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
