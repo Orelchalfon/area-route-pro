@@ -186,10 +186,13 @@ export function useJobs() {
     ));
   };
 
-  const approveDaySchedule = (assignments: { jobId: string; technicianId: string; scheduledDate: string; scheduledTime: string }[]) => {
+  const approveDaySchedule = (assignments: { jobId: string; technicianId: string; scheduledDate: string; scheduledTime: string }[], jobObjects?: Job[]) => {
     setJobs(prev => {
       const assignmentMap = new Map(assignments.map(a => [a.jobId, a]));
-      return prev.map(j => {
+      const existingIds = new Set(prev.map(j => j.id));
+      
+      // Update existing jobs
+      const updated = prev.map(j => {
         const assignment = assignmentMap.get(j.id);
         if (assignment) {
           addLog(j.customerId, 'שיבוץ', `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`, j.id);
@@ -203,6 +206,27 @@ export function useJobs() {
         }
         return j;
       });
+      
+      // Add jobs that don't exist in global state yet (e.g. locally-generated filter jobs)
+      if (jobObjects) {
+        for (const job of jobObjects) {
+          if (!existingIds.has(job.id)) {
+            const assignment = assignmentMap.get(job.id);
+            if (assignment) {
+              addLog(job.customerId, 'שיבוץ', `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`, job.id);
+              updated.push({
+                ...job,
+                status: 'confirmed' as JobStatus,
+                technicianId: assignment.technicianId,
+                scheduledDate: assignment.scheduledDate,
+                scheduledTime: assignment.scheduledTime,
+              });
+            }
+          }
+        }
+      }
+      
+      return updated;
     });
   };
 
