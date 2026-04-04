@@ -1070,9 +1070,18 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
   );
 
   const getManualDayJobs = (dateStr: string) => manualJobs.filter(j => j.scheduledDate === dateStr);
-  const getFilterDayJobs = (dateStr: string) => [
-    ...(extraFilterAssignments.get(dateStr) || []),
-  ];
+  const getFilterDayJobs = (dateStr: string) => {
+    const localJobs = extraFilterAssignments.get(dateStr) || [];
+    const localIds = new Set(localJobs.map(j => j.id));
+    // Also include filter_replacement jobs from global state that were approved/assigned to this day
+    const globalFilterJobs = jobs.filter(j =>
+      j.type === 'filter_replacement' &&
+      j.scheduledDate === dateStr &&
+      j.technicianId === selectedTechId &&
+      !localIds.has(j.id)
+    );
+    return [...localJobs, ...globalFilterJobs];
+  };
 
   const handleFilterPickerSelect = (jobIds: string[], dateStr: string) => {
     // Search in ranged jobs (not just current month) so adjacent-month jobs are found
