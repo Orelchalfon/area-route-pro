@@ -39,6 +39,29 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
 
     // Group actions per customer into one summary line
     const customerMap = new Map<string, { customerName: string; actions: string[]; mainIcon: 'close' | 'return' | 'schedule' }>();
+
+    // Also include technician reports as action items
+    for (const job of completedToday) {
+      const customer = allCustomers.find(c => c.id === job.customerId);
+      const name = customer?.name || job.customerId;
+      const key = job.customerId;
+      if (!customerMap.has(key)) {
+        customerMap.set(key, { customerName: name, actions: [], mainIcon: 'close' });
+      }
+      const entry = customerMap.get(key)!;
+      const typeLabel = JOB_TYPE_CONFIG[job.type]?.label || job.type;
+      if (job.completionStatus === 'done') {
+        entry.actions.push(`${typeLabel} — בוצע`);
+        entry.mainIcon = 'close';
+      } else if (job.completionStatus === 'not_done') {
+        entry.actions.push(`${typeLabel} — לא בוצע`);
+        entry.mainIcon = 'return';
+      } else if (job.completionStatus === 'need_return') {
+        entry.actions.push(`${typeLabel} — צריך לחזור`);
+        entry.mainIcon = 'return';
+      }
+    }
+
     for (const log of todayLogs) {
       const customer = allCustomers.find(c => c.id === log.customerId);
       const name = customer?.name || log.customerId;
