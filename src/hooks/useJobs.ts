@@ -35,42 +35,12 @@ export function useJobs() {
       .then(({ customers, jobs: instJobs }) => {
         // Merge installation customers — match by name or add new
         setCustomersList(prev => {
-          const updated = [...prev];
-          const existingNames = new Set(prev.map(c => c.name.trim().toLowerCase()));
-          for (const ic of customers) {
-            const icName = ic.name.trim().toLowerCase();
-            const existing = prev.find(c => 
-              c.name.trim().toLowerCase() === icName ||
-              c.name.trim().toLowerCase().includes(icName) ||
-              icName.includes(c.name.trim().toLowerCase())
-            );
-            if (existing) {
-              // Update city if missing
-              if (!existing.city && ic.city) {
-                const idx = updated.findIndex(c => c.id === existing.id);
-                if (idx >= 0) updated[idx] = { ...updated[idx], city: ic.city };
-              }
-            } else {
-              updated.push(ic);
-            }
-          }
-          return updated;
+          // Installation customers are always separate — never merge with existing customers
+          return [...prev, ...customers];
         });
 
-        // Remap job customerIds to existing customers where possible, then add
-        setJobs(prev => {
-          const remapped = instJobs.map(job => {
-            const instCust = customers.find(c => c.id === job.customerId);
-            if (!instCust) return job;
-            const match = customersList.find(c =>
-              c.name.trim().toLowerCase() === instCust.name.trim().toLowerCase() ||
-              c.name.trim().toLowerCase().includes(instCust.name.trim().toLowerCase()) ||
-              instCust.name.trim().toLowerCase().includes(c.name.trim().toLowerCase())
-            );
-            return match ? { ...job, customerId: match.id } : job;
-          });
-          return [...prev, ...remapped];
-        });
+        // Installation jobs keep their own customerIds — no remapping
+        setJobs(prev => [...prev, ...instJobs]);
       })
       .catch(err => console.error('Failed to load installations CSV:', err));
   }, [dataLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
