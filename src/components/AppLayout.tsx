@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/logo.png';
-import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter, MapPinned } from 'lucide-react';
+import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter, CalendarDays } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
