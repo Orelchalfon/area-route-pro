@@ -13,6 +13,7 @@ import CustomerConfirmation from "./pages/CustomerConfirmation";
 import CustomersPage from "./pages/CustomersPage";
 import NotFound from "./pages/NotFound";
 import DailyRoutePage from "./pages/DailyRoutePage";
+import WorkSchedulePage from "./pages/WorkSchedulePage";
 
 const queryClient = new QueryClient();
 
