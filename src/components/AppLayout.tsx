@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/logo.png';
-import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter, MapPinned } from 'lucide-react';
+import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter, CalendarDays } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/malfunctions', label: 'תקלות', icon: AlertTriangle },
   { to: '/installations', label: 'התקנות', icon: Wrench },
   { to: '/service', label: 'שירות שוטף', icon: Filter },
+  { to: '/work-schedule', label: 'לוז עבודה', icon: CalendarDays },
   { to: '/technician', label: 'טכנאי', icon: Users },
   { to: '/customers', label: 'לקוחות', icon: Contact },
 ];

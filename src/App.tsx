@@ -13,6 +13,7 @@ import CustomerConfirmation from "./pages/CustomerConfirmation";
 import CustomersPage from "./pages/CustomersPage";
 import NotFound from "./pages/NotFound";
 import DailyRoutePage from "./pages/DailyRoutePage";
+import WorkSchedulePage from "./pages/WorkSchedulePage";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
               <Route path="/malfunctions" element={<JobCategoryPage category="malfunctions" />} />
               <Route path="/installations" element={<JobCategoryPage category="installations" />} />
               <Route path="/service" element={<ServiceCyclePage />} />
+              <Route path="/work-schedule" element={<WorkSchedulePage />} />
               <Route path="/technician" element={<TechnicianPage />} />
               <Route path="/customers" element={<CustomersPage />} />
               <Route path="/confirm" element={<CustomerConfirmation />} />
