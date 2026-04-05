@@ -457,7 +457,14 @@ function AddTaskToScheduleDialog({
             disabled={!selectedCustomerId}
             onClick={() => {
               if (selectedCustomerId) {
-                onAdd(selectedCustomerId, jobType, afterJobId);
+                const serviceLabels: Record<string, string> = {
+                  annual_filter: 'החלפת פילטר שנתי',
+                  external_filter: 'החלפת פילטר חוץ',
+                  siliphos: 'החלפת סיליפוס',
+                  general: 'שירות כללי',
+                };
+                const notes = jobType === 'filter_replacement' ? (serviceLabels[serviceSubType] || '') : '';
+                onAdd(selectedCustomerId, jobType, afterJobId, notes);
               }
             }}
           >
