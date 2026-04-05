@@ -285,11 +285,10 @@ export default function WorkSchedulePage() {
           dateStr={addTaskState.dateStr}
           existingJobs={getJobsForDayAndTech(addTaskState.dateStr, addTaskState.techId)}
           customersList={customersList}
-          onAdd={(customerId, type, afterJobId) => {
+          onAdd={(customerId, type, afterJobId, notes) => {
             const customer = customersList.find(c => c.id === customerId);
             if (!customer) return;
 
-            // Determine time based on position
             const existingJobs = getJobsForDayAndTech(addTaskState.dateStr, addTaskState.techId);
             let scheduledTime = '08:00';
             if (afterJobId && afterJobId !== '__start__') {
@@ -321,7 +320,7 @@ export default function WorkSchedulePage() {
               estimatedDuration: typeConfig.duration,
               location: customer.address,
               city: customer.city,
-              notes: '',
+              notes: notes || '',
               createdAt: new Date().toISOString().slice(0, 10),
             };
             addJob(newJob);
@@ -344,7 +343,7 @@ function AddTaskToScheduleDialog({
   dateStr: string;
   existingJobs: ReturnType<typeof Array<any>>;
   customersList: any[];
-  onAdd: (customerId: string, type: 'malfunction' | 'installation' | 'filter_replacement', afterJobId: string | null) => void;
+  onAdd: (customerId: string, type: 'malfunction' | 'installation' | 'filter_replacement', afterJobId: string | null, notes?: string) => void;
   onClose: () => void;
   getCustomerName: (id: string) => string;
 }) {
@@ -352,6 +351,7 @@ function AddTaskToScheduleDialog({
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [jobType, setJobType] = useState<'malfunction' | 'installation' | 'filter_replacement'>('malfunction');
   const [afterJobId, setAfterJobId] = useState<string | null>(null);
+  const [serviceSubType, setServiceSubType] = useState<string>('annual_filter');
 
   const tech = technicians.find(t => t.id === techId);
   const dayOfWeek = new Date(dateStr + 'T00:00:00').getDay();
@@ -385,6 +385,22 @@ function AddTaskToScheduleDialog({
                 <TabsTrigger value="filter_replacement" className="flex-1">שירות</TabsTrigger>
               </TabsList>
             </Tabs>
+            {jobType === 'filter_replacement' && (
+              <div className="mt-2 space-y-1">
+                <label className="text-xs font-medium text-muted-foreground block">סוג שירות</label>
+                <Select value={serviceSubType} onValueChange={v => setServiceSubType(v)}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="annual_filter">החלפת פילטר שנתי</SelectItem>
+                    <SelectItem value="external_filter">החלפת פילטר חוץ</SelectItem>
+                    <SelectItem value="siliphos">החלפת סיליפוס</SelectItem>
+                    <SelectItem value="general">שירות כללי</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Customer search */}
@@ -440,7 +456,14 @@ function AddTaskToScheduleDialog({
             disabled={!selectedCustomerId}
             onClick={() => {
               if (selectedCustomerId) {
-                onAdd(selectedCustomerId, jobType, afterJobId);
+                const serviceLabels: Record<string, string> = {
+                  annual_filter: 'החלפת פילטר שנתי',
+                  external_filter: 'החלפת פילטר חוץ',
+                  siliphos: 'החלפת סיליפוס',
+                  general: 'שירות כללי',
+                };
+                const notes = jobType === 'filter_replacement' ? (serviceLabels[serviceSubType] || '') : '';
+                onAdd(selectedCustomerId, jobType, afterJobId, notes);
               }
             }}
           >
