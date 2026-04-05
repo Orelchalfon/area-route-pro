@@ -285,11 +285,10 @@ export default function WorkSchedulePage() {
           dateStr={addTaskState.dateStr}
           existingJobs={getJobsForDayAndTech(addTaskState.dateStr, addTaskState.techId)}
           customersList={customersList}
-          onAdd={(customerId, type, afterJobId) => {
+          onAdd={(customerId, type, afterJobId, notes) => {
             const customer = customersList.find(c => c.id === customerId);
             if (!customer) return;
 
-            // Determine time based on position
             const existingJobs = getJobsForDayAndTech(addTaskState.dateStr, addTaskState.techId);
             let scheduledTime = '08:00';
             if (afterJobId && afterJobId !== '__start__') {
@@ -321,7 +320,7 @@ export default function WorkSchedulePage() {
               estimatedDuration: typeConfig.duration,
               location: customer.address,
               city: customer.city,
-              notes: '',
+              notes: notes || '',
               createdAt: new Date().toISOString().slice(0, 10),
             };
             addJob(newJob);
