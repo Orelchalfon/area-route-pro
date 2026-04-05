@@ -344,7 +344,7 @@ function AddTaskToScheduleDialog({
   dateStr: string;
   existingJobs: ReturnType<typeof Array<any>>;
   customersList: any[];
-  onAdd: (customerId: string, type: 'malfunction' | 'installation' | 'filter_replacement', afterJobId: string | null) => void;
+  onAdd: (customerId: string, type: 'malfunction' | 'installation' | 'filter_replacement', afterJobId: string | null, notes?: string) => void;
   onClose: () => void;
   getCustomerName: (id: string) => string;
 }) {
