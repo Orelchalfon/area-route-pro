@@ -1,29 +1,69 @@
 import { useMemo, useState } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { technicians } from '@/data/mockData';
-import { JOB_TYPE_CONFIG, STATUS_CONFIG } from '@/types';
-import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { JOB_TYPE_CONFIG } from '@/types';
+import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, ChevronLeft, CalendarDays, MapPin, Clock, User, Phone } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CalendarDays, MapPin, Clock, User, Phone, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
+const CITY_TO_REGION: Record<string, string> = {
+  'רעננה': 'השרון', 'הרצליה': 'השרון', 'הרצליה פיתוח': 'השרון',
+  'הוד השרון': 'השרון', 'רמת השרון': 'השרון', 'כפר סבא': 'השרון',
+  'צפון תל אביב': 'השרון', 'רמת החייל': 'השרון', 'ארסוף': 'השרון',
+  'תל אביב יפו': 'תל אביב', 'יפו': 'תל אביב', 'רמת גן': 'תל אביב',
+  'גבעתיים': 'תל אביב', 'בני ברק': 'תל אביב', 'חולון': 'תל אביב', 'אזור': 'תל אביב',
+  'פתח תקוה': 'גוש דן', 'פתח תקווה': 'גוש דן', 'ראש העין': 'גוש דן',
+  'קריית אונו': 'גוש דן', 'יהוד': 'גוש דן', 'גבעת שמואל': 'גוש דן', 'אור יהודה': 'גוש דן',
+  'בת ים': 'מרכז דרום', 'ראשון לציון': 'מרכז דרום', 'ראשלצ': 'מרכז דרום',
+  'רחובות': 'מרכז דרום', 'נס ציונה': 'מרכז דרום', 'יבנה': 'מרכז דרום',
+  'גדרה': 'מרכז דרום', 'לוד': 'מרכז דרום', 'רמלה': 'מרכז דרום',
+  'באר יעקב': 'מרכז דרום', 'גן יבנה': 'מרכז דרום',
+  'מודיעין': 'ירושלים', 'מודיעין מכבים רעות': 'ירושלים', 'שוהם': 'ירושלים',
+  'גוש עציון': 'ירושלים', 'מעלה אדומים': 'ירושלים', 'בית שמש': 'ירושלים',
+  'ביתר עילית': 'ירושלים', 'מבשרת ציון': 'ירושלים',
+  'באר שבע': 'דרום רחוק', 'אילת': 'דרום רחוק', 'דימונה': 'דרום רחוק',
+  'אשדוד': 'דרום רחוק', 'אשקלון': 'דרום רחוק', 'קריית גת': 'דרום רחוק',
+  'קרית גת': 'דרום רחוק', 'קריית מלאכי': 'דרום רחוק', 'קרית מלאכי': 'דרום רחוק',
+  'נתיבות': 'דרום רחוק',
+  'עמק חפר': 'נתניה', 'קדימה צורן': 'נתניה', 'אבן יהודה': 'נתניה',
+  'נתניה': 'נתניה', 'כפר הס': 'נתניה', 'עולש': 'נתניה', 'עין ורד': 'נתניה',
+  'חדרה': 'צפון קרוב', 'בנימינה': 'צפון קרוב', 'פרדס חנה': 'צפון קרוב',
+  'קיסריה': 'צפון קרוב', 'חריש': 'צפון קרוב', 'אור עקיבא': 'צפון קרוב',
+  'כרכור': 'צפון קרוב', 'עתלית': 'צפון קרוב', 'אליכין': 'צפון קרוב',
+  'חיפה': 'צפון רחוק', 'נהריה': 'צפון רחוק', 'צפת': 'צפון רחוק',
+  'כרמיאל': 'צפון רחוק', 'זיכרון יעקב': 'צפון רחוק', 'בית רימון': 'צפון רחוק',
+  'קריית שמונה': 'צפון רחוק', 'עכו': 'צפון רחוק', 'טבריה': 'צפון רחוק',
+  'נצרת': 'צפון רחוק', 'עפולה': 'צפון רחוק', 'נווה ים': 'צפון רחוק',
+};
+
+function getRegion(city: string): string {
+  const trimmed = (city || '').trim();
+  if (CITY_TO_REGION[trimmed]) return CITY_TO_REGION[trimmed];
+  return trimmed;
+}
+
 export default function WorkSchedulePage() {
-  const { jobs, customersList } = useJobsContext();
+  const { jobs, customersList, addJob } = useJobsContext();
   const [weekOffset, setWeekOffset] = useState(0);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [addTaskState, setAddTaskState] = useState<{ techId: string; dateStr: string } | null>(null);
 
   const today = new Date();
   const weekStart = startOfWeek(addDays(today, weekOffset * 7), { weekStartsOn: 0 });
 
-  // Build 14 days (2 weeks)
   const days = useMemo(() => {
     return Array.from({ length: 14 }, (_, i) => addDays(weekStart, i));
   }, [weekStart.toISOString()]);
 
-  // Get approved/confirmed jobs (sent to technician)
   const approvedJobs = useMemo(() => {
     return jobs.filter(j =>
       j.technicianId &&
@@ -53,13 +93,31 @@ export default function WorkSchedulePage() {
     return '';
   };
 
+  const getAreasForJobs = (dayJobs: typeof approvedJobs) => {
+    const areas = new Set<string>();
+    dayJobs.forEach(j => {
+      const region = getRegion(j.city || j.location);
+      if (region) areas.add(region);
+    });
+    return Array.from(areas);
+  };
+
+  const toggleCard = (key: string) => {
+    setExpandedCards(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   return (
     <div dir="rtl" className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">לוז עבודה</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            תצוגת שבועיים קדימה — כל המשימות שאושרו והועברו לטכנאים
+            תצוגת שבועיים קדימה — לחץ על יום כדי לראות את המשימות
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -78,10 +136,9 @@ export default function WorkSchedulePage() {
         </div>
       </div>
 
-      {/* Two-column layout for both technicians */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {technicians.map(tech => (
-          <div key={tech.id} className="space-y-3">
+          <div key={tech.id} className="space-y-2">
             <div className="flex items-center gap-2 sticky top-14 bg-background z-10 py-2">
               <User className="w-5 h-5 text-primary" />
               <h3 className="text-lg font-bold text-foreground">{tech.name}</h3>
@@ -94,15 +151,22 @@ export default function WorkSchedulePage() {
               const isToday = isSameDay(day, today);
               const dayOfWeek = day.getDay();
               const isFriSat = dayOfWeek === 5 || dayOfWeek === 6;
+              const cardKey = `${tech.id}-${dateStr}`;
+              const isExpanded = expandedCards.has(cardKey);
+              const areas = getAreasForJobs(dayJobs);
 
               if (isFriSat && dayJobs.length === 0) return null;
 
               return (
                 <Card
                   key={dateStr}
-                  className={`${isToday ? 'border-primary/50 bg-primary/5' : ''} ${isFriSat ? 'opacity-60' : ''}`}
+                  className={`${isToday ? 'border-primary/50 bg-primary/5' : ''} ${isFriSat ? 'opacity-60' : ''} transition-all`}
                 >
-                  <CardHeader className="py-2 px-4">
+                  {/* Collapsed header - always visible */}
+                  <CardHeader
+                    className="py-2 px-4 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                    onClick={() => dayJobs.length > 0 && toggleCard(cardKey)}
+                  >
                     <CardTitle className="text-sm flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <CalendarDays className="w-4 h-4" />
@@ -110,64 +174,101 @@ export default function WorkSchedulePage() {
                         <span className="text-muted-foreground">{format(day, 'd/M')}</span>
                         {isToday && <Badge className="text-[10px] px-1.5 py-0">היום</Badge>}
                       </span>
-                      <Badge variant="secondary" className="text-xs">
-                        {dayJobs.length} משימות
-                      </Badge>
+                      <span className="flex items-center gap-2">
+                        {areas.length > 0 && (
+                          <span className="flex items-center gap-1 flex-wrap justify-end">
+                            <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                            {areas.map(a => (
+                              <Badge key={a} variant="secondary" className="text-[10px] px-1.5">
+                                {a}
+                              </Badge>
+                            ))}
+                          </span>
+                        )}
+                        <Badge variant="outline" className="text-xs">
+                          {dayJobs.length} משימות
+                        </Badge>
+                        {dayJobs.length > 0 && (
+                          isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </span>
                     </CardTitle>
                   </CardHeader>
 
-                  {dayJobs.length > 0 && (
+                  {/* Expanded tasks list */}
+                  {isExpanded && dayJobs.length > 0 && (
                     <CardContent className="px-4 pb-3 pt-0 space-y-2">
-                      {dayJobs.map(job => {
+                      {dayJobs.map((job, idx) => {
                         const typeConf = JOB_TYPE_CONFIG[job.type];
                         const completionClass = getCompletionColor(job);
 
                         return (
-                          <div
-                            key={job.id}
-                            className={`rounded-lg border p-2.5 text-sm space-y-1 ${completionClass || 'bg-card'}`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{getCustomerName(job.customerId)}</span>
-                              <Badge variant="outline" className="text-[10px]">
-                                {typeConf?.label || job.type}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {job.city || job.location}
-                              </span>
-                              {job.scheduledTime && (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {job.scheduledTime}
-                                </span>
-                              )}
-                              {getCustomerPhone(job.customerId) && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="w-3 h-3" />
-                                  {getCustomerPhone(job.customerId)}
-                                </span>
-                              )}
-                            </div>
-                            {job.completionStatus && (
-                              <div className="text-xs font-medium">
-                                {job.completionStatus === 'done' && '✅ בוצע'}
-                                {job.completionStatus === 'not_done' && '❌ לא בוצע'}
-                                {job.completionStatus === 'need_return' && '🔄 צריך לחזור'}
-                                {job.completionNotes && ` — ${job.completionNotes}`}
+                          <div key={job.id}>
+                            <div
+                              className={`rounded-lg border p-2.5 text-sm space-y-1 ${completionClass || 'bg-card'}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{getCustomerName(job.customerId)}</span>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {typeConf?.label || job.type}
+                                </Badge>
                               </div>
-                            )}
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {job.city || job.location}
+                                </span>
+                                {job.scheduledTime && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {job.scheduledTime}
+                                  </span>
+                                )}
+                                {getCustomerPhone(job.customerId) && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="w-3 h-3" />
+                                    {getCustomerPhone(job.customerId)}
+                                  </span>
+                                )}
+                              </div>
+                              {job.completionStatus && (
+                                <div className="text-xs font-medium">
+                                  {job.completionStatus === 'done' && '✅ בוצע'}
+                                  {job.completionStatus === 'not_done' && '❌ לא בוצע'}
+                                  {job.completionStatus === 'need_return' && '🔄 צריך לחזור'}
+                                  {job.completionNotes && ` — ${job.completionNotes}`}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
+
+                      {/* Add task button inside expanded view */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:text-foreground"
+                        onClick={() => setAddTaskState({ techId: tech.id, dateStr })}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        הוסף משימה ליום זה
+                      </Button>
                     </CardContent>
                   )}
 
                   {dayJobs.length === 0 && (
-                    <CardContent className="px-4 pb-3 pt-0">
+                    <CardContent className="px-4 pb-3 pt-0 flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">אין משימות מתוזמנות</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-muted-foreground"
+                        onClick={() => setAddTaskState({ techId: tech.id, dateStr })}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        הוסף
+                      </Button>
                     </CardContent>
                   )}
                 </Card>
@@ -176,6 +277,178 @@ export default function WorkSchedulePage() {
           </div>
         ))}
       </div>
+
+      {/* Add Task Dialog */}
+      {addTaskState && (
+        <AddTaskToScheduleDialog
+          techId={addTaskState.techId}
+          dateStr={addTaskState.dateStr}
+          existingJobs={getJobsForDayAndTech(addTaskState.dateStr, addTaskState.techId)}
+          customersList={customersList}
+          onAdd={(customerId, type, afterJobId) => {
+            const customer = customersList.find(c => c.id === customerId);
+            if (!customer) return;
+
+            // Determine time based on position
+            const existingJobs = getJobsForDayAndTech(addTaskState.dateStr, addTaskState.techId);
+            let scheduledTime = '08:00';
+            if (afterJobId && afterJobId !== '__start__') {
+              const afterJob = existingJobs.find(j => j.id === afterJobId);
+              if (afterJob?.scheduledTime) {
+                const [h, m] = afterJob.scheduledTime.split(':').map(Number);
+                const totalMin = h * 60 + m + (afterJob.estimatedDuration || 30);
+                scheduledTime = `${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
+              }
+            } else if (existingJobs.length > 0 && afterJobId !== '__start__') {
+              const last = existingJobs[existingJobs.length - 1];
+              if (last.scheduledTime) {
+                const [h, m] = last.scheduledTime.split(':').map(Number);
+                const totalMin = h * 60 + m + (last.estimatedDuration || 30);
+                scheduledTime = `${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
+              }
+            }
+
+            const typeConfig = JOB_TYPE_CONFIG[type];
+            const newJob = {
+              id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              type,
+              status: 'confirmed' as const,
+              priority: typeConfig.priority,
+              customerId: customer.id,
+              technicianId: addTaskState.techId,
+              scheduledDate: addTaskState.dateStr,
+              scheduledTime,
+              estimatedDuration: typeConfig.duration,
+              location: customer.address,
+              city: customer.city,
+              notes: '',
+              createdAt: new Date().toISOString().slice(0, 10),
+            };
+            addJob(newJob);
+            toast.success(`${customer.name} שובץ ב-${addTaskState.dateStr}`);
+            setAddTaskState(null);
+          }}
+          onClose={() => setAddTaskState(null)}
+          getCustomerName={getCustomerName}
+        />
+      )}
     </div>
+  );
+}
+
+// Dialog to add a task to an approved schedule
+function AddTaskToScheduleDialog({
+  techId, dateStr, existingJobs, customersList, onAdd, onClose, getCustomerName,
+}: {
+  techId: string;
+  dateStr: string;
+  existingJobs: ReturnType<typeof Array<any>>;
+  customersList: any[];
+  onAdd: (customerId: string, type: 'malfunction' | 'installation' | 'filter_replacement', afterJobId: string | null) => void;
+  onClose: () => void;
+  getCustomerName: (id: string) => string;
+}) {
+  const [search, setSearch] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [jobType, setJobType] = useState<'malfunction' | 'installation' | 'filter_replacement'>('malfunction');
+  const [afterJobId, setAfterJobId] = useState<string | null>(null);
+
+  const tech = technicians.find(t => t.id === techId);
+  const dayOfWeek = new Date(dateStr + 'T00:00:00').getDay();
+
+  const filteredCustomers = customersList.filter(c => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return c.name?.toLowerCase().includes(q) ||
+      c.phone?.includes(q) ||
+      c.city?.toLowerCase().includes(q) ||
+      c.address?.toLowerCase().includes(q);
+  });
+
+  return (
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle>
+            הוסף משימה — {tech?.name} — יום {DAY_NAMES[dayOfWeek]} {format(new Date(dateStr + 'T00:00:00'), 'd/M')}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Job type selection */}
+          <div>
+            <label className="text-sm font-medium mb-1 block">סוג משימה</label>
+            <Tabs value={jobType} onValueChange={v => setJobType(v as any)}>
+              <TabsList className="w-full">
+                <TabsTrigger value="malfunction" className="flex-1">תקלה</TabsTrigger>
+                <TabsTrigger value="installation" className="flex-1">התקנה</TabsTrigger>
+                <TabsTrigger value="filter_replacement" className="flex-1">שירות</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {/* Customer search */}
+          <div>
+            <label className="text-sm font-medium mb-1 block">בחר לקוח</label>
+            <input
+              type="text"
+              placeholder="חפש לפי שם, טלפון, עיר..."
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            <div className="max-h-40 overflow-y-auto mt-1 border rounded-md">
+              {filteredCustomers.slice(0, 50).map(c => (
+                <div
+                  key={c.id}
+                  className={`px-3 py-2 text-sm cursor-pointer hover:bg-muted/50 flex justify-between ${selectedCustomerId === c.id ? 'bg-primary/10 font-medium' : ''}`}
+                  onClick={() => setSelectedCustomerId(c.id)}
+                >
+                  <span>{c.name}</span>
+                  <span className="text-xs text-muted-foreground">{c.city}</span>
+                </div>
+              ))}
+              {filteredCustomers.length === 0 && (
+                <p className="text-xs text-muted-foreground p-2">לא נמצאו לקוחות</p>
+              )}
+            </div>
+          </div>
+
+          {/* Position selection */}
+          {existingJobs.length > 0 && (
+            <div>
+              <label className="text-sm font-medium mb-1 block">שבץ אחרי</label>
+              <Select value={afterJobId || '__end__'} onValueChange={v => setAfterJobId(v === '__end__' ? null : v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__start__">בתחילת היום</SelectItem>
+                  {existingJobs.map((j: any) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      אחרי {getCustomerName(j.customerId)} {j.scheduledTime ? `(${j.scheduledTime})` : ''}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__end__">בסוף היום</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <Button
+            className="w-full"
+            disabled={!selectedCustomerId}
+            onClick={() => {
+              if (selectedCustomerId) {
+                onAdd(selectedCustomerId, jobType, afterJobId);
+              }
+            }}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            הוסף משימה
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
