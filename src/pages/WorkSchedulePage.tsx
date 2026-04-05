@@ -352,6 +352,7 @@ function AddTaskToScheduleDialog({
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [jobType, setJobType] = useState<'malfunction' | 'installation' | 'filter_replacement'>('malfunction');
   const [afterJobId, setAfterJobId] = useState<string | null>(null);
+  const [serviceSubType, setServiceSubType] = useState<string>('annual_filter');
 
   const tech = technicians.find(t => t.id === techId);
   const dayOfWeek = new Date(dateStr + 'T00:00:00').getDay();
