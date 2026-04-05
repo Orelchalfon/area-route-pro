@@ -341,21 +341,21 @@ export function useJobs() {
     ));
   };
 
-  const addJob = (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string }) => {
+  const addJob = (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string; status?: JobStatus; id?: string; estimatedDuration?: number; location?: string; city?: string }) => {
     const customer = customersList.find(c => c.id === data.customerId);
     const config = JOB_TYPE_CONFIG[data.type];
     const newJob: Job = {
-      id: `j${Date.now()}`,
+      id: data.id || `j${Date.now()}`,
       type: data.type,
-      status: 'draft',
+      status: data.status || 'draft',
       priority: config.priority,
       customerId: data.customerId,
       technicianId: data.technicianId,
       scheduledDate: data.scheduledDate,
       scheduledTime: data.scheduledTime,
-      estimatedDuration: config.duration,
-      location: customer?.address || '',
-      city: customer?.city || '',
+      estimatedDuration: data.estimatedDuration || config.duration,
+      location: data.location || customer?.address || '',
+      city: data.city || customer?.city || '',
       notes: data.notes,
       createdAt: new Date().toISOString().split('T')[0],
     };
