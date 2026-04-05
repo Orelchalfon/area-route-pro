@@ -385,6 +385,22 @@ function AddTaskToScheduleDialog({
                 <TabsTrigger value="filter_replacement" className="flex-1">שירות</TabsTrigger>
               </TabsList>
             </Tabs>
+            {jobType === 'filter_replacement' && (
+              <div className="mt-2 space-y-1">
+                <label className="text-xs font-medium text-muted-foreground block">סוג שירות</label>
+                <Select value={serviceSubType} onValueChange={v => setServiceSubType(v)}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="annual_filter">החלפת פילטר שנתי</SelectItem>
+                    <SelectItem value="external_filter">החלפת פילטר חוץ</SelectItem>
+                    <SelectItem value="siliphos">החלפת סיליפוס</SelectItem>
+                    <SelectItem value="general">שירות כללי</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Customer search */}
