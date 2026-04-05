@@ -8,6 +8,7 @@ const navItems = [
   { to: '/malfunctions', label: 'תקלות', icon: AlertTriangle },
   { to: '/installations', label: 'התקנות', icon: Wrench },
   { to: '/service', label: 'שירות שוטף', icon: Filter },
+  { to: '/work-schedule', label: 'לוז עבודה', icon: CalendarDays },
   { to: '/technician', label: 'טכנאי', icon: Users },
   { to: '/customers', label: 'לקוחות', icon: Contact },
 ];
