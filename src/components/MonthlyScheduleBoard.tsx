@@ -1233,7 +1233,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
       {/* Tech toggle */}
       <div className="flex items-center gap-2">
         {technicians.map(tech => (
-          <Button key={tech.id} variant={selectedTechId === tech.id ? 'default' : 'outline'} size="sm" onClick={() => setSelectedTechId(tech.id)}>
+          <Button key={tech.id} variant={selectedTechId === tech.id ? 'default' : 'outline'} size="sm" onClick={() => { setSelectedTechId(tech.id); setExtraFilterAssignments(new Map()); setRemovedFromAutoIds(new Set()); setDayAreaOverrides(new Map()); }}>
             <div className="w-5 h-5 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-[10px] ml-1.5">
               {tech.name[0]}
             </div>
