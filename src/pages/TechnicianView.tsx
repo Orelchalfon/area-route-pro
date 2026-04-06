@@ -259,11 +259,17 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                 job.completionStatus === 'not_done' ? '✗ לא בוצע' :
                 job.completionStatus === 'need_return' ? '↻ צריך לחזור' : 'הושלם';
               return (
-                <div key={job.id} className={`rounded-lg border p-3 ${statusColor}`}>
+                 <div key={job.id} className={`rounded-lg border p-3 ${statusColor}`}>
                   <JobCard job={job} variant="technician" />
-                  <div className="mt-2 text-sm font-medium">
-                    {statusLabel}
-                    {job.completionNotes && <span className="text-muted-foreground"> — {job.completionNotes}</span>}
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="text-sm font-medium">
+                      {statusLabel}
+                      {job.completionNotes && <span className="text-muted-foreground"> — {job.completionNotes}</span>}
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={() => openEditDialog(job)}>
+                      <Pencil className="w-3.5 h-3.5 ml-1" />
+                      עריכה
+                    </Button>
                   </div>
                 </div>
               );
