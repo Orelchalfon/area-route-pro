@@ -835,10 +835,6 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                         <label className="text-xs font-semibold text-muted-foreground">הערות</label>
                         <Input value={editForm.notes} onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))} className="h-8 text-xs" />
                       </div>
-                      <div className="w-1/3">
-                        <label className="text-xs font-semibold text-muted-foreground">משך (דקות)</label>
-                        <Input type="number" value={editForm.estimatedDuration} onChange={(e) => setEditForm(f => ({ ...f, estimatedDuration: parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
-                      </div>
                       <div className="flex gap-2 pt-1">
                         <Button size="sm" className="text-xs gap-1" onClick={() => {
                           updateJob(job.id, editForm);
