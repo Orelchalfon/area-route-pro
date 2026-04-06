@@ -320,6 +320,45 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingJobId} onOpenChange={() => setEditingJobId(null)}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>עריכת דיווח</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              {([
+                { key: 'done' as CompletionStatus, label: 'בוצע', icon: CheckCircle2, cls: 'border-success text-success' },
+                { key: 'not_done' as CompletionStatus, label: 'לא בוצע', icon: XCircle, cls: 'border-destructive text-destructive' },
+                { key: 'need_return' as CompletionStatus, label: 'צריך לחזור', icon: RotateCcw, cls: 'border-warning text-warning' },
+              ]).map(opt => (
+                <Button
+                  key={opt.key}
+                  size="sm"
+                  variant="outline"
+                  className={`flex-1 ${editStatus === opt.key ? opt.cls + ' bg-opacity-10' : ''}`}
+                  onClick={() => setEditStatus(opt.key)}
+                >
+                  <opt.icon className="w-3.5 h-3.5 ml-1" />
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+            <Textarea
+              placeholder="הערות..."
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
+            <Button onClick={handleEditSave}>שמור</Button>
+            <Button variant="outline" onClick={() => setEditingJobId(null)}>ביטול</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
