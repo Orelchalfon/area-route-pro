@@ -3,7 +3,7 @@ import { Job, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/typ
 import { technicians } from '@/data/mockData';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical, Navigation, ListPlus } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical, Navigation, ListPlus, Pencil, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, getDay, addMonths, subMonths, addWeeks, subWeeks, isSameMonth } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 import { DayRouteMap } from './DayRouteMap';
 import { CustomerInfoPopover } from './CustomerInfoPopover';
 
@@ -615,13 +616,15 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 }) {
   const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
-  const { customersList: customers } = useJobsContext();
+  const { customersList: customers, updateJob } = useJobsContext();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [showMap, setShowMap] = useState(false);
   const dayDate = new Date(dateStr + 'T00:00:00');
   const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ location: string; city: string; notes: string; estimatedDuration: number }>({ location: '', city: '', notes: '', estimatedDuration: 0 });
 
   // Sync when source data changes
   useMemo(() => {
@@ -766,6 +769,17 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingJobId(job.id);
+                          setEditForm({ location: job.location, city: job.city, notes: job.notes, estimatedDuration: job.estimatedDuration });
+                        }}
+                        className="p-1 rounded hover:bg-info/10 transition-colors"
+                        title="ערוך משימה"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-info" />
+                      </button>
                       {customer && (
                         <a
                           href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address + ', ' + customer.city)}`}
@@ -786,8 +800,43 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                     </div>
                   </div>
 
+                  {/* Edit form */}
+                  {editingJobId === job.id && (
+                    <div className="mt-1 p-3 rounded-lg bg-info/5 border border-info/30 space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground">כתובת</label>
+                          <Input value={editForm.location} onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))} className="h-8 text-xs" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground">עיר</label>
+                          <Input value={editForm.city} onChange={(e) => setEditForm(f => ({ ...f, city: e.target.value }))} className="h-8 text-xs" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground">הערות</label>
+                        <Input value={editForm.notes} onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))} className="h-8 text-xs" />
+                      </div>
+                      <div className="w-1/3">
+                        <label className="text-xs font-semibold text-muted-foreground">משך (דקות)</label>
+                        <Input type="number" value={editForm.estimatedDuration} onChange={(e) => setEditForm(f => ({ ...f, estimatedDuration: parseInt(e.target.value) || 0 }))} className="h-8 text-xs" />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" className="text-xs gap-1" onClick={() => {
+                          updateJob(job.id, editForm);
+                          setOrderedJobs(prev => prev.map(j => j.id === job.id ? { ...j, ...editForm } : j));
+                          setEditingJobId(null);
+                          toast.success('המשימה עודכנה בהצלחה');
+                        }}>
+                          <Save className="w-3 h-3" />שמור
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditingJobId(null)}>ביטול</Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Expanded details */}
-                  {isExpanded && isCompleted && (
+                  {isExpanded && isCompleted && editingJobId !== job.id && (
                     <div className="mt-1 p-3 rounded-lg bg-muted/50 border border-border space-y-2">
                       {job.completionNotes && (
                         <div>
