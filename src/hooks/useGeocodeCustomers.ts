@@ -101,7 +101,7 @@ export function useGeocodeCustomers(
     }
 
     processBatch();
-  }, [customers.map(c => c?.id).join(','), isGoogleLoaded]);
+  }, [customers.map(c => c ? `${c.id}:${c.lat}:${c.lng}:${c.address}:${c.city}` : '').join(','), isGoogleLoaded]);
 
   return coordsMap;
 }
