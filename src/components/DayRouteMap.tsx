@@ -152,16 +152,28 @@ function DayRouteMapInner({
   }, [resolvedJobs]);
 
   const hasFittedRef = useRef(false);
+  const prevCoordsKeyRef = useRef('');
+
+  // Re-fit bounds when coordinates change (e.g. address edited)
+  useEffect(() => {
+    const coordsKey = resolvedJobs.map(jc => `${jc.coords.lat.toFixed(4)},${jc.coords.lng.toFixed(4)}`).join('|');
+    if (coordsKey !== prevCoordsKeyRef.current && mapInstanceRef.current && resolvedJobs.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      resolvedJobs.forEach(jc => bounds.extend(jc.coords));
+      mapInstanceRef.current.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+      prevCoordsKeyRef.current = coordsKey;
+    }
+  }, [resolvedJobs]);
 
   const handleMapLoad = useCallback((map: google.maps.Map) => {
     mapInstanceRef.current = map;
     onLoad(map);
-    // Fit bounds only on first load, not on subsequent data updates
     if (!hasFittedRef.current && resolvedJobs.length > 0) {
       const bounds = new google.maps.LatLngBounds();
       resolvedJobs.forEach(jc => bounds.extend(jc.coords));
       map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
       hasFittedRef.current = true;
+      prevCoordsKeyRef.current = resolvedJobs.map(jc => `${jc.coords.lat.toFixed(4)},${jc.coords.lng.toFixed(4)}`).join('|');
     }
   }, [onLoad, resolvedJobs]);
 
