@@ -6,7 +6,7 @@ import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Calendar, CheckCircle2, ChevronRight, ChevronLeft, Clock, LayoutDashboard, XCircle, RotateCcw } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronRight, ChevronLeft, Clock, LayoutDashboard, XCircle, RotateCcw, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, addWeeks, subWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -25,6 +25,9 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
   const [selectedDay, setSelectedDay] = useState<string>(getTodayStr);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [editStatus, setEditStatus] = useState<CompletionStatus>('done');
+  const [editNotes, setEditNotes] = useState('');
   const todayStr = getTodayStr();
 
   const tech = technicians.find(t => t.id === selectedTech)!;
@@ -71,6 +74,19 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
     setCompletingJobId(jobId);
     setSelectedStatus(status);
     setCompletionNotes('');
+  };
+
+  const openEditDialog = (job: Job) => {
+    setEditingJobId(job.id);
+    setEditStatus(job.completionStatus || 'done');
+    setEditNotes(job.completionNotes || '');
+  };
+
+  const handleEditSave = () => {
+    if (!editingJobId) return;
+    onMarkCompletion(editingJobId, editStatus, editNotes);
+    toast.success('הדיווח עודכן בהצלחה');
+    setEditingJobId(null);
   };
 
   return (
@@ -243,11 +259,17 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                 job.completionStatus === 'not_done' ? '✗ לא בוצע' :
                 job.completionStatus === 'need_return' ? '↻ צריך לחזור' : 'הושלם';
               return (
-                <div key={job.id} className={`rounded-lg border p-3 ${statusColor}`}>
+                 <div key={job.id} className={`rounded-lg border p-3 ${statusColor}`}>
                   <JobCard job={job} variant="technician" />
-                  <div className="mt-2 text-sm font-medium">
-                    {statusLabel}
-                    {job.completionNotes && <span className="text-muted-foreground"> — {job.completionNotes}</span>}
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="text-sm font-medium">
+                      {statusLabel}
+                      {job.completionNotes && <span className="text-muted-foreground"> — {job.completionNotes}</span>}
+                    </div>
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={() => openEditDialog(job)}>
+                      <Pencil className="w-3.5 h-3.5 ml-1" />
+                      עריכה
+                    </Button>
                   </div>
                 </div>
               );
@@ -295,6 +317,45 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
               אישור
             </Button>
             <Button variant="outline" onClick={() => setCompletingJobId(null)}>ביטול</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingJobId} onOpenChange={() => setEditingJobId(null)}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>עריכת דיווח</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              {([
+                { key: 'done' as CompletionStatus, label: 'בוצע', icon: CheckCircle2, cls: 'border-success text-success' },
+                { key: 'not_done' as CompletionStatus, label: 'לא בוצע', icon: XCircle, cls: 'border-destructive text-destructive' },
+                { key: 'need_return' as CompletionStatus, label: 'צריך לחזור', icon: RotateCcw, cls: 'border-warning text-warning' },
+              ]).map(opt => (
+                <Button
+                  key={opt.key}
+                  size="sm"
+                  variant="outline"
+                  className={`flex-1 ${editStatus === opt.key ? opt.cls + ' bg-opacity-10' : ''}`}
+                  onClick={() => setEditStatus(opt.key)}
+                >
+                  <opt.icon className="w-3.5 h-3.5 ml-1" />
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+            <Textarea
+              placeholder="הערות..."
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
+            <Button onClick={handleEditSave}>שמור</Button>
+            <Button variant="outline" onClick={() => setEditingJobId(null)}>ביטול</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
