@@ -335,6 +335,10 @@ export function useJobs() {
     ));
   };
 
+  const updateJob = (jobId: string, data: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration' | 'priority' | 'type'>>) => {
+    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...data } : j));
+  };
+
   const unassignJob = (jobId: string) => {
     setJobs(prev => prev.map(j => 
       j.id === jobId ? { ...j, status: 'draft' as JobStatus, technicianId: undefined, scheduledDate: undefined, scheduledTime: undefined } : j
