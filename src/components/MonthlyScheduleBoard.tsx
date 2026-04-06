@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { DayRouteMap } from './DayRouteMap';
 import { CustomerInfoPopover } from './CustomerInfoPopover';
+import { AddressAutocomplete } from './AddressAutocomplete';
 
 const REGIONS = [
   'דרום רחוק', 'מרכז דרום', 'תל אביב', 'ירושלים',
