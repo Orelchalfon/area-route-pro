@@ -617,7 +617,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 }) {
   const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
-  const { customersList: customers, updateJob } = useJobsContext();
+  const { customersList: customers, updateJob, updateCustomer } = useJobsContext();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [showMap, setShowMap] = useState(false);
