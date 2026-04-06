@@ -140,3 +140,8 @@
     box-shadow: var(--shadow-modal);
   }
 }
+
+/* Google Maps Autocomplete dropdown must appear above dialogs */
+.pac-container {
+  z-index: 99999 !important;
+}
