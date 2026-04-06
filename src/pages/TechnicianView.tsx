@@ -6,7 +6,7 @@ import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Calendar, CheckCircle2, ChevronRight, ChevronLeft, Clock, LayoutDashboard, XCircle, RotateCcw } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronRight, ChevronLeft, Clock, LayoutDashboard, XCircle, RotateCcw, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, addWeeks, subWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
