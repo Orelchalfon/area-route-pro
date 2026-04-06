@@ -25,6 +25,9 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
   const [selectedDay, setSelectedDay] = useState<string>(getTodayStr);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [editStatus, setEditStatus] = useState<CompletionStatus>('done');
+  const [editNotes, setEditNotes] = useState('');
   const todayStr = getTodayStr();
 
   const tech = technicians.find(t => t.id === selectedTech)!;
