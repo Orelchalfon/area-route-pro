@@ -76,6 +76,19 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
     setCompletionNotes('');
   };
 
+  const openEditDialog = (job: Job) => {
+    setEditingJobId(job.id);
+    setEditStatus(job.completionStatus || 'done');
+    setEditNotes(job.completionNotes || '');
+  };
+
+  const handleEditSave = () => {
+    if (!editingJobId) return;
+    onMarkCompletion(editingJobId, editStatus, editNotes);
+    toast.success('הדיווח עודכן בהצלחה');
+    setEditingJobId(null);
+  };
+
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
