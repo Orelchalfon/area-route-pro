@@ -616,13 +616,15 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 }) {
   const initialJobs = useMemo(() => [...filterJobs, ...dayJobs], [filterJobs, dayJobs]);
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
-  const { customersList: customers } = useJobsContext();
+  const { customersList: customers, updateJob } = useJobsContext();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const [showMap, setShowMap] = useState(false);
   const dayDate = new Date(dateStr + 'T00:00:00');
   const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ location: string; city: string; notes: string; estimatedDuration: number }>({ location: '', city: '', notes: '', estimatedDuration: 0 });
 
   // Sync when source data changes
   useMemo(() => {
