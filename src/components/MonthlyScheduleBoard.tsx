@@ -804,16 +804,28 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                   {/* Edit form */}
                   {editingJobId === job.id && (
                     <div className="mt-1 p-3 rounded-lg bg-info/5 border border-info/30 space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground">כתובת</label>
+                        <AddressAutocomplete
+                          value={editForm.location}
+                          onChange={(val) => setEditForm(f => ({ ...f, location: val }))}
+                          onPlaceSelect={(place) => {
+                            setEditForm(f => ({ ...f, location: place.address, city: place.city }));
+                            // Update customer coordinates for map display
+                            const cust = customers.find(c => c.id === job.customerId);
+                            if (cust) {
+                              updateCustomer(cust.id, { address: place.address, city: place.city, lat: place.lat, lng: place.lng, placeId: place.placeId });
+                            }
+                          }}
+                          placeholder="הקלד כתובת..."
+                          className="h-8 text-xs"
+                        />
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-xs font-semibold text-muted-foreground">כתובת</label>
-                          <Input value={editForm.location} onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))} className="h-8 text-xs" />
-                        </div>
                         <div>
                           <label className="text-xs font-semibold text-muted-foreground">עיר</label>
                           <Input value={editForm.city} onChange={(e) => setEditForm(f => ({ ...f, city: e.target.value }))} className="h-8 text-xs" />
                         </div>
-                      </div>
                       <div>
                         <label className="text-xs font-semibold text-muted-foreground">הערות</label>
                         <Input value={editForm.notes} onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))} className="h-8 text-xs" />
