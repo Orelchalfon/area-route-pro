@@ -130,11 +130,11 @@ export default function DailyRoutePage() {
             </Button>
           )}
           {plannerMode && (
-            <Button onClick={() => setPlannerMode(false)} variant="ghost" size="sm">
+            <Button onClick={() => { setPlannerMode(false); setEditingJobId(null); }} variant="ghost" size="sm">
               סגור תכנון
             </Button>
           )}
-          <Select value={selectedTechId} onValueChange={(v) => { setSelectedTechId(v); setOrderedJobIds(null); setPlannerMode(false); }}>
+          <Select value={selectedTechId} onValueChange={(v) => { setSelectedTechId(v); setOrderedJobIds(null); setPlannerMode(false); setEditingJobId(null); }}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
