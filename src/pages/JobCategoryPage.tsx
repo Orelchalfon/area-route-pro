@@ -138,17 +138,39 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
   const { customersList: customers, updateJob, updateCustomer } = useJobsContext();
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleSave = (jobId: string, customerId: string, data: EditForm) => {
+  const handleSave = async (jobId: string, customerId: string, data: EditForm) => {
     updateJob(jobId, {
       location: data.location,
       city: data.city,
       notes: data.notes,
       priority: data.priority as Job['priority'],
     });
-    updateCustomer(customerId, {
+
+    const customerData: Partial<Customer> = {
       address: data.location,
       city: data.city,
-    });
+    };
+
+    // Geocode the new address to update map position
+    const fullAddress = [data.location, data.city].filter(Boolean).join(', ');
+    if (fullAddress && typeof google !== 'undefined' && google.maps?.Geocoder) {
+      try {
+        const geocoder = new google.maps.Geocoder();
+        const result = await geocoder.geocode({ address: `${fullAddress}, ישראל` });
+        if (result.results?.[0]?.geometry?.location) {
+          const loc = result.results[0].geometry.location;
+          customerData.lat = loc.lat();
+          customerData.lng = loc.lng();
+          if (result.results[0].place_id) {
+            customerData.placeId = result.results[0].place_id;
+          }
+        }
+      } catch {
+        // Geocoding failed — save without coords update
+      }
+    }
+
+    updateCustomer(customerId, customerData);
     setEditingId(null);
   };
 
