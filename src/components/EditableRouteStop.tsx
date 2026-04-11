@@ -43,14 +43,15 @@ export function EditableRouteStop({
     estimatedDuration: job.estimatedDuration,
   });
   const [pendingCoords, setPendingCoords] = useState<{ lat: number; lng: number; placeId?: string } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handlePlaceSelect = (place: { address: string; city: string; lat: number; lng: number; placeId: string }) => {
     setForm(f => ({ ...f, location: place.address, city: place.city }));
     setPendingCoords({ lat: place.lat, lng: place.lng, placeId: place.placeId });
   };
 
-  const handleSave = () => {
-    if (!customer) return;
+  const handleSave = async () => {
+    if (!customer || isSaving) return;
 
     const currentLocation = (customer.address || job.location || '').trim();
     const currentCity = (customer.city || job.city || '').trim();
@@ -71,26 +72,39 @@ export function EditableRouteStop({
       city: form.city,
     };
 
-    if (pendingCoords) {
-      customerData.lat = pendingCoords.lat;
-      customerData.lng = pendingCoords.lng;
-      if (pendingCoords.placeId) customerData.placeId = pendingCoords.placeId;
-    } else if (hasManualLocationChange) {
-      customerData.lat = undefined;
-      customerData.lng = undefined;
-      customerData.placeId = undefined;
-    }
+    setIsSaving(true);
 
-    onSave(job.id, customer.id, jobData, customerData);
+    try {
+      if (pendingCoords) {
+        customerData.lat = pendingCoords.lat;
+        customerData.lng = pendingCoords.lng;
+        if (pendingCoords.placeId) customerData.placeId = pendingCoords.placeId;
+      } else if (hasManualLocationChange) {
+        const geocoded = await geocodeAddress([form.location, form.city].filter(Boolean).join(', '));
+
+        if (geocoded) {
+          customerData.lat = geocoded.lat;
+          customerData.lng = geocoded.lng;
+          if (geocoded.placeId) customerData.placeId = geocoded.placeId;
+        } else {
+          customerData.lat = undefined;
+          customerData.lng = undefined;
+          customerData.placeId = undefined;
+        }
+      }
+
+      onSave(job.id, customer.id, jobData, customerData);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((customer?.address || '') + ', ' + (customer?.city || ''))}`;
+  const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((customer?.address || job.location || '') + ', ' + (customer?.city || job.city || ''))}`;
 
   return (
     <div className={`rounded-lg border transition-colors ${
       isDragging ? 'bg-primary/5 border-primary/40 shadow-lg' : isDone ? 'bg-success/5 border-success/30' : 'bg-card border-border hover:bg-muted/30'
     }`}>
-      {/* Main row */}
       <div className="flex items-start gap-2 p-3">
         {dragHandleProps && (
           <div {...dragHandleProps} className="pt-1 cursor-grab active:cursor-grabbing">
@@ -115,7 +129,7 @@ export function EditableRouteStop({
               </>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground/60 mt-0.5 truncate">{customer?.address}</p>
+          <p className="text-[11px] text-muted-foreground/60 mt-0.5 truncate">{customer?.address || job.location}</p>
         </div>
         {!isEditing && (
           <button
@@ -131,7 +145,6 @@ export function EditableRouteStop({
         </a>
       </div>
 
-      {/* Inline edit form */}
       {isEditing && (
         <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
           <div>
@@ -176,10 +189,10 @@ export function EditableRouteStop({
             />
           </div>
           <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={handleSave} className="gap-1 h-7 text-xs">
-              <Save className="w-3 h-3" /> שמור
+            <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-1 h-7 text-xs">
+              <Save className="w-3 h-3" /> {isSaving ? 'שומר...' : 'שמור'}
             </Button>
-            <Button size="sm" variant="ghost" onClick={onCancelEdit} className="h-7 text-xs">
+            <Button size="sm" variant="ghost" onClick={onCancelEdit} disabled={isSaving} className="h-7 text-xs">
               <X className="w-3 h-3" /> ביטול
             </Button>
           </div>
@@ -187,4 +200,33 @@ export function EditableRouteStop({
       )}
     </div>
   );
+}
+
+async function geocodeAddress(query: string): Promise<{ lat: number; lng: number; placeId?: string } | null> {
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery || typeof google === 'undefined' || !google.maps?.Geocoder) {
+    return null;
+  }
+
+  return new Promise(resolve => {
+    const geocoder = new google.maps.Geocoder();
+
+    geocoder.geocode(
+      { address: `${normalizedQuery}, ישראל` },
+      (results, status) => {
+        if (status !== 'OK' || !results?.[0]?.geometry?.location) {
+          resolve(null);
+          return;
+        }
+
+        const location = results[0].geometry.location;
+        resolve({
+          lat: location.lat(),
+          lng: location.lng(),
+          placeId: results[0].place_id,
+        });
+      }
+    );
+  });
 }
