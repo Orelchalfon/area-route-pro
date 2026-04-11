@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef, useState } from 'react';
+import { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { GOOGLE_MAPS_LIBRARIES } from '@/lib/googleMapsConfig';
 import { JOB_TYPE_CONFIG, JobType, Customer } from '@/types';
@@ -41,22 +41,29 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: GOOGLE_MAPS_LIBRARIES });
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const lastPositionSignatureRef = useRef('');
 
   // Geocode customer addresses for accurate positions
   const customers = useMemo(() => stops.map(s => s.customer).filter(Boolean) as Customer[], [stops]);
   const geocodedMap = useGeocodeCustomers(customers, isLoaded);
 
-  // Resolve positions: prefer geocoded, fall back to passed position
+  // Resolve positions: prefer exact customer coords, then geocoded positions, then fallback to passed position
   const resolvedStops = useMemo(() => {
     const usedPositions = new Map<string, number>();
+
     return stops.map(stop => {
-      let position = (stop.customer && geocodedMap.get(stop.customer.id)) || stop.position;
+      const hasExactCustomerCoords = typeof stop.customer?.lat === 'number' && typeof stop.customer?.lng === 'number';
+      let position = hasExactCustomerCoords
+        ? { lat: stop.customer!.lat, lng: stop.customer!.lng }
+        : (stop.customer && geocodedMap.get(stop.customer.id)) || stop.position;
+
       const key = `${position.lat.toFixed(5)},${position.lng.toFixed(5)}`;
       const count = usedPositions.get(key) || 0;
       if (count > 0) {
         const angle = (count * 60) * (Math.PI / 180);
         position = { lat: position.lat + 0.0008 * Math.cos(angle), lng: position.lng + 0.0008 * Math.sin(angle) };
       }
+
       usedPositions.set(key, count + 1);
       return { ...stop, position };
     });
@@ -64,23 +71,43 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
 
   const center = useMemo(() => {
     if (resolvedStops.length === 0) return { lat: 32.07, lng: 34.77 };
-    const avgLat = resolvedStops.reduce((s, st) => s + st.position.lat, 0) / resolvedStops.length;
-    const avgLng = resolvedStops.reduce((s, st) => s + st.position.lng, 0) / resolvedStops.length;
+    const avgLat = resolvedStops.reduce((sum, stop) => sum + stop.position.lat, 0) / resolvedStops.length;
+    const avgLng = resolvedStops.reduce((sum, stop) => sum + stop.position.lng, 0) / resolvedStops.length;
     return { lat: avgLat, lng: avgLng };
   }, [resolvedStops]);
 
+  const fitMapToStops = useCallback((map: google.maps.Map, stopsToFit: Stop[]) => {
+    if (stopsToFit.length === 0) return;
+
+    const bounds = new google.maps.LatLngBounds();
+    stopsToFit.forEach(stop => bounds.extend(stop.position));
+    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+  }, []);
+
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
-    if (resolvedStops.length > 0) {
-      const bounds = new google.maps.LatLngBounds();
-      resolvedStops.forEach(s => bounds.extend(s.position));
-      map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+    fitMapToStops(map, resolvedStops);
+    lastPositionSignatureRef.current = createStopPositionSignature(resolvedStops);
+  }, [fitMapToStops, resolvedStops]);
+
+  useEffect(() => {
+    if (!mapRef.current || resolvedStops.length === 0) return;
+
+    const nextSignature = createStopPositionSignature(resolvedStops);
+    if (!lastPositionSignatureRef.current) {
+      lastPositionSignatureRef.current = nextSignature;
+      return;
     }
-  }, [resolvedStops]);
+
+    if (lastPositionSignatureRef.current === nextSignature) return;
+
+    lastPositionSignatureRef.current = nextSignature;
+    fitMapToStops(mapRef.current, resolvedStops);
+  }, [fitMapToStops, resolvedStops]);
 
   // Snap-to-roads polyline
   const routeWaypoints = useMemo(
-    () => resolvedStops.map(s => ({ lat: s.position.lat, lng: s.position.lng })),
+    () => resolvedStops.map(stop => ({ lat: stop.position.lat, lng: stop.position.lng })),
     [resolvedStops]
   );
 
@@ -118,7 +145,7 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
         const color = stop.isDone ? '#22c55e' : typeColorMap[stop.type] || '#3b82f6';
         return (
           <Marker
-            key={`${stop.id}-pos-${stop.label}`}
+            key={`${stop.id}-${stop.position.lat.toFixed(6)}-${stop.position.lng.toFixed(6)}-${stop.label}`}
             position={stop.position}
             label={{
               text: stop.isDone ? '✓' : stop.label,
@@ -155,4 +182,10 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
       })}
     </GoogleMap>
   );
+}
+
+function createStopPositionSignature(stops: Stop[]) {
+  return stops
+    .map(stop => `${stop.id}:${stop.position.lat.toFixed(6)},${stop.position.lng.toFixed(6)}`)
+    .join('|');
 }

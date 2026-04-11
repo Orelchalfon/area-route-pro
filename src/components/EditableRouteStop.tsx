@@ -51,21 +51,36 @@ export function EditableRouteStop({
 
   const handleSave = () => {
     if (!customer) return;
+
+    const currentLocation = (customer.address || job.location || '').trim();
+    const currentCity = (customer.city || job.city || '').trim();
+    const hasManualLocationChange = !pendingCoords && (
+      form.location.trim() !== currentLocation ||
+      form.city.trim() !== currentCity
+    );
+
     const jobData: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration'>> = {
       location: form.location,
       city: form.city,
       notes: form.notes,
       estimatedDuration: form.estimatedDuration,
     };
+
     const customerData: Partial<Customer> = {
       address: form.location,
       city: form.city,
     };
+
     if (pendingCoords) {
       customerData.lat = pendingCoords.lat;
       customerData.lng = pendingCoords.lng;
       if (pendingCoords.placeId) customerData.placeId = pendingCoords.placeId;
+    } else if (hasManualLocationChange) {
+      customerData.lat = undefined;
+      customerData.lng = undefined;
+      customerData.placeId = undefined;
     }
+
     onSave(job.id, customer.id, jobData, customerData);
   };
 
@@ -123,7 +138,10 @@ export function EditableRouteStop({
             <label className="text-[11px] text-muted-foreground">כתובת</label>
             <AddressAutocomplete
               value={form.location}
-              onChange={val => setForm(f => ({ ...f, location: val }))}
+              onChange={val => {
+                setForm(f => ({ ...f, location: val }));
+                setPendingCoords(null);
+              }}
               onPlaceSelect={handlePlaceSelect}
               placeholder="הקלד כתובת..."
               className="h-8 text-sm"
@@ -133,7 +151,10 @@ export function EditableRouteStop({
             <label className="text-[11px] text-muted-foreground">עיר</label>
             <Input
               value={form.city}
-              onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+              onChange={e => {
+                setForm(f => ({ ...f, city: e.target.value }));
+                setPendingCoords(null);
+              }}
               className="h-8 text-sm"
             />
           </div>
