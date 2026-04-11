@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { useJsApiLoader } from '@react-google-maps/api';
@@ -53,6 +53,12 @@ function AddressAutocompleteLoaded({
 }: AddressAutocompleteProps & { apiKey: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const onChangeRef = useRef(onChange);
+  const onPlaceSelectRef = useRef(onPlaceSelect);
+
+  // Keep refs up to date without re-triggering the effect
+  onChangeRef.current = onChange;
+  onPlaceSelectRef.current = onPlaceSelect;
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: apiKey,
@@ -84,20 +90,20 @@ function AddressAutocompleteLoaded({
         }
       }
 
-      onChange(address);
-      onPlaceSelect({ address, city, lat, lng, placeId: place.place_id });
+      onChangeRef.current(address);
+      onPlaceSelectRef.current({ address, city, lat, lng, placeId: place.place_id });
     });
 
     autocompleteRef.current = autocomplete;
-  }, [isLoaded, onChange, onPlaceSelect]);
+  }, [isLoaded]);
 
   return (
-    <Input
+    <input
       ref={inputRef}
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={e => onChangeRef.current(e.target.value)}
       placeholder={placeholder || 'הקלד כתובת...'}
-      className={className}
+      className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className || ''}`}
       disabled={!isLoaded}
     />
   );
