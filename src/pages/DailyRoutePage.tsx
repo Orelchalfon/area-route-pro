@@ -4,11 +4,11 @@ import { technicians } from '@/data/mockData';
 import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical } from 'lucide-react';
+import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { EditableRouteStop } from '@/components/EditableRouteStop';
-import { format } from 'date-fns';
+import { format, addDays, subDays } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { GoogleMapsPlanner } from '@/components/GoogleMapsPlanner';
@@ -35,7 +35,8 @@ export default function DailyRoutePage() {
   const [routeSaved, setRouteSaved] = useState(false);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const { apiKey, loading: keyLoading, error: keyError, fetchKey } = useGoogleMapsKey();
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const todayStr = format(selectedDate, 'yyyy-MM-dd');
 
   // Today's scheduled jobs for selected tech
   const todayJobs = useMemo(() =>
@@ -118,9 +119,20 @@ export default function DailyRoutePage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">מפת מסלול יומי</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {format(new Date(), 'EEEE, d בMMMM yyyy', { locale: he })} · {todayJobs.length} עצירות · {completedCount} הושלמו
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              {format(selectedDate, 'EEEE, d בMMMM yyyy', { locale: he })} · {todayJobs.length} עצירות · {completedCount} הושלמו
+            </p>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedDate(new Date())}>
+              היום
+            </Button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {todayJobs.length > 0 && !plannerMode && (
