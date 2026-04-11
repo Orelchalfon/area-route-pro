@@ -28,11 +28,12 @@ interface JobWithCustomer {
 }
 
 export default function DailyRoutePage() {
-  const { jobs, customersList, approveDaySchedule } = useJobsContext();
+  const { jobs, customersList, approveDaySchedule, updateJob, updateCustomer } = useJobsContext();
   const [selectedTechId, setSelectedTechId] = useState(technicians[0].id);
   const [plannerMode, setPlannerMode] = useState(false);
   const [orderedJobIds, setOrderedJobIds] = useState<string[] | null>(null);
   const [routeSaved, setRouteSaved] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const { apiKey, loading: keyLoading, error: keyError, fetchKey } = useGoogleMapsKey();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
