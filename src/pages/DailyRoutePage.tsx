@@ -185,56 +185,25 @@ export default function DailyRoutePage() {
                       {...provided.droppableProps}
                       className="space-y-2 max-h-[460px] overflow-y-auto"
                     >
-                      {orderedJobs.map((jc, idx) => {
-                        const isDone = jc.job.completionStatus === 'done';
-                        return (
+                      {orderedJobs.map((jc, idx) => (
                           <Draggable key={jc.job.id} draggableId={jc.job.id} index={idx}>
                             {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className={`flex items-start gap-2 p-3 rounded-lg border transition-colors ${
-                                  snapshot.isDragging
-                                    ? 'bg-primary/5 border-primary/40 shadow-lg'
-                                    : isDone
-                                    ? 'bg-success/5 border-success/30'
-                                    : 'bg-card border-border hover:bg-muted/30'
-                                }`}
-                              >
-                                <div {...provided.dragHandleProps} className="pt-1 cursor-grab active:cursor-grabbing">
-                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
-                                </div>
-                                <div
-                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                                    isDone ? 'bg-success' : 'bg-primary'
-                                  }`}
-                                >
-                                  {isDone ? '✓' : idx + 1}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-sm font-medium ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                                    {jc.customer?.name}
-                                  </p>
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                    {typeIcons[jc.job.type]}
-                                    <span>{JOB_TYPE_CONFIG[jc.job.type].label}</span>
-                                  </div>
-                                  <p className="text-[11px] text-muted-foreground/60 mt-0.5 truncate">{jc.customer?.address}</p>
-                                </div>
-                                <a
-                                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(jc.customer?.address + ', ' + jc.customer?.city)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors shrink-0"
-                                  title="נווט"
-                                >
-                                  <Navigation className="w-4 h-4 text-primary" />
-                                </a>
+                              <div ref={provided.innerRef} {...provided.draggableProps}>
+                                <EditableRouteStop
+                                  job={jc.job}
+                                  customer={jc.customer}
+                                  index={idx}
+                                  isEditing={editingJobId === jc.job.id}
+                                  onStartEdit={() => setEditingJobId(jc.job.id)}
+                                  onCancelEdit={() => setEditingJobId(null)}
+                                  onSave={handleSaveEdit}
+                                  dragHandleProps={provided.dragHandleProps}
+                                  isDragging={snapshot.isDragging}
+                                />
                               </div>
                             )}
                           </Draggable>
-                        );
-                      })}
+                        ))}
                       {provided.placeholder}
                     </div>
                   )}
