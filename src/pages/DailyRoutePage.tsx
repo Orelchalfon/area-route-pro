@@ -4,7 +4,7 @@ import { technicians } from '@/data/mockData';
 import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical } from 'lucide-react';
+import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { EditableRouteStop } from '@/components/EditableRouteStop';
