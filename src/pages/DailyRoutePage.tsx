@@ -48,10 +48,26 @@ export default function DailyRoutePage() {
     [jobs, todayStr, selectedTechId]
   );
 
-  // Resolve customer for each job
+  // Resolve route-specific customer/location for each job
   const jobsWithCustomers: JobWithCustomer[] = useMemo(() =>
     todayJobs.map(job => {
-      const customer = customersList.find(c => c.id === job.customerId);
+      const baseCustomer = customersList.find(c => c.id === job.customerId);
+      const hasJobLocationOverride = !!baseCustomer && (
+        (job.location || '') !== (baseCustomer.address || '') ||
+        (job.city || '') !== (baseCustomer.city || '')
+      );
+
+      const customer = baseCustomer
+        ? {
+            ...baseCustomer,
+            address: job.location || baseCustomer.address || '',
+            city: job.city || baseCustomer.city || '',
+            lat: hasJobLocationOverride ? undefined : baseCustomer.lat,
+            lng: hasJobLocationOverride ? undefined : baseCustomer.lng,
+            placeId: hasJobLocationOverride ? undefined : baseCustomer.placeId,
+          }
+        : undefined;
+
       const coords = customer ? getCustomerCoords(customer) : { lat: 32.07, lng: 34.77 };
       return { job, customer, coords };
     }),
