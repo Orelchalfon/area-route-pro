@@ -15,97 +15,114 @@ export function useGeocodeCustomers(
 ) {
   const [coordsMap, setCoordsMap] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
-  const processingRef = useRef(false);
+  const runIdRef = useRef(0);
 
   useEffect(() => {
-    if (!isGoogleLoaded || processingRef.current) return;
+    if (!isGoogleLoaded) return;
 
     const validCustomers = customers.filter(Boolean) as Customer[];
-    if (validCustomers.length === 0) return;
+    if (validCustomers.length === 0) {
+      setCoordsMap(new Map());
+      return;
+    }
 
-    // Check if all customers already have coords (from cache or lat/lng fields)
-    const needsGeocoding = validCustomers.filter(c => {
-      if (c.lat && c.lng) return false;
-      const key = buildAddressKey(c);
-      return !geocodeCache.has(key);
-    });
-
-    // Build initial map from cache + existing coords
     const initialMap = new Map<string, { lat: number; lng: number }>();
-    validCustomers.forEach(c => {
-      if (c.lat && c.lng) {
-        initialMap.set(c.id, { lat: c.lat, lng: c.lng });
-      } else {
-        const key = buildAddressKey(c);
-        const cached = geocodeCache.get(key);
-        if (cached) {
-          initialMap.set(c.id, cached);
-        }
+    validCustomers.forEach(customer => {
+      if (hasExactCoords(customer)) {
+        initialMap.set(customer.id, { lat: customer.lat, lng: customer.lng });
+        return;
+      }
+
+      const cached = geocodeCache.get(buildAddressKey(customer));
+      if (cached) {
+        initialMap.set(customer.id, cached);
       }
     });
 
     setCoordsMap(new Map(initialMap));
 
-    if (needsGeocoding.length === 0) return;
+    const needsGeocoding = validCustomers.filter(customer => {
+      if (hasExactCoords(customer)) return false;
+      return !geocodeCache.has(buildAddressKey(customer));
+    });
 
-    processingRef.current = true;
+    if (needsGeocoding.length === 0) return;
 
     if (!geocoderRef.current) {
       geocoderRef.current = new google.maps.Geocoder();
     }
 
     const geocoder = geocoderRef.current;
-
-    // Geocode in batches to avoid rate limiting
-    let idx = 0;
+    const currentRunId = ++runIdRef.current;
     const batchSize = 5;
-    const delay = 300; // ms between batches
+    const delay = 300;
+    let index = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    function processBatch() {
-      const batch = needsGeocoding.slice(idx, idx + batchSize);
-      if (batch.length === 0) {
-        processingRef.current = false;
-        return;
-      }
+    const processBatch = () => {
+      if (currentRunId !== runIdRef.current) return;
+
+      const batch = needsGeocoding.slice(index, index + batchSize);
+      if (batch.length === 0) return;
 
       const promises = batch.map(customer => {
         const fullAddress = [customer.address, customer.city].filter(Boolean).join(', ') + ', ישראל';
-        return geocoder.geocode({ address: fullAddress }).then(result => {
-          if (result.results?.[0]?.geometry?.location) {
-            const loc = result.results[0].geometry.location;
-            const coords = { lat: loc.lat(), lng: loc.lng() };
-            const key = buildAddressKey(customer);
-            geocodeCache.set(key, coords);
-            return { id: customer.id, coords };
-          }
-          return null;
-        }).catch(() => null);
+
+        return geocoder.geocode({ address: fullAddress })
+          .then(result => {
+            if (currentRunId !== runIdRef.current) return null;
+
+            if (result.results?.[0]?.geometry?.location) {
+              const loc = result.results[0].geometry.location;
+              const coords = { lat: loc.lat(), lng: loc.lng() };
+              geocodeCache.set(buildAddressKey(customer), coords);
+              return { id: customer.id, coords };
+            }
+
+            return null;
+          })
+          .catch(() => null);
       });
 
       Promise.all(promises).then(results => {
+        if (currentRunId !== runIdRef.current) return;
+
         setCoordsMap(prev => {
           const next = new Map(prev);
-          results.forEach(r => {
-            if (r) next.set(r.id, r.coords);
+          results.forEach(result => {
+            if (result) {
+              next.set(result.id, result.coords);
+            }
           });
           return next;
         });
 
-        idx += batchSize;
-        if (idx < needsGeocoding.length) {
-          setTimeout(processBatch, delay);
-        } else {
-          processingRef.current = false;
+        index += batchSize;
+        if (index < needsGeocoding.length) {
+          timeoutId = setTimeout(processBatch, delay);
         }
       });
-    }
+    };
 
     processBatch();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (runIdRef.current === currentRunId) {
+        runIdRef.current += 1;
+      }
+    };
   }, [customers.map(c => c ? `${c.id}:${c.lat}:${c.lng}:${c.address}:${c.city}` : '').join(','), isGoogleLoaded]);
 
   return coordsMap;
 }
 
-function buildAddressKey(c: Customer): string {
-  return `${c.address || ''}|${c.city || ''}`.trim();
+function buildAddressKey(customer: Customer): string {
+  return `${customer.address || ''}|${customer.city || ''}`.trim();
+}
+
+function hasExactCoords(customer: Customer): customer is Customer & { lat: number; lng: number } {
+  return typeof customer.lat === 'number' && typeof customer.lng === 'number';
 }
