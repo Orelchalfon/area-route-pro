@@ -141,7 +141,8 @@
   }
 }
 
-/* Google Maps Autocomplete dropdown must appear above dialogs */
+/* Google Maps Autocomplete dropdown must appear above dialogs and drag-drop overlays */
 .pac-container {
   z-index: 99999 !important;
+  pointer-events: auto !important;
 }
