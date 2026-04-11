@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
-import { Job, STATUS_CONFIG, JobType, JOB_TYPE_CONFIG } from '@/types';
+import { Job, STATUS_CONFIG, JobType, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { technicians } from '@/data/mockData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Wrench, Filter, Clock, MapPin, CheckCircle2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertTriangle, Wrench, Filter, Clock, MapPin, CheckCircle2, Pencil, Save, X } from 'lucide-react';
 
 const categoryConfig: Record<string, { type: JobType; title: string }> = {
   malfunctions: { type: 'malfunction', title: 'מאגר תקלות' },
@@ -39,16 +43,116 @@ function PriorityBadge({ priority }: { priority: string }) {
   return <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${p.cls}`}>{p.label}</span>;
 }
 
-function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: boolean }) {
-  const { customersList: customers } = useJobsContext();
-  const grouped: Record<string, Job[]> = {};
-  jobs.forEach(job => {
-    const city = job.city || 'לא צוין';
-    if (!grouped[city]) grouped[city] = [];
-    grouped[city].push(job);
+interface EditForm {
+  location: string;
+  city: string;
+  notes: string;
+  priority: string;
+}
+
+function EditableJobRow({ job, customer, tech, showAssignment, editingId, onStartEdit, onCancelEdit, onSave }: {
+  job: Job;
+  customer: Customer | undefined;
+  tech: { name: string } | undefined;
+  showAssignment?: boolean;
+  editingId: string | null;
+  onStartEdit: (id: string) => void;
+  onCancelEdit: () => void;
+  onSave: (jobId: string, customerId: string, data: EditForm) => void;
+}) {
+  const isEditing = editingId === job.id;
+  const [form, setForm] = useState<EditForm>({
+    location: job.location || customer?.address || '',
+    city: job.city || customer?.city || '',
+    notes: job.notes || '',
+    priority: job.priority || 'low',
   });
 
-  if (Object.keys(grouped).length === 0) {
+  const handleStartEdit = () => {
+    setForm({
+      location: job.location || customer?.address || '',
+      city: job.city || customer?.city || '',
+      notes: job.notes || '',
+      priority: job.priority || 'low',
+    });
+    onStartEdit(job.id);
+  };
+
+  if (isEditing) {
+    return (
+      <TableRow className="bg-primary/5">
+        <TableCell className="font-medium">{customer?.name}</TableCell>
+        <TableCell>
+          <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className="h-7 text-xs" placeholder="כתובת" />
+          <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="h-7 text-xs mt-1" placeholder="עיר" />
+        </TableCell>
+        <TableCell>
+          <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
+            <SelectTrigger className="h-7 text-xs w-24"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="high">גבוהה</SelectItem>
+              <SelectItem value="medium">בינונית</SelectItem>
+              <SelectItem value="low">נמוכה</SelectItem>
+            </SelectContent>
+          </Select>
+        </TableCell>
+        <TableCell><StatusBadge status={job.status} /></TableCell>
+        {showAssignment && <TableCell>{tech?.name || '—'}</TableCell>}
+        {showAssignment && <TableCell className="whitespace-nowrap">{job.scheduledDate || '—'}</TableCell>}
+        <TableCell>
+          <Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="h-7 text-xs" placeholder="הערות" />
+        </TableCell>
+        <TableCell>
+          <div className="flex gap-1">
+            <Button size="sm" className="h-6 px-2 text-xs gap-1" onClick={() => customer && onSave(job.id, customer.id, form)}>
+              <Save className="w-3 h-3" /> שמור
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onCancelEdit}>
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{customer?.name}</TableCell>
+      <TableCell>{job.location}</TableCell>
+      <TableCell><PriorityBadge priority={job.priority} /></TableCell>
+      <TableCell><StatusBadge status={job.status} /></TableCell>
+      {showAssignment && <TableCell>{tech?.name || '—'}</TableCell>}
+      {showAssignment && <TableCell className="whitespace-nowrap">{job.scheduledDate || '—'}</TableCell>}
+      <TableCell className="max-w-[200px] truncate">{job.notes}</TableCell>
+      <TableCell>
+        <button onClick={handleStartEdit} className="p-1 rounded hover:bg-muted/50 transition-colors" title="ערוך">
+          <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+        </button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: boolean }) {
+  const { customersList: customers, updateJob, updateCustomer } = useJobsContext();
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const handleSave = (jobId: string, customerId: string, data: EditForm) => {
+    updateJob(jobId, {
+      location: data.location,
+      city: data.city,
+      notes: data.notes,
+      priority: data.priority as Job['priority'],
+    });
+    updateCustomer(customerId, {
+      address: data.location,
+      city: data.city,
+    });
+    setEditingId(null);
+  };
+
+  if (jobs.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <CheckCircle2 className="w-10 h-10 mx-auto mb-2 opacity-40" />
@@ -56,6 +160,13 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
       </div>
     );
   }
+
+  const grouped: Record<string, Job[]> = {};
+  jobs.forEach(job => {
+    const city = job.city || 'לא צוין';
+    if (!grouped[city]) grouped[city] = [];
+    grouped[city].push(job);
+  });
 
   return (
     <div className="space-y-4">
@@ -77,6 +188,7 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
                   {showAssignment && <TableHead className="text-right">טכנאי</TableHead>}
                   {showAssignment && <TableHead className="text-right">תאריך</TableHead>}
                   <TableHead className="text-right">הערות</TableHead>
+                  <TableHead className="text-right w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -86,15 +198,17 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
                     const customer = customers.find(c => c.id === job.customerId);
                     const tech = technicians.find(t => t.id === job.technicianId);
                     return (
-                      <TableRow key={job.id}>
-                        <TableCell className="font-medium">{customer?.name}</TableCell>
-                        <TableCell>{job.location}</TableCell>
-                        <TableCell><PriorityBadge priority={job.priority} /></TableCell>
-                        <TableCell><StatusBadge status={job.status} /></TableCell>
-                        {showAssignment && <TableCell>{tech?.name || '—'}</TableCell>}
-                        {showAssignment && <TableCell className="whitespace-nowrap">{job.scheduledDate || '—'}</TableCell>}
-                        <TableCell className="max-w-[200px] truncate">{job.notes}</TableCell>
-                      </TableRow>
+                      <EditableJobRow
+                        key={job.id}
+                        job={job}
+                        customer={customer}
+                        tech={tech}
+                        showAssignment={showAssignment}
+                        editingId={editingId}
+                        onStartEdit={setEditingId}
+                        onCancelEdit={() => setEditingId(null)}
+                        onSave={handleSave}
+                      />
                     );
                   })}
               </TableBody>
@@ -111,7 +225,6 @@ export default function JobCategoryPage({ category }: { category: 'malfunctions'
   const config = categoryConfig[category];
   const allOfType = jobs.filter(j => j.type === config.type);
 
-  // Split into unassigned (pool) vs assigned/in-progress
   const unassigned = allOfType.filter(j => !j.technicianId && !j.scheduledDate && j.status === 'draft');
   const assigned = allOfType.filter(j => j.technicianId || j.scheduledDate || j.status !== 'draft');
 
@@ -131,7 +244,6 @@ export default function JobCategoryPage({ category }: { category: 'malfunctions'
         </div>
       </div>
 
-      {/* Unassigned pool */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
           <Clock className="w-4 h-4 text-muted-foreground" />
@@ -140,7 +252,6 @@ export default function JobCategoryPage({ category }: { category: 'malfunctions'
         <JobsByArea jobs={unassigned} />
       </div>
 
-      {/* Assigned */}
       {assigned.length > 0 && (
         <div>
           <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
