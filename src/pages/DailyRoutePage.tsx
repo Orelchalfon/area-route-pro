@@ -35,7 +35,8 @@ export default function DailyRoutePage() {
   const [routeSaved, setRouteSaved] = useState(false);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const { apiKey, loading: keyLoading, error: keyError, fetchKey } = useGoogleMapsKey();
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const todayStr = format(selectedDate, 'yyyy-MM-dd');
 
   // Today's scheduled jobs for selected tech
   const todayJobs = useMemo(() =>
