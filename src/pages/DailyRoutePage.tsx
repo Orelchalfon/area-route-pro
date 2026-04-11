@@ -104,6 +104,13 @@ export default function DailyRoutePage() {
     toast.success(`מסלול נשמר! ${assignments.length} עצירות סודרו מחדש`);
   }, [orderedJobIds, orderedJobs, selectedTechId, todayStr, approveDaySchedule]);
 
+  const handleSaveEdit = useCallback((jobId: string, customerId: string, jobData: any, customerData: any) => {
+    updateJob(jobId, jobData);
+    updateCustomer(customerId, customerData);
+    setEditingJobId(null);
+    toast.success('המשימה עודכנה בהצלחה');
+  }, [updateJob, updateCustomer]);
+
   const completedCount = todayJobs.filter(j => j.completionStatus === 'done').length;
 
   return (
