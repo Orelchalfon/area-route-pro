@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { EditableRouteStop } from '@/components/EditableRouteStop';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -27,11 +28,12 @@ interface JobWithCustomer {
 }
 
 export default function DailyRoutePage() {
-  const { jobs, customersList, approveDaySchedule } = useJobsContext();
+  const { jobs, customersList, approveDaySchedule, updateJob, updateCustomer } = useJobsContext();
   const [selectedTechId, setSelectedTechId] = useState(technicians[0].id);
   const [plannerMode, setPlannerMode] = useState(false);
   const [orderedJobIds, setOrderedJobIds] = useState<string[] | null>(null);
   const [routeSaved, setRouteSaved] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const { apiKey, loading: keyLoading, error: keyError, fetchKey } = useGoogleMapsKey();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -102,6 +104,13 @@ export default function DailyRoutePage() {
     toast.success(`מסלול נשמר! ${assignments.length} עצירות סודרו מחדש`);
   }, [orderedJobIds, orderedJobs, selectedTechId, todayStr, approveDaySchedule]);
 
+  const handleSaveEdit = useCallback((jobId: string, customerId: string, jobData: any, customerData: any) => {
+    updateJob(jobId, jobData);
+    updateCustomer(customerId, customerData);
+    setEditingJobId(null);
+    toast.success('המשימה עודכנה בהצלחה');
+  }, [updateJob, updateCustomer]);
+
   const completedCount = todayJobs.filter(j => j.completionStatus === 'done').length;
 
   return (
@@ -121,11 +130,11 @@ export default function DailyRoutePage() {
             </Button>
           )}
           {plannerMode && (
-            <Button onClick={() => setPlannerMode(false)} variant="ghost" size="sm">
+            <Button onClick={() => { setPlannerMode(false); setEditingJobId(null); }} variant="ghost" size="sm">
               סגור תכנון
             </Button>
           )}
-          <Select value={selectedTechId} onValueChange={(v) => { setSelectedTechId(v); setOrderedJobIds(null); setPlannerMode(false); }}>
+          <Select value={selectedTechId} onValueChange={(v) => { setSelectedTechId(v); setOrderedJobIds(null); setPlannerMode(false); setEditingJobId(null); }}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
@@ -176,56 +185,25 @@ export default function DailyRoutePage() {
                       {...provided.droppableProps}
                       className="space-y-2 max-h-[460px] overflow-y-auto"
                     >
-                      {orderedJobs.map((jc, idx) => {
-                        const isDone = jc.job.completionStatus === 'done';
-                        return (
+                      {orderedJobs.map((jc, idx) => (
                           <Draggable key={jc.job.id} draggableId={jc.job.id} index={idx}>
                             {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className={`flex items-start gap-2 p-3 rounded-lg border transition-colors ${
-                                  snapshot.isDragging
-                                    ? 'bg-primary/5 border-primary/40 shadow-lg'
-                                    : isDone
-                                    ? 'bg-success/5 border-success/30'
-                                    : 'bg-card border-border hover:bg-muted/30'
-                                }`}
-                              >
-                                <div {...provided.dragHandleProps} className="pt-1 cursor-grab active:cursor-grabbing">
-                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
-                                </div>
-                                <div
-                                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                                    isDone ? 'bg-success' : 'bg-primary'
-                                  }`}
-                                >
-                                  {isDone ? '✓' : idx + 1}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-sm font-medium ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                                    {jc.customer?.name}
-                                  </p>
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                    {typeIcons[jc.job.type]}
-                                    <span>{JOB_TYPE_CONFIG[jc.job.type].label}</span>
-                                  </div>
-                                  <p className="text-[11px] text-muted-foreground/60 mt-0.5 truncate">{jc.customer?.address}</p>
-                                </div>
-                                <a
-                                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(jc.customer?.address + ', ' + jc.customer?.city)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors shrink-0"
-                                  title="נווט"
-                                >
-                                  <Navigation className="w-4 h-4 text-primary" />
-                                </a>
+                              <div ref={provided.innerRef} {...provided.draggableProps}>
+                                <EditableRouteStop
+                                  job={jc.job}
+                                  customer={jc.customer}
+                                  index={idx}
+                                  isEditing={editingJobId === jc.job.id}
+                                  onStartEdit={() => setEditingJobId(jc.job.id)}
+                                  onCancelEdit={() => setEditingJobId(null)}
+                                  onSave={handleSaveEdit}
+                                  dragHandleProps={provided.dragHandleProps}
+                                  isDragging={snapshot.isDragging}
+                                />
                               </div>
                             )}
                           </Draggable>
-                        );
-                      })}
+                        ))}
                       {provided.placeholder}
                     </div>
                   )}
