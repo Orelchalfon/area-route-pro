@@ -342,7 +342,7 @@ export function useJobs() {
     ));
   };
 
-  const updateJob = (jobId: string, data: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration' | 'priority' | 'type'>>) => {
+  const updateJob = (jobId: string, data: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration' | 'priority' | 'type'>> & { lat?: number; lng?: number }) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...data } : j));
   };
 
