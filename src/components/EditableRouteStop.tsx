@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pencil, Save, X, Navigation, GripVertical, Filter, AlertTriangle, Wrench, Clock } from 'lucide-react';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
+import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
+import { geocodeAddress } from '@/lib/geocodeAddress';
 
 const typeIcons: Record<string, React.ReactNode> = {
   filter_replacement: <Filter className="w-3.5 h-3.5" />,
@@ -35,6 +37,7 @@ export function EditableRouteStop({
   job, customer, index, isEditing, onStartEdit, onCancelEdit, onSave,
   dragHandleProps, isDragging, showTime,
 }: EditableRouteStopProps) {
+  const { fetchKey } = useGoogleMapsKey();
   const isDone = job.completionStatus === 'done';
   const [form, setForm] = useState<EditForm>({
     location: job.location || customer?.address || '',
@@ -80,7 +83,10 @@ export function EditableRouteStop({
         customerData.lng = pendingCoords.lng;
         if (pendingCoords.placeId) customerData.placeId = pendingCoords.placeId;
       } else if (hasManualLocationChange) {
-        const geocoded = await geocodeAddress([form.location, form.city].filter(Boolean).join(', '));
+        const geocoded = await geocodeAddress(
+          [form.location, form.city].filter(Boolean).join(', '),
+          await fetchKey()
+        );
 
         if (geocoded) {
           customerData.lat = geocoded.lat;
@@ -200,33 +206,4 @@ export function EditableRouteStop({
       )}
     </div>
   );
-}
-
-async function geocodeAddress(query: string): Promise<{ lat: number; lng: number; placeId?: string } | null> {
-  const normalizedQuery = query.trim();
-
-  if (!normalizedQuery || typeof google === 'undefined' || !google.maps?.Geocoder) {
-    return null;
-  }
-
-  return new Promise(resolve => {
-    const geocoder = new google.maps.Geocoder();
-
-    geocoder.geocode(
-      { address: `${normalizedQuery}, ישראל` },
-      (results, status) => {
-        if (status !== 'OK' || !results?.[0]?.geometry?.location) {
-          resolve(null);
-          return;
-        }
-
-        const location = results[0].geometry.location;
-        resolve({
-          lat: location.lat(),
-          lng: location.lng(),
-          placeId: results[0].place_id,
-        });
-      }
-    );
-  });
 }
