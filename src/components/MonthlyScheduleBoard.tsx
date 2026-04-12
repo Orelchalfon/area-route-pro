@@ -690,11 +690,17 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
         }
       }
 
-      const nextJobData = {
+      const nextJobData: Record<string, any> = {
         ...editForm,
         location: nextLocation,
         city: nextCity,
       };
+
+      // Propagate geocoded coords into the job so the map moves immediately
+      if (customerUpdate && (customerUpdate.lat != null || customerUpdate.lng != null)) {
+        nextJobData.lat = customerUpdate.lat;
+        nextJobData.lng = customerUpdate.lng;
+      }
 
       updateJob(job.id, nextJobData);
       setOrderedJobs(prev => prev.map(j => j.id === job.id ? { ...j, ...nextJobData } : j));
