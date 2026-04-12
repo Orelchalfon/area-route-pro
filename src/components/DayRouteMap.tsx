@@ -166,6 +166,11 @@ function DayRouteMapInner({
     return { lat: avgLat, lng: avgLng };
   }, [resolvedJobs]);
 
+  const mapRenderKey = useMemo(
+    () => resolvedJobs.map(jc => `${jc.job.id}:${jc.coords.lat.toFixed(6)}:${jc.coords.lng.toFixed(6)}`).join('|'),
+    [resolvedJobs]
+  );
+
   const hasFittedRef = useRef(false);
   const prevCoordsKeyRef = useRef('');
 
@@ -213,6 +218,7 @@ function DayRouteMapInner({
   return (
     <div className="rounded-lg overflow-hidden border border-border" style={{ height }}>
       <GoogleMap
+        key={mapRenderKey}
         mapContainerStyle={mapContainerStyle}
         center={center}
         zoom={12}
