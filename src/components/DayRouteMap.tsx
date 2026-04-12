@@ -33,16 +33,31 @@ interface DayRouteMapProps {
   height?: string;
 }
 
+type JobWithOptionalCoords = Job & { lat?: number; lng?: number };
+
+const DEFAULT_MAP_CENTER = { lat: 32.07, lng: 34.77 };
+
+function hasJobCoords(job: Job): job is JobWithOptionalCoords & { lat: number; lng: number } {
+  const candidate = job as JobWithOptionalCoords;
+  return typeof candidate.lat === 'number' && typeof candidate.lng === 'number';
+}
+
+function getPreferredCoords(job: Job, fallback: { lat: number; lng: number }) {
+  if (hasJobCoords(job)) {
+    return { lat: job.lat, lng: job.lng };
+  }
+
+  return fallback;
+}
+
 export function DayRouteMap({ jobs, height = '80vh' }: DayRouteMapProps) {
   const { customersList: allCustomersData } = useJobsContext();
   const { apiKey, loading, error, fetchKey } = useGoogleMapsKey();
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
 
-  // Fetch key on mount
   useEffect(() => { fetchKey(); }, [fetchKey]);
 
-  // Resolve customers for jobs
   const jobCustomers = useMemo(() =>
     jobs.map(job => {
       const customer = allCustomersData.find(c => c.id === job.customerId);
@@ -51,27 +66,18 @@ export function DayRouteMap({ jobs, height = '80vh' }: DayRouteMapProps) {
     [jobs, allCustomersData]
   );
 
-  // Pass to inner component which has google loaded
-  // For now, compute coords with fallback; inner will use geocoded coords
-  const jobsWithCoords = useMemo(() => {
-    const usedPositions = new Map<string, number>();
-    return jobCustomers.map(({ job, customer }) => {
-      let coords = customer ? getCustomerCoords(customer) : { lat: 32.07, lng: 34.77 };
-      const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
-      const count = usedPositions.get(key) || 0;
-      if (count > 0) {
-        const angle = (count * 60) * (Math.PI / 180);
-        coords = { lat: coords.lat + 0.0008 * Math.cos(angle), lng: coords.lng + 0.0008 * Math.sin(angle) };
-      }
-      usedPositions.set(key, count + 1);
-      return { job, customer, coords };
-    });
-  }, [jobCustomers]);
+  const jobsWithCoords = useMemo(() =>
+    jobCustomers.map(({ job, customer }) => ({
+      job,
+      customer,
+      coords: getPreferredCoords(job, customer ? getCustomerCoords(customer) : DEFAULT_MAP_CENTER),
+    })),
+    [jobCustomers]
+  );
 
   const onLoad = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
   }, []);
-
 
   if (jobs.length === 0) return null;
 
@@ -124,31 +130,37 @@ function DayRouteMapInner({
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: GOOGLE_MAPS_LIBRARIES });
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
 
-  // Geocode customer addresses for accurate map positions
   const customers = useMemo(() => jobsWithCoords.map(jc => jc.customer), [jobsWithCoords]);
   const geocodedMap = useGeocodeCustomers(customers, isLoaded);
 
-  // Use geocoded coords when available, fall back to dictionary coords
   const resolvedJobs = useMemo(() => {
     const usedPositions = new Map<string, number>();
+
     return jobsWithCoords.map(jc => {
       const hasExactCustomerCoords = typeof jc.customer?.lat === 'number' && typeof jc.customer?.lng === 'number';
-      let coords = hasExactCustomerCoords
+      const fallbackCoords = hasExactCustomerCoords
         ? { lat: jc.customer.lat, lng: jc.customer.lng }
         : (jc.customer && geocodedMap.get(jc.customer.id)) || jc.coords;
+
+      let coords = getPreferredCoords(jc.job, fallbackCoords);
       const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
       const count = usedPositions.get(key) || 0;
+
       if (count > 0) {
         const angle = (count * 60) * (Math.PI / 180);
-        coords = { lat: coords.lat + 0.0008 * Math.cos(angle), lng: coords.lng + 0.0008 * Math.sin(angle) };
+        coords = {
+          lat: coords.lat + 0.0008 * Math.cos(angle),
+          lng: coords.lng + 0.0008 * Math.sin(angle),
+        };
       }
+
       usedPositions.set(key, count + 1);
       return { ...jc, coords };
     });
   }, [jobsWithCoords, geocodedMap]);
 
   const center = useMemo(() => {
-    if (resolvedJobs.length === 0) return { lat: 32.07, lng: 34.77 };
+    if (resolvedJobs.length === 0) return DEFAULT_MAP_CENTER;
     const avgLat = resolvedJobs.reduce((s, jc) => s + jc.coords.lat, 0) / resolvedJobs.length;
     const avgLng = resolvedJobs.reduce((s, jc) => s + jc.coords.lng, 0) / resolvedJobs.length;
     return { lat: avgLat, lng: avgLng };
@@ -157,7 +169,6 @@ function DayRouteMapInner({
   const hasFittedRef = useRef(false);
   const prevCoordsKeyRef = useRef('');
 
-  // Re-fit bounds when coordinates change (e.g. address edited)
   useEffect(() => {
     const coordsKey = resolvedJobs.map(jc => `${jc.coords.lat.toFixed(4)},${jc.coords.lng.toFixed(4)}`).join('|');
     if (coordsKey !== prevCoordsKeyRef.current && mapInstanceRef.current && resolvedJobs.length > 0) {
@@ -180,7 +191,6 @@ function DayRouteMapInner({
     }
   }, [onLoad, resolvedJobs]);
 
-  // Snap-to-roads polyline + auto-fit bounds
   const routeWaypoints = useMemo(
     () => resolvedJobs.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng })),
     [resolvedJobs]
@@ -209,12 +219,13 @@ function DayRouteMapInner({
         onLoad={handleMapLoad}
         options={mapOptions}
       >
-        {/* Markers are rendered independently of the route polyline */}
         {resolvedJobs.map((jc, idx) => {
           const color = jc.job.completionStatus === 'done' ? '#22c55e' : typeColorMap[jc.job.type] || '#3b82f6';
+          const markerKey = `${jc.job.id}-${jc.coords.lat.toFixed(6)}-${jc.coords.lng.toFixed(6)}`;
+
           return (
             <Marker
-              key={`${jc.job.id}-${jc.coords.lat.toFixed(6)}-${jc.coords.lng.toFixed(6)}-${idx}`}
+              key={markerKey}
               position={jc.coords}
               zIndex={1000 + idx}
               label={{ text: jc.job.completionStatus === 'done' ? '✓' : String(idx + 1), color: 'white', fontWeight: 'bold', fontSize: '12px' }}
