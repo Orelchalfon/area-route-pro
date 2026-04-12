@@ -6,6 +6,13 @@ import { loadInstallationsFromCSV } from '@/lib/installationCsvParser';
 import { loadMalfunctionsFromCSV } from '@/lib/malfunctionCsvParser';
 import { useICSImport } from '@/hooks/useICSImport';
 
+function shouldResetStoredCoords(data: Partial<Customer>) {
+  const updatesAddress = Object.prototype.hasOwnProperty.call(data, 'address') || Object.prototype.hasOwnProperty.call(data, 'city');
+  const updatesCoords = Object.prototype.hasOwnProperty.call(data, 'lat') || Object.prototype.hasOwnProperty.call(data, 'lng') || Object.prototype.hasOwnProperty.call(data, 'placeId');
+
+  return updatesAddress && !updatesCoords;
+}
+
 // Hook ordering stable v2 - malfunctions added
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
@@ -377,7 +384,11 @@ export function useJobs() {
   };
 
   const updateCustomer = (customerId: string, data: Partial<Customer>) => {
-    setCustomersList(prev => prev.map(c => c.id === customerId ? { ...c, ...data } : c));
+    const nextData = shouldResetStoredCoords(data)
+      ? { ...data, lat: undefined, lng: undefined, placeId: undefined }
+      : data;
+
+    setCustomersList(prev => prev.map(c => c.id === customerId ? { ...c, ...nextData } : c));
     addLog(customerId, 'עדכון פרטים', 'פרטי הלקוח עודכנו');
   };
 
