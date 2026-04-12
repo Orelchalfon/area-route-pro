@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
-import { Job, STATUS_CONFIG, JobType, JOB_TYPE_CONFIG, Customer } from '@/types';
+import { Job, STATUS_CONFIG, JobType, Customer } from '@/types';
 import { technicians } from '@/data/mockData';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, Wrench, Filter, Clock, MapPin, CheckCircle2, Pencil, Save, X } from 'lucide-react';
+import { Clock, MapPin, CheckCircle2, Pencil, Save, X } from 'lucide-react';
+import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
+import { geocodeAddress } from '@/lib/geocodeAddress';
 
 const categoryConfig: Record<string, { type: JobType; title: string }> = {
   malfunctions: { type: 'malfunction', title: 'מאגר תקלות' },
@@ -136,6 +137,7 @@ function EditableJobRow({ job, customer, tech, showAssignment, editingId, onStar
 
 function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: boolean }) {
   const { customersList: customers, updateJob, updateCustomer } = useJobsContext();
+  const { fetchKey } = useGoogleMapsKey();
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSave = async (jobId: string, customerId: string, data: EditForm) => {
@@ -151,22 +153,22 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
       city: data.city,
     };
 
-    // Geocode the new address to update map position
+    const currentCustomer = customers.find(customer => customer.id === customerId);
+    const hasLocationChange = (data.location || '').trim() !== (currentCustomer?.address || '').trim()
+      || (data.city || '').trim() !== (currentCustomer?.city || '').trim();
+
     const fullAddress = [data.location, data.city].filter(Boolean).join(', ');
-    if (fullAddress && typeof google !== 'undefined' && google.maps?.Geocoder) {
-      try {
-        const geocoder = new google.maps.Geocoder();
-        const result = await geocoder.geocode({ address: `${fullAddress}, ישראל` });
-        if (result.results?.[0]?.geometry?.location) {
-          const loc = result.results[0].geometry.location;
-          customerData.lat = loc.lat();
-          customerData.lng = loc.lng();
-          if (result.results[0].place_id) {
-            customerData.placeId = result.results[0].place_id;
-          }
-        }
-      } catch {
-        // Geocoding failed — save without coords update
+    if (hasLocationChange && fullAddress) {
+      const geocoded = await geocodeAddress(fullAddress, await fetchKey());
+
+      if (geocoded) {
+        customerData.lat = geocoded.lat;
+        customerData.lng = geocoded.lng;
+        customerData.placeId = geocoded.placeId;
+      } else {
+        customerData.lat = undefined;
+        customerData.lng = undefined;
+        customerData.placeId = undefined;
       }
     }
 
