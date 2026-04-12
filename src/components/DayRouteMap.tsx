@@ -132,7 +132,10 @@ function DayRouteMapInner({
   const resolvedJobs = useMemo(() => {
     const usedPositions = new Map<string, number>();
     return jobsWithCoords.map(jc => {
-      let coords = (jc.customer && geocodedMap.get(jc.customer.id)) || jc.coords;
+      const hasExactCustomerCoords = typeof jc.customer?.lat === 'number' && typeof jc.customer?.lng === 'number';
+      let coords = hasExactCustomerCoords
+        ? { lat: jc.customer.lat, lng: jc.customer.lng }
+        : (jc.customer && geocodedMap.get(jc.customer.id)) || jc.coords;
       const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
       const count = usedPositions.get(key) || 0;
       if (count > 0) {
@@ -211,7 +214,7 @@ function DayRouteMapInner({
           const color = jc.job.completionStatus === 'done' ? '#22c55e' : typeColorMap[jc.job.type] || '#3b82f6';
           return (
             <Marker
-              key={`${jc.job.id}-pos-${idx}`}
+              key={`${jc.job.id}-${jc.coords.lat.toFixed(6)}-${jc.coords.lng.toFixed(6)}-${idx}`}
               position={jc.coords}
               zIndex={1000 + idx}
               label={{ text: jc.job.completionStatus === 'done' ? '✓' : String(idx + 1), color: 'white', fontWeight: 'bold', fontSize: '12px' }}

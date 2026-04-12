@@ -17,6 +17,8 @@ import { Input } from '@/components/ui/input';
 import { DayRouteMap } from './DayRouteMap';
 import { CustomerInfoPopover } from './CustomerInfoPopover';
 import { AddressAutocomplete } from './AddressAutocomplete';
+import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
+import { geocodeAddress } from '@/lib/geocodeAddress';
 
 const REGIONS = [
   'דרום רחוק', 'מרכז דרום', 'תל אביב', 'ירושלים',
@@ -626,6 +628,75 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ location: string; city: string; notes: string; estimatedDuration: number }>({ location: '', city: '', notes: '', estimatedDuration: 0 });
+  const [pendingEditCoords, setPendingEditCoords] = useState<{ lat: number; lng: number; placeId?: string } | null>(null);
+  const [isEditSaving, setIsEditSaving] = useState(false);
+  const { fetchKey } = useGoogleMapsKey();
+
+  const startEditingJob = useCallback((job: Job) => {
+    setEditingJobId(job.id);
+    setEditForm({ location: job.location, city: job.city, notes: job.notes, estimatedDuration: job.estimatedDuration });
+    setPendingEditCoords(null);
+  }, []);
+
+  const closeEditingJob = useCallback(() => {
+    setEditingJobId(null);
+    setPendingEditCoords(null);
+  }, []);
+
+  const handleSaveEditedJob = useCallback(async (job: Job) => {
+    if (isEditSaving) return;
+
+    const nextLocation = editForm.location.trim();
+    const nextCity = editForm.city.trim();
+    const customer = customers.find(c => c.id === job.customerId);
+    const hasLocationChange = !!customer && (
+      nextLocation !== (customer.address || '').trim()
+      || nextCity !== (customer.city || '').trim()
+    );
+
+    let customerUpdate: Partial<Customer> | null = customer
+      ? { address: nextLocation, city: nextCity }
+      : null;
+
+    setIsEditSaving(true);
+
+    try {
+      if (customerUpdate && hasLocationChange && (nextLocation || nextCity)) {
+        const geocoded = pendingEditCoords ?? await geocodeAddress(
+          [nextLocation, nextCity].filter(Boolean).join(', '),
+          await fetchKey()
+        );
+
+        if (geocoded) {
+          customerUpdate.lat = geocoded.lat;
+          customerUpdate.lng = geocoded.lng;
+          customerUpdate.placeId = geocoded.placeId;
+        } else {
+          customerUpdate.lat = undefined;
+          customerUpdate.lng = undefined;
+          customerUpdate.placeId = undefined;
+        }
+      }
+
+      const nextJobData = {
+        ...editForm,
+        location: nextLocation,
+        city: nextCity,
+      };
+
+      updateJob(job.id, nextJobData);
+      setOrderedJobs(prev => prev.map(j => j.id === job.id ? { ...j, ...nextJobData } : j));
+
+      if (customer && customerUpdate) {
+        updateCustomer(customer.id, customerUpdate);
+      }
+
+      closeEditingJob();
+      toast.success('המשימה עודכנה בהצלחה');
+    } finally {
+      setIsEditSaving(false);
+    }
+  }, [closeEditingJob, customers, editForm, fetchKey, isEditSaving, pendingEditCoords, updateCustomer, updateJob]);
 
   // Sync when source data changes
   useMemo(() => {
@@ -773,8 +844,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditingJobId(job.id);
-                          setEditForm({ location: job.location, city: job.city, notes: job.notes, estimatedDuration: job.estimatedDuration });
+                          startEditingJob(job);
                         }}
                         className="p-1 rounded hover:bg-info/10 transition-colors"
                         title="ערוך משימה"
@@ -808,14 +878,13 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                         <label className="text-xs font-semibold text-muted-foreground">כתובת</label>
                         <AddressAutocomplete
                           value={editForm.location}
-                          onChange={(val) => setEditForm(f => ({ ...f, location: val }))}
+                          onChange={(val) => {
+                            setEditForm(f => ({ ...f, location: val }));
+                            setPendingEditCoords(null);
+                          }}
                           onPlaceSelect={(place) => {
                             setEditForm(f => ({ ...f, location: place.address, city: place.city }));
-                            // Update customer coordinates for map display
-                            const cust = customers.find(c => c.id === job.customerId);
-                            if (cust) {
-                              updateCustomer(cust.id, { address: place.address, city: place.city, lat: place.lat, lng: place.lng, placeId: place.placeId });
-                            }
+                            setPendingEditCoords({ lat: place.lat, lng: place.lng, placeId: place.placeId });
                           }}
                           placeholder="הקלד כתובת..."
                           className="h-8 text-xs"
@@ -824,7 +893,10 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="text-xs font-semibold text-muted-foreground">עיר</label>
-                          <Input value={editForm.city} onChange={(e) => setEditForm(f => ({ ...f, city: e.target.value }))} className="h-8 text-xs" />
+                          <Input value={editForm.city} onChange={(e) => {
+                            setEditForm(f => ({ ...f, city: e.target.value }));
+                            setPendingEditCoords(null);
+                          }} className="h-8 text-xs" />
                         </div>
                         <div className="w-full">
                           <label className="text-xs font-semibold text-muted-foreground">משך (דקות)</label>
@@ -836,15 +908,10 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
                         <Input value={editForm.notes} onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))} className="h-8 text-xs" />
                       </div>
                       <div className="flex gap-2 pt-1">
-                        <Button size="sm" className="text-xs gap-1" onClick={() => {
-                          updateJob(job.id, editForm);
-                          setOrderedJobs(prev => prev.map(j => j.id === job.id ? { ...j, ...editForm } : j));
-                          setEditingJobId(null);
-                          toast.success('המשימה עודכנה בהצלחה');
-                        }}>
-                          <Save className="w-3 h-3" />שמור
+                        <Button size="sm" className="text-xs gap-1" onClick={() => void handleSaveEditedJob(job)} disabled={isEditSaving}>
+                          <Save className="w-3 h-3" />{isEditSaving ? 'שומר...' : 'שמור'}
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditingJobId(null)}>ביטול</Button>
+                        <Button size="sm" variant="ghost" className="text-xs" onClick={closeEditingJob} disabled={isEditSaving}>ביטול</Button>
                       </div>
                     </div>
                   )}
