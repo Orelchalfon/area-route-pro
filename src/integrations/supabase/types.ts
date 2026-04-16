@@ -14,6 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
+      installations: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          customer_name: string | null
+          id: string
+          installation_date: string | null
+          installation_time: string | null
+          notes: string | null
+          phone: string | null
+          priority: string | null
+          product_type: string | null
+          region: string | null
+          sheet_row_id: string | null
+          source: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          installation_date?: string | null
+          installation_time?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          product_type?: string | null
+          region?: string | null
+          sheet_row_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          installation_date?: string | null
+          installation_time?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          product_type?: string | null
+          region?: string | null
+          sheet_row_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      malfunctions: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          customer_name: string | null
+          description: string | null
+          id: string
+          malfunction_date: string | null
+          notes: string | null
+          phone: string | null
+          priority: string | null
+          region: string | null
+          sheet_row_id: string | null
+          source: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          customer_name?: string | null
+          description?: string | null
+          id?: string
+          malfunction_date?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          region?: string | null
+          sheet_row_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          customer_name?: string | null
+          description?: string | null
+          id?: string
+          malfunction_date?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          region?: string | null
+          sheet_row_id?: string | null
+          source?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ongoing_services: {
         Row: {
           created_at: string
