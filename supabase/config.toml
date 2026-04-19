@@ -1,1 +1,7 @@
 project_id = "cnbnhhcymmzisvwehyor"
+
+[functions.receive-from-make]
+verify_jwt = false
+
+[functions.send-to-make]
+verify_jwt = false
