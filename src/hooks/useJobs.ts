@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
-import { loadInstallationsFromCSV } from '@/lib/installationCsvParser';
-import { loadMalfunctionsFromCSV } from '@/lib/malfunctionCsvParser';
 import { useICSImport } from '@/hooks/useICSImport';
+import { useMalfunctionsInstallations } from '@/hooks/useMalfunctionsInstallations';
+import { supabase } from '@/integrations/supabase/client';
 
 function shouldResetStoredCoords(data: Partial<Customer>) {
   const updatesAddress = Object.prototype.hasOwnProperty.call(data, 'address') || Object.prototype.hasOwnProperty.call(data, 'city');
