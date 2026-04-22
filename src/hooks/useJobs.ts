@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
-import { loadInstallationsFromCSV } from '@/lib/installationCsvParser';
-import { loadMalfunctionsFromCSV } from '@/lib/malfunctionCsvParser';
 import { useICSImport } from '@/hooks/useICSImport';
+import { useMalfunctionsInstallations } from '@/hooks/useMalfunctionsInstallations';
+import { supabase } from '@/integrations/supabase/client';
 
 function shouldResetStoredCoords(data: Partial<Customer>) {
   const updatesAddress = Object.prototype.hasOwnProperty.call(data, 'address') || Object.prototype.hasOwnProperty.call(data, 'city');
@@ -21,6 +21,7 @@ export function useJobs() {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const { icsCustomers, icsJobs, icsLoaded } = useICSImport();
+  const { jobs: dbJobs, customers: dbCustomers, loaded: dbLoaded } = useMalfunctionsInstallations();
 
   // Load real customers from CSV
   useEffect(() => {
@@ -35,86 +36,21 @@ export function useJobs() {
       });
   }, []);
 
-  // Load installations from CSV
+  // Sync malfunctions + installations from DB (replaces previous CSV loaders)
   useEffect(() => {
-    if (!dataLoaded) return;
-    loadInstallationsFromCSV('/installations.csv')
-      .then(({ customers, jobs: instJobs }) => {
-        // Merge installation customers — match by name or add new
-        setCustomersList(prev => {
-          // Installation customers are always separate — never merge with existing customers
-          return [...prev, ...customers];
-        });
+    if (!dataLoaded || !dbLoaded) return;
 
-        // Installation jobs keep their own customerIds — no remapping
-        setJobs(prev => [...prev, ...instJobs]);
-      })
-      .catch(err => console.error('Failed to load installations CSV:', err));
-  }, [dataLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+    setCustomersList(prev => {
+      const withoutDb = prev.filter(c => !c.id.startsWith('db-malf-cust-') && !c.id.startsWith('db-inst-cust-'));
+      return [...withoutDb, ...dbCustomers];
+    });
 
-  // Load malfunctions from CSV
-  useEffect(() => {
-    if (!dataLoaded) return;
-    loadMalfunctionsFromCSV('/malfunctions.csv')
-      .then(({ customers: malfCustomers, jobs: malfJobs }) => {
-        setCustomersList(prev => {
-          const updated = [...prev];
-          for (const mc of malfCustomers) {
-            const mcName = mc.name.trim().toLowerCase();
-            const mcCity = mc.city.trim().toLowerCase();
-            const existing = prev.find(c => {
-              const cName = c.name.trim().toLowerCase();
-              const nameMatch = cName === mcName || cName.includes(mcName) || mcName.includes(cName);
-              if (!nameMatch) return false;
-              // If both have city, require city match too
-              if (mcCity && c.city) {
-                return c.city.trim().toLowerCase().includes(mcCity) || mcCity.includes(c.city.trim().toLowerCase());
-              }
-              return true;
-            });
-            if (existing) {
-              if (!existing.city && mc.city) {
-                const idx = updated.findIndex(c => c.id === existing.id);
-                if (idx >= 0) updated[idx] = { ...updated[idx], city: mc.city };
-              }
-            } else {
-              updated.push(mc);
-            }
-          }
-          return updated;
-        });
+    setJobs(prev => {
+      const withoutDb = prev.filter(j => !j.id.startsWith('db-malf-') && !j.id.startsWith('db-inst-'));
+      return [...withoutDb, ...dbJobs];
+    });
+  }, [dataLoaded, dbLoaded, dbJobs, dbCustomers]);
 
-        setJobs(prev => {
-          const remapped = malfJobs.map(job => {
-            const malfCust = malfCustomers.find(c => c.id === job.customerId);
-            if (!malfCust) return job;
-            const malfName = malfCust.name.trim().toLowerCase();
-            const malfCity = malfCust.city.trim().toLowerCase();
-            const match = customersList.find(c => {
-              const cName = c.name.trim().toLowerCase();
-              const nameMatch = cName === malfName || cName.includes(malfName) || malfName.includes(cName);
-              if (!nameMatch) return false;
-              if (malfCity && c.city) {
-                return c.city.trim().toLowerCase().includes(malfCity) || malfCity.includes(c.city.trim().toLowerCase());
-              }
-              return true;
-            });
-            if (match) {
-              // Auto-fill address and location from existing customer
-              return {
-                ...job,
-                customerId: match.id,
-                location: match.address || job.location,
-                city: match.city || job.city,
-              };
-            }
-            return job;
-          });
-          return [...prev, ...remapped];
-        });
-      })
-      .catch(err => console.error('Failed to load malfunctions CSV:', err));
-  }, [dataLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Merge ICS calendar data: update existing customers' filterReplacementMonth & serviceTrack, add ICS-only customers, and add service jobs
   useEffect(() => {
@@ -344,6 +280,20 @@ export function useJobs() {
 
   const updateJob = (jobId: string, data: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration' | 'priority' | 'type'>> & { lat?: number; lng?: number }) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...data } : j));
+
+    if (jobId.startsWith('db-malf-') || jobId.startsWith('db-inst-')) {
+      const isMalf = jobId.startsWith('db-malf-');
+      const dbId = jobId.replace(isMalf ? 'db-malf-' : 'db-inst-', '');
+      const patch: Record<string, unknown> = { source: 'app' };
+      if (data.location !== undefined) patch.address = data.location;
+      if (data.city !== undefined) patch.city = data.city;
+      if (data.notes !== undefined) patch.notes = data.notes;
+      if (data.priority !== undefined) patch.priority = data.priority;
+      const table = isMalf ? 'malfunctions' : 'installations';
+      supabase.from(table).update(patch).eq('id', dbId).then(({ error }) => {
+        if (error) console.error(`Failed to update ${table}:`, error);
+      });
+    }
   };
 
   const unassignJob = (jobId: string) => {
