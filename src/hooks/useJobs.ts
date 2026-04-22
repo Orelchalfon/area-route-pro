@@ -280,6 +280,20 @@ export function useJobs() {
 
   const updateJob = (jobId: string, data: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration' | 'priority' | 'type'>> & { lat?: number; lng?: number }) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...data } : j));
+
+    if (jobId.startsWith('db-malf-') || jobId.startsWith('db-inst-')) {
+      const isMalf = jobId.startsWith('db-malf-');
+      const dbId = jobId.replace(isMalf ? 'db-malf-' : 'db-inst-', '');
+      const patch: Record<string, unknown> = { source: 'app' };
+      if (data.location !== undefined) patch.address = data.location;
+      if (data.city !== undefined) patch.city = data.city;
+      if (data.notes !== undefined) patch.notes = data.notes;
+      if (data.priority !== undefined) patch.priority = data.priority;
+      const table = isMalf ? 'malfunctions' : 'installations';
+      supabase.from(table).update(patch).eq('id', dbId).then(({ error }) => {
+        if (error) console.error(`Failed to update ${table}:`, error);
+      });
+    }
   };
 
   const unassignJob = (jobId: string) => {
