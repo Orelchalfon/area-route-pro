@@ -24,7 +24,16 @@ export function useDirectionsRoute({
   const requestId = useRef(0);
 
   const stableWaypoints = useMemo(
-    () => waypoints.map(wp => ({ lat: wp.lat, lng: wp.lng })),
+    () =>
+      waypoints
+        .map(wp => ({ lat: wp.lat, lng: wp.lng }))
+        .filter(
+          wp =>
+            typeof wp.lat === 'number' &&
+            typeof wp.lng === 'number' &&
+            Number.isFinite(wp.lat) &&
+            Number.isFinite(wp.lng)
+        ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [JSON.stringify(waypoints)]
   );

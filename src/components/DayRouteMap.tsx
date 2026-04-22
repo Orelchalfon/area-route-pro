@@ -197,7 +197,16 @@ function DayRouteMapInner({
   }, [onLoad, resolvedJobs]);
 
   const routeWaypoints = useMemo(
-    () => resolvedJobs.map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng })),
+    () =>
+      resolvedJobs
+        .map(jc => ({ lat: jc.coords.lat, lng: jc.coords.lng }))
+        .filter(
+          wp =>
+            typeof wp.lat === 'number' &&
+            typeof wp.lng === 'number' &&
+            Number.isFinite(wp.lat) &&
+            Number.isFinite(wp.lng)
+        ),
     [resolvedJobs]
   );
 
