@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Job, Customer, JOB_TYPE_CONFIG } from '@/types';
+import { Job, Customer, JOB_TYPE_CONFIG, JobStatus, CompletionStatus } from '@/types';
 
 type MalfRow = {
   id: string;
@@ -16,6 +16,12 @@ type MalfRow = {
   notes: string | null;
   sheet_row_id: string | null;
   source: string | null;
+  technician_id?: string | null;
+  scheduled_date?: string | null;
+  scheduled_time?: string | null;
+  estimated_duration?: number | null;
+  completion_status?: string | null;
+  completion_notes?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -35,15 +41,44 @@ type InstRow = {
   notes: string | null;
   sheet_row_id: string | null;
   source: string | null;
+  technician_id?: string | null;
+  scheduled_date?: string | null;
+  scheduled_time?: string | null;
+  estimated_duration?: number | null;
+  completion_status?: string | null;
+  completion_notes?: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export type RealtimeStatus = 'connecting' | 'live' | 'error' | 'closed';
 
 function mapPriority(p: string | null): Job['priority'] {
   if (p === 'high' || p === 'medium' || p === 'low') return p;
   if (p === 'גבוהה') return 'high';
   if (p === 'בינונית') return 'medium';
   return 'low';
+}
+
+function mapStatus(status: string | null): JobStatus {
+  if (
+    status === 'draft' ||
+    status === 'pending_customer' ||
+    status === 'confirmed' ||
+    status === 'in_progress' ||
+    status === 'completed' ||
+    status === 'rescheduled'
+  ) {
+    return status;
+  }
+
+  if (status === 'pending') return 'draft';
+  return 'draft';
+}
+
+function mapCompletionStatus(status: string | null | undefined): CompletionStatus | undefined {
+  if (status === 'done' || status === 'not_done' || status === 'need_return') return status;
+  return undefined;
 }
 
 function malfToJobAndCustomer(row: MalfRow): { job: Job; customer: Customer } {
@@ -60,13 +95,18 @@ function malfToJobAndCustomer(row: MalfRow): { job: Job; customer: Customer } {
   const job: Job = {
     id: `db-malf-${row.id}`,
     type: 'malfunction',
-    status: 'draft',
+    status: mapStatus(row.status),
     priority: mapPriority(row.priority),
     customerId: customer.id,
-    estimatedDuration: JOB_TYPE_CONFIG.malfunction.duration,
+    technicianId: row.technician_id || undefined,
+    scheduledDate: row.scheduled_date || undefined,
+    scheduledTime: row.scheduled_time || undefined,
+    estimatedDuration: row.estimated_duration || JOB_TYPE_CONFIG.malfunction.duration,
     location: row.address || '',
     city: row.city || '',
     notes: [row.description, row.notes].filter(Boolean).join(' | '),
+    completionStatus: mapCompletionStatus(row.completion_status),
+    completionNotes: row.completion_notes || undefined,
     createdAt: (row.malfunction_date || row.created_at).slice(0, 10),
   };
   return { job, customer };
@@ -86,16 +126,19 @@ function instToJobAndCustomer(row: InstRow): { job: Job; customer: Customer } {
   const job: Job = {
     id: `db-inst-${row.id}`,
     type: 'installation',
-    status: 'draft',
+    status: mapStatus(row.status),
     priority: mapPriority(row.priority),
     customerId: customer.id,
-    estimatedDuration: JOB_TYPE_CONFIG.installation.duration,
+    technicianId: row.technician_id || undefined,
+    estimatedDuration: row.estimated_duration || JOB_TYPE_CONFIG.installation.duration,
     location: row.address || '',
     city: row.city || '',
     notes: [row.product_type, row.notes].filter(Boolean).join(' | '),
+    completionStatus: mapCompletionStatus(row.completion_status),
+    completionNotes: row.completion_notes || undefined,
     createdAt: (row.installation_date || row.created_at).slice(0, 10),
-    scheduledDate: row.installation_date || undefined,
-    scheduledTime: row.installation_time || undefined,
+    scheduledDate: row.scheduled_date || row.installation_date || undefined,
+    scheduledTime: row.scheduled_time || row.installation_time || undefined,
   };
   return { job, customer };
 }
@@ -104,40 +147,89 @@ export function useMalfunctionsInstallations() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('connecting');
+  const refreshInFlightRef = useRef(false);
+  const refreshQueuedRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => {
-    const [{ data: malf }, { data: inst }] = await Promise.all([
-      supabase.from('malfunctions').select('*').order('created_at', { ascending: false }),
-      supabase.from('installations').select('*').order('created_at', { ascending: false }),
-    ]);
-    const allJobs: Job[] = [];
-    const allCustomers: Customer[] = [];
-    (malf as MalfRow[] | null)?.forEach(r => {
-      const { job, customer } = malfToJobAndCustomer(r);
-      allJobs.push(job);
-      allCustomers.push(customer);
-    });
-    (inst as InstRow[] | null)?.forEach(r => {
-      const { job, customer } = instToJobAndCustomer(r);
-      allJobs.push(job);
-      allCustomers.push(customer);
-    });
-    setJobs(allJobs);
-    setCustomers(allCustomers);
-    setLoaded(true);
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+
+    refreshInFlightRef.current = true;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [{ data: malf, error: malfError }, { data: inst, error: instError }] = await Promise.all([
+        supabase.from('malfunctions').select('*').order('created_at', { ascending: false }),
+        supabase.from('installations').select('*').order('created_at', { ascending: false }),
+      ]);
+
+      if (malfError) throw malfError;
+      if (instError) throw instError;
+
+      const allJobs: Job[] = [];
+      const allCustomers: Customer[] = [];
+      (malf as MalfRow[] | null)?.forEach(r => {
+        const { job, customer } = malfToJobAndCustomer(r);
+        allJobs.push(job);
+        allCustomers.push(customer);
+      });
+      (inst as InstRow[] | null)?.forEach(r => {
+        const { job, customer } = instToJobAndCustomer(r);
+        allJobs.push(job);
+        allCustomers.push(customer);
+      });
+      const latestInst = (inst as InstRow[] | null)?.slice().sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0];
+      console.log('[refresh] inst rows:', inst?.length, '| latest updated_at:', latestInst?.updated_at, '| name:', latestInst?.customer_name, '| address:', latestInst?.address);
+      setJobs(allJobs);
+      setCustomers(allCustomers);
+      setLastSyncedAt(new Date().toISOString());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to sync live data');
+    } finally {
+      setLoaded(true);
+      setLoading(false);
+      refreshInFlightRef.current = false;
+
+      if (refreshQueuedRef.current) {
+        refreshQueuedRef.current = false;
+        void refresh();
+      }
+    }
   }, []);
 
-  useEffect(() => {
-    refresh();
-    const channel = supabase
-      .channel('malf-inst-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'malfunctions' }, () => refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'installations' }, () => refresh())
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      void refresh();
+    }, 250);
   }, [refresh]);
 
-  return { jobs, customers, loaded, refresh };
+  useEffect(() => {
+    void refresh();
+    const channel = supabase
+      .channel('malf-inst-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'malfunctions' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'installations' }, scheduleRefresh)
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') setRealtimeStatus('live');
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setRealtimeStatus('error');
+        if (status === 'CLOSED') setRealtimeStatus('closed');
+      });
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      supabase.removeChannel(channel);
+      setRealtimeStatus('closed');
+    };
+  }, [refresh, scheduleRefresh]);
+
+  return { jobs, customers, loaded, refresh, loading, error, lastSyncedAt, realtimeStatus };
 }

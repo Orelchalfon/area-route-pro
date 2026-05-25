@@ -5,6 +5,8 @@ import { loadCustomersFromCSV } from '@/lib/csvParser';
 import { useICSImport } from '@/hooks/useICSImport';
 import { useMalfunctionsInstallations } from '@/hooks/useMalfunctionsInstallations';
 import { supabase } from '@/integrations/supabase/client';
+import { buildDbJobUpdatePatch, getDbJobRef, JobSyncPatch } from '@/lib/dbJobSync';
+import { getDbSyncStatus } from '@/lib/dbSyncStatus';
 
 function shouldResetStoredCoords(data: Partial<Customer>) {
   const updatesAddress = Object.prototype.hasOwnProperty.call(data, 'address') || Object.prototype.hasOwnProperty.call(data, 'city');
@@ -21,7 +23,32 @@ export function useJobs() {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const { icsCustomers, icsJobs, icsLoaded } = useICSImport();
-  const { jobs: dbJobs, customers: dbCustomers, loaded: dbLoaded } = useMalfunctionsInstallations();
+  const {
+    jobs: dbJobs,
+    customers: dbCustomers,
+    loaded: dbLoaded,
+    loading: dbLoading,
+    error: dbSyncError,
+    lastSyncedAt: dbLastSyncedAt,
+    realtimeStatus,
+    refresh: refreshDbJobs,
+  } = useMalfunctionsInstallations();
+  const dbSyncStatus = getDbSyncStatus({
+    loading: dbLoading,
+    error: dbSyncError,
+    realtimeStatus,
+    loaded: dbLoaded,
+  });
+
+  const persistDbJob = useCallback((jobId: string, data: JobSyncPatch) => {
+    const ref = getDbJobRef(jobId);
+    if (!ref) return;
+
+    const patch = buildDbJobUpdatePatch(data);
+    supabase.from(ref.table).update(patch).eq('id', ref.dbId).then(({ error }) => {
+      if (error) console.error(`Failed to persist ${ref.table} job ${jobId}:`, error);
+    });
+  }, []);
 
   // Load real customers from CSV
   useEffect(() => {
@@ -38,6 +65,7 @@ export function useJobs() {
 
   // Sync malfunctions + installations from DB (replaces previous CSV loaders)
   useEffect(() => {
+    console.log('[merge] dataLoaded:', dataLoaded, 'dbLoaded:', dbLoaded, 'dbJobs:', dbJobs.length, 'dbCustomers:', dbCustomers.length, 'lastSyncedAt:', dbLastSyncedAt);
     if (!dataLoaded || !dbLoaded) return;
 
     setCustomersList(prev => {
@@ -49,7 +77,7 @@ export function useJobs() {
       const withoutDb = prev.filter(j => !j.id.startsWith('db-malf-') && !j.id.startsWith('db-inst-'));
       return [...withoutDb, ...dbJobs];
     });
-  }, [dataLoaded, dbLoaded, dbJobs, dbCustomers]);
+  }, [dataLoaded, dbLoaded, dbJobs, dbCustomers, dbLastSyncedAt]);
 
 
   // Merge ICS calendar data: update existing customers' filterReplacementMonth & serviceTrack, add ICS-only customers, and add service jobs
@@ -119,6 +147,7 @@ export function useJobs() {
 
   const updateJobStatus = (jobId: string, status: JobStatus) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status } : j));
+    persistDbJob(jobId, { status });
   };
 
   const approveSchedule = (jobIds: string[]) => {
@@ -139,6 +168,12 @@ export function useJobs() {
         const assignment = assignmentMap.get(j.id);
         if (assignment) {
           addLog(j.customerId, 'שיבוץ', `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`, j.id);
+          persistDbJob(j.id, {
+            status: 'confirmed',
+            technicianId: assignment.technicianId,
+            scheduledDate: assignment.scheduledDate,
+            scheduledTime: assignment.scheduledTime,
+          });
           return {
             ...j,
             status: 'confirmed' as JobStatus,
@@ -157,6 +192,12 @@ export function useJobs() {
             const assignment = assignmentMap.get(job.id);
             if (assignment) {
               addLog(job.customerId, 'שיבוץ', `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`, job.id);
+              persistDbJob(job.id, {
+                status: 'confirmed',
+                technicianId: assignment.technicianId,
+                scheduledDate: assignment.scheduledDate,
+                scheduledTime: assignment.scheduledTime,
+              });
               updated.push({
                 ...job,
                 status: 'confirmed' as JobStatus,
@@ -177,6 +218,7 @@ export function useJobs() {
     setJobs(prev => prev.map(j => 
       j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionNotes: notes, completionStatus: 'done' as CompletionStatus } : j
     ));
+    persistDbJob(jobId, { status: 'completed', completionNotes: notes, completionStatus: 'done' });
   };
 
   const markJobCompletion = (jobId: string, completionStatus: CompletionStatus, notes: string) => {
@@ -184,6 +226,7 @@ export function useJobs() {
     setJobs(prev => {
       const job = prev.find(j => j.id === jobId);
       if (job) addLog(job.customerId, `דיווח טכנאי: ${statusLabels[completionStatus]}`, notes || 'ללא הערות', jobId);
+      if (job) persistDbJob(jobId, { status: 'completed', completionStatus, completionNotes: notes });
       return prev.map(j =>
         j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionStatus, completionNotes: notes } : j
       );
@@ -196,6 +239,7 @@ export function useJobs() {
       if (!job) return prev;
 
       addLog(job.customerId, 'סגירת קריאה', `קריאה ${JOB_TYPE_CONFIG[job.type].label} נסגרה`, jobId);
+      persistDbJob(jobId, { status: 'completed' });
       setClosedJobs(old => [...old, job]);
 
       if (job.type === 'filter_replacement') {
@@ -231,6 +275,14 @@ export function useJobs() {
       const job = prev.find(j => j.id === jobId);
       if (!job) return prev;
       addLog(job.customerId, 'החזרת קריאה', `קריאה ${JOB_TYPE_CONFIG[job.type].label} הוחזרה למאגר`, jobId);
+      persistDbJob(jobId, {
+        status: 'draft',
+        technicianId: null,
+        scheduledDate: null,
+        scheduledTime: null,
+        completionStatus: null,
+        completionNotes: null,
+      });
       return prev.map(j => j.id === jobId ? {
         ...j,
         status: 'draft' as JobStatus,
@@ -245,8 +297,10 @@ export function useJobs() {
     setJobs(prev => {
       const job = prev.find(j => j.id === jobId);
       if (!job || job.type !== 'filter_replacement') {
+        persistDbJob(jobId, { status: 'completed' });
         return prev.map(j => j.id === jobId ? { ...j, status: 'completed' as JobStatus } : j);
       }
+      persistDbJob(jobId, { status: 'completed' });
       const updated = prev.map(j => j.id === jobId ? { ...j, status: 'completed' as JobStatus } : j);
       const customer = customersList.find(c => c.id === job.customerId);
       const currentYear = parseInt(job.createdAt.split('-')[0]);
@@ -276,30 +330,25 @@ export function useJobs() {
     setJobs(prev => prev.map(j => 
       j.id === jobId ? { ...j, technicianId, scheduledDate, scheduledTime } : j
     ));
+    persistDbJob(jobId, { technicianId, scheduledDate, scheduledTime });
   };
 
   const updateJob = (jobId: string, data: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration' | 'priority' | 'type'>> & { lat?: number; lng?: number }) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...data } : j));
 
-    if (jobId.startsWith('db-malf-') || jobId.startsWith('db-inst-')) {
-      const isMalf = jobId.startsWith('db-malf-');
-      const dbId = jobId.replace(isMalf ? 'db-malf-' : 'db-inst-', '');
-      const patch: Record<string, unknown> = { source: 'app' };
-      if (data.location !== undefined) patch.address = data.location;
-      if (data.city !== undefined) patch.city = data.city;
-      if (data.notes !== undefined) patch.notes = data.notes;
-      if (data.priority !== undefined) patch.priority = data.priority;
-      const table = isMalf ? 'malfunctions' : 'installations';
-      supabase.from(table).update(patch).eq('id', dbId).then(({ error }) => {
-        if (error) console.error(`Failed to update ${table}:`, error);
-      });
-    }
+    persistDbJob(jobId, data);
   };
 
   const unassignJob = (jobId: string) => {
     setJobs(prev => prev.map(j => 
       j.id === jobId ? { ...j, status: 'draft' as JobStatus, technicianId: undefined, scheduledDate: undefined, scheduledTime: undefined } : j
     ));
+    persistDbJob(jobId, {
+      status: 'draft',
+      technicianId: null,
+      scheduledDate: null,
+      scheduledTime: null,
+    });
   };
 
   const addJob = (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string; status?: JobStatus; id?: string; estimatedDuration?: number; location?: string; city?: string }) => {
@@ -390,5 +439,5 @@ export function useJobs() {
 
   const getCustomerLogs = (customerId: string) => activityLogs.filter(l => l.customerId === customerId);
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }

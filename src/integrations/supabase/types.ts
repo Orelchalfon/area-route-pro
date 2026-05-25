@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -18,8 +18,12 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          completed_at: string | null
+          completion_notes: string | null
+          completion_status: string | null
           created_at: string
           customer_name: string | null
+          estimated_duration: number | null
           id: string
           installation_date: string | null
           installation_time: string | null
@@ -28,16 +32,23 @@ export type Database = {
           priority: string | null
           product_type: string | null
           region: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
           sheet_row_id: string | null
           source: string | null
           status: string | null
+          technician_id: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
           city?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           created_at?: string
           customer_name?: string | null
+          estimated_duration?: number | null
           id?: string
           installation_date?: string | null
           installation_time?: string | null
@@ -46,16 +57,23 @@ export type Database = {
           priority?: string | null
           product_type?: string | null
           region?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
           sheet_row_id?: string | null
           source?: string | null
           status?: string | null
+          technician_id?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
           city?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           created_at?: string
           customer_name?: string | null
+          estimated_duration?: number | null
           id?: string
           installation_date?: string | null
           installation_time?: string | null
@@ -64,9 +82,12 @@ export type Database = {
           priority?: string | null
           product_type?: string | null
           region?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
           sheet_row_id?: string | null
           source?: string | null
           status?: string | null
+          technician_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -75,52 +96,73 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          completed_at: string | null
+          completion_notes: string | null
+          completion_status: string | null
           created_at: string
           customer_name: string | null
           description: string | null
+          estimated_duration: number | null
           id: string
           malfunction_date: string | null
           notes: string | null
           phone: string | null
           priority: string | null
           region: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
           sheet_row_id: string | null
           source: string | null
           status: string | null
+          technician_id: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
           city?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           created_at?: string
           customer_name?: string | null
           description?: string | null
+          estimated_duration?: number | null
           id?: string
           malfunction_date?: string | null
           notes?: string | null
           phone?: string | null
           priority?: string | null
           region?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
           sheet_row_id?: string | null
           source?: string | null
           status?: string | null
+          technician_id?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
           city?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           created_at?: string
           customer_name?: string | null
           description?: string | null
+          estimated_duration?: number | null
           id?: string
           malfunction_date?: string | null
           notes?: string | null
           phone?: string | null
           priority?: string | null
           region?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
           sheet_row_id?: string | null
           source?: string | null
           status?: string | null
+          technician_id?: string | null
           updated_at?: string
         }
         Relationships: []
