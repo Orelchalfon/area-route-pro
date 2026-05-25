@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.env
+
+# Local caches and temp output
+.pnpm-store/
+supabase/.temp/
+*.stackdump
+current-blueprint.json
