@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, MapPin, CheckCircle2, Pencil, Save, X } from 'lucide-react';
+import { AlertTriangle, Clock, MapPin, CheckCircle2, Pencil, RefreshCw, Save, Wifi, X } from 'lucide-react';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { geocodeAddress } from '@/lib/geocodeAddress';
 
@@ -49,6 +49,47 @@ interface EditForm {
   city: string;
   notes: string;
   priority: string;
+}
+
+function formatLastSyncedAt(value?: string) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('he-IL', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function LiveSyncStatus({ status, lastSyncedAt, error }: {
+  status: 'loading' | 'live' | 'syncing' | 'error';
+  lastSyncedAt?: string;
+  error?: string;
+}) {
+  const time = formatLastSyncedAt(lastSyncedAt);
+
+  if (status === 'error') {
+    return (
+      <span className="flex items-center gap-1.5 text-destructive" title={error}>
+        <AlertTriangle className="w-3.5 h-3.5" />
+        שגיאת סנכרון
+      </span>
+    );
+  }
+
+  if (status === 'loading' || status === 'syncing') {
+    return (
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+        מסנכרן...
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1.5 text-success">
+      <Wifi className="w-3.5 h-3.5" />
+      מחובר לעדכונים חיים{time ? ` · עודכן לאחרונה ${time}` : ''}
+    </span>
+  );
 }
 
 function EditableJobRow({ job, customer, tech, showAssignment, editingId, onStartEdit, onCancelEdit, onSave }: {
@@ -139,6 +180,9 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
   const { customersList: customers, updateJob, updateCustomer } = useJobsContext();
   const { fetchKey } = useGoogleMapsKey();
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const latestDbInst = customers.filter(c => c.id.startsWith('db-inst-cust-')).slice(-1)[0];
+  console.log('[render JobsByArea] db-inst customers:', customers.filter(c => c.id.startsWith('db-inst-cust-')).length, '| last name:', latestDbInst?.name, '| last address:', latestDbInst?.address);
 
   const handleSave = async (jobId: string, customerId: string, data: EditForm) => {
     updateJob(jobId, {
@@ -245,9 +289,11 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
 }
 
 export default function JobCategoryPage({ category }: { category: 'malfunctions' | 'installations' | 'service' }) {
-  const { jobs } = useJobsContext();
+  const { jobs, dbSyncStatus, dbSyncError, dbLastSyncedAt, refreshDbJobs } = useJobsContext();
   const config = categoryConfig[category];
   const allOfType = jobs.filter(j => j.type === config.type);
+  const showLiveSyncStatus = category !== 'service';
+  const isRefreshing = dbSyncStatus === 'loading' || dbSyncStatus === 'syncing';
 
   const unassigned = allOfType.filter(j => !j.technicianId && !j.scheduledDate && j.status === 'draft');
   const assigned = allOfType.filter(j => j.technicianId || j.scheduledDate || j.status !== 'draft');
@@ -256,7 +302,24 @@ export default function JobCategoryPage({ category }: { category: 'malfunctions'
     <div dir="rtl">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-foreground">{config.title}</h2>
-        <div className="flex gap-3 text-sm">
+        <div className="flex items-center gap-3 text-sm">
+          {showLiveSyncStatus && (
+            <>
+              <LiveSyncStatus status={dbSyncStatus} error={dbSyncError} lastSyncedAt={dbLastSyncedAt} />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1.5 px-2.5 text-xs"
+                onClick={() => { void refreshDbJobs(); }}
+                disabled={isRefreshing}
+                aria-label="רענן נתונים מהשרת"
+                title="רענן נתונים מהשרת"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                רענן
+              </Button>
+            </>
+          )}
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="w-2 h-2 rounded-full bg-muted-foreground" />
             ממתינים: {unassigned.length}
