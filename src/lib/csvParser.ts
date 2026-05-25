@@ -165,7 +165,7 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
     const firstName = get(iFirst);
     const middleName = get(iMiddle);
     const lastName = get(iLast);
-    let name = buildName(firstName, middleName, lastName);
+    const name = buildName(firstName, middleName, lastName);
     
     if (!name) continue;
     
@@ -218,8 +218,8 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
     if (!primaryPhone) continue; // skip contacts without any phone
     
     // ---- Address: prefer home, then business, then other ----
-    let address = clean(get(iHomeStreet)) || clean(get(iBizStreet)) || clean(get(iOtherStreet));
-    let city = clean(get(iHomeCity)) || clean(get(iBizCity)) || clean(get(iOtherCity));
+    const address = clean(get(iHomeStreet)) || clean(get(iBizStreet)) || clean(get(iOtherStreet));
+    const city = clean(get(iHomeCity)) || clean(get(iBizCity)) || clean(get(iOtherCity));
     
     // Capture secondary addresses in notes
     const addressNotes: string[] = [];

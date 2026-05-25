@@ -156,7 +156,7 @@ function distributeFilterJobs(filterJobs: Job[], workingDays: Date[]): Map<strin
 
   // Pack areas into days: fill each day up to perDay before moving to the next
   for (const cityJobs of Object.values(jobsByCity)) {
-    let remaining = [...cityJobs];
+    const remaining = [...cityJobs];
     while (remaining.length > 0 && dayIdx < dayKeys.length) {
       const dateStr = dayKeys[dayIdx];
       const existing = distribution.get(dateStr) || [];
@@ -666,7 +666,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
       || nextCity !== (customer.city || '').trim()
     );
 
-    let customerUpdate: Partial<Customer> | null = customer
+    const customerUpdate: Partial<Customer> | null = customer
       ? { address: nextLocation, city: nextCity }
       : null;
 
@@ -690,7 +690,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
         }
       }
 
-      const nextJobData: Record<string, any> = {
+      const nextJobData: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration'>> & { lat?: number; lng?: number } = {
         ...editForm,
         location: nextLocation,
         city: nextCity,

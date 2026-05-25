@@ -121,7 +121,12 @@ export default function DailyRoutePage() {
     toast.success(`מסלול נשמר! ${assignments.length} עצירות סודרו מחדש`);
   }, [orderedJobIds, orderedJobs, selectedTechId, todayStr, approveDaySchedule]);
 
-  const handleSaveEdit = useCallback((jobId: string, customerId: string, jobData: any, customerData: any) => {
+  const handleSaveEdit = useCallback((
+    jobId: string,
+    customerId: string,
+    jobData: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration'>>,
+    customerData: Partial<Customer>
+  ) => {
     updateJob(jobId, jobData);
     updateCustomer(customerId, customerData);
     setEditingJobId(null);

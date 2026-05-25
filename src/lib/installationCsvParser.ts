@@ -145,7 +145,7 @@ function parseSimpleCSV(text: string): string[][] {
 
 function cleanName(raw: string): string {
   // Remove phone numbers from name, keep the name part
-  return raw.replace(/[\d\-()]{7,}/g, '').replace(/\s+/g, ' ').trim();
+  return raw.replace(/[-\d()]{7,}/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function cleanCity(raw: string): string {
@@ -155,8 +155,8 @@ function cleanCity(raw: string): string {
 
 function extractPhone(raw: string): string {
   if (!raw) return '';
-  const match = raw.match(/0\d[\d\-]{7,}/);
-  return match ? match[0].replace(/[^0-9\-]/g, '').trim() : '';
+  const match = raw.match(/0\d[\d-]{7,}/);
+  return match ? match[0].replace(/[^0-9-]/g, '').trim() : '';
 }
 
 /**

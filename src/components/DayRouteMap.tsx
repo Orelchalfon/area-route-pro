@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
-import { Job, JOB_TYPE_CONFIG } from '@/types';
+import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { getCustomerCoords } from '@/lib/customerCoords';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
@@ -121,7 +121,7 @@ function DayRouteMapInner({
   onLoad,
 }: {
   apiKey: string;
-  jobsWithCoords: { job: Job; customer: any; coords: { lat: number; lng: number } }[];
+  jobsWithCoords: { job: Job; customer: Customer | undefined; coords: { lat: number; lng: number } }[];
   height: string;
   activeMarkerId: string | null;
   setActiveMarkerId: (id: string | null) => void;

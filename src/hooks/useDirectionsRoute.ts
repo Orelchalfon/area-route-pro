@@ -50,8 +50,6 @@ export function useDirectionsRoute({
 
     if (stableWaypoints.length < 2) {
       cleanup();
-      if (stableWaypoints.length === 1) {
-      }
       return cleanup;
     }
 

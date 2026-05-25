@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { technicians } from '@/data/mockData';
-import { JOB_TYPE_CONFIG } from '@/types';
+import { Customer, Job, JobType, JOB_TYPE_CONFIG } from '@/types';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -353,15 +353,15 @@ function AddTaskToScheduleDialog({
 }: {
   techId: string;
   dateStr: string;
-  existingJobs: ReturnType<typeof Array<any>>;
-  customersList: any[];
-  onAdd: (customerId: string, type: 'malfunction' | 'installation' | 'filter_replacement', afterJobId: string | null, notes?: string) => void;
+  existingJobs: Job[];
+  customersList: Customer[];
+  onAdd: (customerId: string, type: JobType, afterJobId: string | null, notes?: string) => void;
   onClose: () => void;
   getCustomerName: (id: string) => string;
 }) {
   const [search, setSearch] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [jobType, setJobType] = useState<'malfunction' | 'installation' | 'filter_replacement'>('malfunction');
+  const [jobType, setJobType] = useState<JobType>('malfunction');
   const [afterJobId, setAfterJobId] = useState<string | null>(null);
   const [serviceSubType, setServiceSubType] = useState<string>('annual_filter');
 
@@ -390,7 +390,7 @@ function AddTaskToScheduleDialog({
           {/* Job type selection */}
           <div>
             <label className="text-sm font-medium mb-1 block">סוג משימה</label>
-            <Tabs value={jobType} onValueChange={v => setJobType(v as any)}>
+            <Tabs value={jobType} onValueChange={v => setJobType(v as JobType)}>
               <TabsList className="w-full">
                 <TabsTrigger value="malfunction" className="flex-1">תקלה</TabsTrigger>
                 <TabsTrigger value="installation" className="flex-1">התקנה</TabsTrigger>
@@ -452,7 +452,7 @@ function AddTaskToScheduleDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__start__">בתחילת היום</SelectItem>
-                  {existingJobs.map((j: any) => (
+                  {existingJobs.map(j => (
                     <SelectItem key={j.id} value={j.id}>
                       אחרי {getCustomerName(j.customerId)} {j.scheduledTime ? `(${j.scheduledTime})` : ''}
                     </SelectItem>

@@ -6,6 +6,7 @@ import { Pencil, Save, X, Navigation, GripVertical, Filter, AlertTriangle, Wrenc
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { geocodeAddress } from '@/lib/geocodeAddress';
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 
 const typeIcons: Record<string, React.ReactNode> = {
   filter_replacement: <Filter className="w-3.5 h-3.5" />,
@@ -28,7 +29,7 @@ interface EditableRouteStopProps {
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSave: (jobId: string, customerId: string, jobData: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration'>>, customerData: Partial<Customer>) => void;
-  dragHandleProps?: any;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   isDragging?: boolean;
   showTime?: boolean;
 }

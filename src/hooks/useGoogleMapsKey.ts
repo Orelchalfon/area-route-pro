@@ -36,8 +36,8 @@ export function useGoogleMapsKey() {
       const key = await pendingApiKeyRequest;
       setApiKey(key);
       return key;
-    } catch (e: any) {
-      setError(e.message || 'Failed to load map key');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load map key');
       return null;
     } finally {
       setLoading(false);
