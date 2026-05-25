@@ -39,16 +39,20 @@ SET search_path = public
 AS $$
 DECLARE
   payload jsonb;
-  func_url text := 'https://cnbnhhcymmzisvwehyor.supabase.co/functions/v1/send-to-make';
-  service_key text;
+  func_url text := nullif(current_setting('app.send_to_make_url', true), '');
   row_data jsonb;
 BEGIN
+  IF func_url IS NULL THEN
+    RAISE WARNING 'notify_make_on_change skipped: app.send_to_make_url is not configured';
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
   IF (TG_OP = 'DELETE') THEN
     row_data := to_jsonb(OLD);
   ELSE
     row_data := to_jsonb(NEW);
     -- Skip if change came from sheet (avoid loops)
-    IF row_data->>'source' = 'sheet' THEN
+    IF row_data->>'source' = 'sheets' THEN
       RETURN NEW;
     END IF;
   END IF;
