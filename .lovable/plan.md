@@ -13,7 +13,7 @@
 - שעות עבודה: ראשון–חמישי, 09:00–17:00
 
 ### 2. סטאק טכנולוגי מדויק
-React 18 + Vite 5 + TypeScript 5 + Tailwind v3 + shadcn/ui + React Router v6 + TanStack Query + Supabase (Lovable Cloud) + Google Maps JS API
+React 18 + Vite 5 + TypeScript 5 + Tailwind v4 (`@tailwindcss/vite`) + shadcn/ui + React Router v6 + TanStack Query + Supabase (Lovable Cloud) + Google Maps JS API
 
 ### 3. מודל נתונים מלא (types/index.ts)
 - 3 סוגי קריאות: `filter_replacement` / `malfunction` / `installation`
@@ -45,7 +45,7 @@ React 18 + Vite 5 + TypeScript 5 + Tailwind v3 + shadcn/ui + React Router v6 + T
 - טבלאות: `malfunctions`, `installations` (סכמה מלאה + RLS)
 - Edge functions: `get-google-maps-key`, `receive-from-make`, `send-to-make`
 - Realtime publication על שתי הטבלאות
-- Secrets: MAKE_WEBHOOK, GOOGLE_MAPS_API_KEY
+- Secrets: MAKE_WEBHOOK_URL, MAKE_WEBHOOK_SECRET, GOOGLE_MAPS_API_KEY
 
 ### 7. אינטגרציות חיצוניות
 - Google Maps (אך ורק — לא Leaflet): autocomplete, geocoding, directions
@@ -71,8 +71,10 @@ React 18 + Vite 5 + TypeScript 5 + Tailwind v3 + shadcn/ui + React Router v6 + T
 - אין שני sources of truth
 - מיגרציות בלבד דרך כלי Supabase
 
-### 12. נקודות פתוחות (מה נשאר לסיים)
-- סנכרון Sheets דו-כיווני (DB triggers + persistence ב-updateJob)
+### 12. סטטוס ונקודות פתוחות
+- סנכרון Sheets דו-כיווני פעיל עבור `malfunctions`/`installations`: `source='sheets'`, `x-make-secret`, DB trigger ל-`send-to-make`, ו-persistence ב-`updateJob`/שיבוץ/החזרה/סגירה.
+- קריאות שירות/פילטר עדיין מקומיות עד הוספת טבלת `jobs` מלאה.
+- בדיקות baseline: להריץ `pnpm lint`, `pnpm test`, `pnpm build`.
 - כפתור Initial import
 - 2× Watch Rows + 1× Webhook ב-Make
 - Auth (טרם הוטמע)
