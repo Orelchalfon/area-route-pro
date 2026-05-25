@@ -28,9 +28,9 @@ Deno.serve(async (req) => {
     const row = record ?? old_record ?? {};
 
     // Don't echo back changes that originated from the sheet.
-    if (row?.source === "sheet" && type !== "DELETE") {
-      console.log("[send-to-make] skipping — source=sheet (avoid loop)");
-      return json({ skipped: true, reason: "source=sheet" });
+    if (row?.source === "sheets" && type !== "DELETE") {
+      console.log("[send-to-make] skipping - source=sheets (avoid loop)");
+      return json({ skipped: true, reason: "source=sheets" });
     }
 
     const entity = table === "malfunctions" ? "malfunction" : "installation";
