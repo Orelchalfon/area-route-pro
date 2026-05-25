@@ -1,34 +1,58 @@
-import { useState } from 'react';
-import { useJobsContext } from '@/contexts/JobsContext';
-import { Job, STATUS_CONFIG, JobType, Customer } from '@/types';
-import { technicians } from '@/data/mockData';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, Clock, MapPin, CheckCircle2, Pencil, RefreshCw, Save, Wifi, X } from 'lucide-react';
-import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
-import { geocodeAddress } from '@/lib/geocodeAddress';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useJobsContext } from "@/contexts/JobsContext";
+import { technicians } from "@/data/mockData";
+import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
+import { geocodeAddress } from "@/lib/geocodeAddress";
+import { Customer, Job, JobType, STATUS_CONFIG } from "@/types";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  Pencil,
+  RefreshCw,
+  Save,
+  Wifi,
+  X,
+} from "lucide-react";
+import { useState } from "react";
 
 const categoryConfig: Record<string, { type: JobType; title: string }> = {
-  malfunctions: { type: 'malfunction', title: 'מאגר תקלות' },
-  installations: { type: 'installation', title: 'מאגר התקנות' },
-  service: { type: 'filter_replacement', title: 'סיכום שירות שוטף' },
+  malfunctions: { type: "malfunction", title: "מאגר תקלות" },
+  installations: { type: "installation", title: "מאגר התקנות" },
+  service: { type: "filter_replacement", title: "סיכום שירות שוטף" },
 };
 
 function StatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
   const colorMap: Record<string, string> = {
-    muted: 'bg-muted text-muted-foreground',
-    warning: 'bg-warning/15 text-warning',
-    info: 'bg-info/15 text-info',
-    secondary: 'bg-secondary/15 text-secondary',
-    success: 'bg-success/15 text-success',
-    accent: 'bg-accent/15 text-accent-foreground',
-    destructive: 'bg-destructive/15 text-destructive',
+    muted: "bg-muted text-muted-foreground",
+    warning: "bg-warning/15 text-warning",
+    info: "bg-info/15 text-info",
+    secondary: "bg-secondary/15 text-secondary",
+    success: "bg-success/15 text-success",
+    accent: "bg-accent/15 text-accent-foreground",
+    destructive: "bg-destructive/15 text-destructive",
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${colorMap[config?.color] || colorMap.muted}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${colorMap[config?.color] || colorMap.muted}`}>
       {config?.label}
     </span>
   );
@@ -36,12 +60,17 @@ function StatusBadge({ status }: { status: string }) {
 
 function PriorityBadge({ priority }: { priority: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    high: { label: 'גבוהה', cls: 'bg-destructive/15 text-destructive' },
-    medium: { label: 'בינונית', cls: 'bg-warning/15 text-warning' },
-    low: { label: 'נמוכה', cls: 'bg-info/15 text-info' },
+    high: { label: "גבוהה", cls: "bg-destructive/15 text-destructive" },
+    medium: { label: "בינונית", cls: "bg-warning/15 text-warning" },
+    low: { label: "נמוכה", cls: "bg-info/15 text-info" },
   };
   const p = map[priority] || map.low;
-  return <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${p.cls}`}>{p.label}</span>;
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${p.cls}`}>
+      {p.label}
+    </span>
+  );
 }
 
 interface EditForm {
@@ -53,46 +82,61 @@ interface EditForm {
 
 function formatLastSyncedAt(value?: string) {
   if (!value) return null;
-  return new Intl.DateTimeFormat('he-IL', {
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Intl.DateTimeFormat("he-IL", {
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(value));
 }
 
-function LiveSyncStatus({ status, lastSyncedAt, error }: {
-  status: 'loading' | 'live' | 'syncing' | 'error';
+function LiveSyncStatus({
+  status,
+  lastSyncedAt,
+  error,
+}: {
+  status: "loading" | "live" | "syncing" | "error";
   lastSyncedAt?: string;
   error?: string;
 }) {
   const time = formatLastSyncedAt(lastSyncedAt);
 
-  if (status === 'error') {
+  if (status === "error") {
     return (
-      <span className="flex items-center gap-1.5 text-destructive" title={error}>
-        <AlertTriangle className="w-3.5 h-3.5" />
+      <span
+        className='flex items-center gap-1.5 text-destructive'
+        title={error}>
+        <AlertTriangle className='w-3.5 h-3.5' />
         שגיאת סנכרון
       </span>
     );
   }
 
-  if (status === 'loading' || status === 'syncing') {
+  if (status === "loading" || status === "syncing") {
     return (
-      <span className="flex items-center gap-1.5 text-muted-foreground">
-        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+      <span className='flex items-center gap-1.5 text-muted-foreground'>
+        <RefreshCw className='w-3.5 h-3.5 animate-spin' />
         מסנכרן...
       </span>
     );
   }
 
   return (
-    <span className="flex items-center gap-1.5 text-success">
-      <Wifi className="w-3.5 h-3.5" />
-      מחובר לעדכונים חיים{time ? ` · עודכן לאחרונה ${time}` : ''}
+    <span className='flex items-center gap-1.5 text-success'>
+      <Wifi className='w-3.5 h-3.5' />
+      מחובר לעדכונים חיים{time ? ` · עודכן לאחרונה ${time}` : ""}
     </span>
   );
 }
 
-function EditableJobRow({ job, customer, tech, showAssignment, editingId, onStartEdit, onCancelEdit, onSave }: {
+function EditableJobRow({
+  job,
+  customer,
+  tech,
+  showAssignment,
+  editingId,
+  onStartEdit,
+  onCancelEdit,
+  onSave,
+}: {
   job: Job;
   customer: Customer | undefined;
   tech: { name: string } | undefined;
@@ -104,53 +148,87 @@ function EditableJobRow({ job, customer, tech, showAssignment, editingId, onStar
 }) {
   const isEditing = editingId === job.id;
   const [form, setForm] = useState<EditForm>({
-    location: job.location || customer?.address || '',
-    city: job.city || customer?.city || '',
-    notes: job.notes || '',
-    priority: job.priority || 'low',
+    location: job.location || customer?.address || "",
+    city: job.city || customer?.city || "",
+    notes: job.notes || "",
+    priority: job.priority || "low",
   });
 
   const handleStartEdit = () => {
     setForm({
-      location: job.location || customer?.address || '',
-      city: job.city || customer?.city || '',
-      notes: job.notes || '',
-      priority: job.priority || 'low',
+      location: job.location || customer?.address || "",
+      city: job.city || customer?.city || "",
+      notes: job.notes || "",
+      priority: job.priority || "low",
     });
     onStartEdit(job.id);
   };
 
   if (isEditing) {
     return (
-      <TableRow className="bg-primary/5">
-        <TableCell className="font-medium">{customer?.name}</TableCell>
+      <TableRow className='bg-primary/5'>
+        <TableCell className='font-medium'>{customer?.name}</TableCell>
         <TableCell>
-          <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className="h-7 text-xs" placeholder="כתובת" />
-          <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="h-7 text-xs mt-1" placeholder="עיר" />
+          <Input
+            value={form.location}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, location: e.target.value }))
+            }
+            className='h-7 text-xs'
+            placeholder='כתובת'
+          />
+          <Input
+            value={form.city}
+            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+            className='h-7 text-xs mt-1'
+            placeholder='עיר'
+          />
         </TableCell>
         <TableCell>
-          <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
-            <SelectTrigger className="h-7 text-xs w-24"><SelectValue /></SelectTrigger>
+          <Select
+            value={form.priority}
+            onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
+            <SelectTrigger className='h-7 text-xs w-24'>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="high">גבוהה</SelectItem>
-              <SelectItem value="medium">בינונית</SelectItem>
-              <SelectItem value="low">נמוכה</SelectItem>
+              <SelectItem value='high'>גבוהה</SelectItem>
+              <SelectItem value='medium'>בינונית</SelectItem>
+              <SelectItem value='low'>נמוכה</SelectItem>
             </SelectContent>
           </Select>
         </TableCell>
-        <TableCell><StatusBadge status={job.status} /></TableCell>
-        {showAssignment && <TableCell>{tech?.name || '—'}</TableCell>}
-        {showAssignment && <TableCell className="whitespace-nowrap">{job.scheduledDate || '—'}</TableCell>}
         <TableCell>
-          <Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="h-7 text-xs" placeholder="הערות" />
+          <StatusBadge status={job.status} />
+        </TableCell>
+        {showAssignment && <TableCell>{tech?.name || "—"}</TableCell>}
+        {showAssignment && (
+          <TableCell className='whitespace-nowrap'>
+            {job.scheduledDate || "—"}
+          </TableCell>
+        )}
+        <TableCell>
+          <Input
+            value={form.notes}
+            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            className='h-7 text-xs'
+            placeholder='הערות'
+          />
         </TableCell>
         <TableCell>
-          <div className="flex gap-1">
-            <Button size="sm" className="h-6 px-2 text-xs gap-1" onClick={() => customer && onSave(job.id, customer.id, form)}>
-              <Save className="w-3 h-3" /> שמור
+          <div className='flex gap-1'>
+            <Button
+              size='sm'
+              className='h-6 px-2 text-xs gap-1'
+              onClick={() => customer && onSave(job.id, customer.id, form)}>
+              <Save className='w-3 h-3' /> שמור
             </Button>
-            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onCancelEdit}>
-              <X className="w-3 h-3" />
+            <Button
+              size='sm'
+              variant='ghost'
+              className='h-6 px-2 text-xs'
+              onClick={onCancelEdit}>
+              <X className='w-3 h-3' />
             </Button>
           </div>
         </TableCell>
@@ -160,36 +238,70 @@ function EditableJobRow({ job, customer, tech, showAssignment, editingId, onStar
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{customer?.name}</TableCell>
+      <TableCell className='font-medium'>{customer?.name}</TableCell>
       <TableCell>{job.location}</TableCell>
-      <TableCell><PriorityBadge priority={job.priority} /></TableCell>
-      <TableCell><StatusBadge status={job.status} /></TableCell>
-      {showAssignment && <TableCell>{tech?.name || '—'}</TableCell>}
-      {showAssignment && <TableCell className="whitespace-nowrap">{job.scheduledDate || '—'}</TableCell>}
-      <TableCell className="max-w-[200px] truncate">{job.notes}</TableCell>
       <TableCell>
-        <button onClick={handleStartEdit} className="p-1 rounded hover:bg-muted/50 transition-colors" title="ערוך">
-          <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+        <PriorityBadge priority={job.priority} />
+      </TableCell>
+      <TableCell>
+        <StatusBadge status={job.status} />
+      </TableCell>
+      {showAssignment && <TableCell>{tech?.name || "—"}</TableCell>}
+      {showAssignment && (
+        <TableCell className='whitespace-nowrap'>
+          {job.scheduledDate || "—"}
+        </TableCell>
+      )}
+      <TableCell className='max-w-50 truncate'>{job.notes}</TableCell>
+      <TableCell>
+        <button
+          onClick={handleStartEdit}
+          className='p-1 rounded hover:bg-muted/50 transition-colors'
+          title='ערוך'>
+          <Pencil className='w-3.5 h-3.5 text-muted-foreground' />
         </button>
       </TableCell>
     </TableRow>
   );
 }
 
-function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: boolean }) {
-  const { customersList: customers, updateJob, updateCustomer } = useJobsContext();
+function JobsByArea({
+  jobs,
+  showAssignment,
+}: {
+  jobs: Job[];
+  showAssignment?: boolean;
+}) {
+  const {
+    customersList: customers,
+    updateJob,
+    updateCustomer,
+  } = useJobsContext();
   const { fetchKey } = useGoogleMapsKey();
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const latestDbInst = customers.filter(c => c.id.startsWith('db-inst-cust-')).slice(-1)[0];
-  console.log('[render JobsByArea] db-inst customers:', customers.filter(c => c.id.startsWith('db-inst-cust-')).length, '| last name:', latestDbInst?.name, '| last address:', latestDbInst?.address);
+  const latestDbInst = customers
+    .filter((c) => c.id.startsWith("db-inst-cust-"))
+    .slice(-1)[0];
+  console.log(
+    "[render JobsByArea] db-inst customers:",
+    customers.filter((c) => c.id.startsWith("db-inst-cust-")).length,
+    "| last name:",
+    latestDbInst?.name,
+    "| last address:",
+    latestDbInst?.address,
+  );
 
-  const handleSave = async (jobId: string, customerId: string, data: EditForm) => {
+  const handleSave = async (
+    jobId: string,
+    customerId: string,
+    data: EditForm,
+  ) => {
     updateJob(jobId, {
       location: data.location,
       city: data.city,
       notes: data.notes,
-      priority: data.priority as Job['priority'],
+      priority: data.priority as Job["priority"],
     });
 
     const customerData: Partial<Customer> = {
@@ -197,11 +309,15 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
       city: data.city,
     };
 
-    const currentCustomer = customers.find(customer => customer.id === customerId);
-    const hasLocationChange = (data.location || '').trim() !== (currentCustomer?.address || '').trim()
-      || (data.city || '').trim() !== (currentCustomer?.city || '').trim();
+    const currentCustomer = customers.find(
+      (customer) => customer.id === customerId,
+    );
+    const hasLocationChange =
+      (data.location || "").trim() !==
+        (currentCustomer?.address || "").trim() ||
+      (data.city || "").trim() !== (currentCustomer?.city || "").trim();
 
-    const fullAddress = [data.location, data.city].filter(Boolean).join(', ');
+    const fullAddress = [data.location, data.city].filter(Boolean).join(", ");
     if (hasLocationChange && fullAddress) {
       const geocoded = await geocodeAddress(fullAddress, await fetchKey());
 
@@ -222,118 +338,156 @@ function JobsByArea({ jobs, showAssignment }: { jobs: Job[]; showAssignment?: bo
 
   if (jobs.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
-        <CheckCircle2 className="w-10 h-10 mx-auto mb-2 opacity-40" />
-        <p className="font-medium">אין משימות</p>
+      <div className='text-center py-8 text-muted-foreground'>
+        <CheckCircle2 className='w-10 h-10 mx-auto mb-2 opacity-40' />
+        <p className='font-medium'>אין משימות</p>
       </div>
     );
   }
 
   const grouped: Record<string, Job[]> = {};
-  jobs.forEach(job => {
-    const city = job.city || 'לא צוין';
+  jobs.forEach((job) => {
+    const city = job.city || "לא צוין";
     if (!grouped[city]) grouped[city] = [];
     grouped[city].push(job);
   });
 
   return (
-    <div className="space-y-4">
-      {Object.keys(grouped).sort().map(city => (
-        <div key={city} className="bg-card rounded-xl shadow-card border border-border overflow-hidden">
-          <div className="flex items-center gap-2 p-3 border-b border-border bg-muted/30">
-            <MapPin className="w-4 h-4 text-muted-foreground" />
-            <h4 className="font-semibold text-card-foreground">{city}</h4>
-            <span className="text-xs text-muted-foreground">({grouped[city].length})</span>
+    <div className='space-y-4'>
+      {Object.keys(grouped)
+        .sort()
+        .map((city) => (
+          <div
+            key={city}
+            className='bg-card rounded-xl shadow-card border border-border overflow-hidden'>
+            <div className='flex items-center gap-2 p-3 border-b border-border bg-muted/30'>
+              <MapPin className='w-4 h-4 text-muted-foreground' />
+              <h4 className='font-semibold text-card-foreground'>{city}</h4>
+              <span className='text-xs text-muted-foreground'>
+                ({grouped[city].length})
+              </span>
+            </div>
+            <div className='overflow-x-auto'>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className='text-right'>לקוח</TableHead>
+                    <TableHead className='text-right'>כתובת</TableHead>
+                    <TableHead className='text-right'>עדיפות</TableHead>
+                    <TableHead className='text-right'>סטטוס</TableHead>
+                    {showAssignment && (
+                      <TableHead className='text-right'>טכנאי</TableHead>
+                    )}
+                    {showAssignment && (
+                      <TableHead className='text-right'>תאריך</TableHead>
+                    )}
+                    <TableHead className='text-right'>הערות</TableHead>
+                    <TableHead className='text-right w-12'></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {grouped[city]
+                    .sort(
+                      (a, b) =>
+                        (a.scheduledDate || "").localeCompare(
+                          b.scheduledDate || "",
+                        ) ||
+                        (a.scheduledTime || "").localeCompare(
+                          b.scheduledTime || "",
+                        ),
+                    )
+                    .map((job) => {
+                      const customer = customers.find(
+                        (c) => c.id === job.customerId,
+                      );
+                      const tech = technicians.find(
+                        (t) => t.id === job.technicianId,
+                      );
+                      return (
+                        <EditableJobRow
+                          key={job.id}
+                          job={job}
+                          customer={customer}
+                          tech={tech}
+                          showAssignment={showAssignment}
+                          editingId={editingId}
+                          onStartEdit={setEditingId}
+                          onCancelEdit={() => setEditingId(null)}
+                          onSave={handleSave}
+                        />
+                      );
+                    })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">לקוח</TableHead>
-                  <TableHead className="text-right">כתובת</TableHead>
-                  <TableHead className="text-right">עדיפות</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                  {showAssignment && <TableHead className="text-right">טכנאי</TableHead>}
-                  {showAssignment && <TableHead className="text-right">תאריך</TableHead>}
-                  <TableHead className="text-right">הערות</TableHead>
-                  <TableHead className="text-right w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {grouped[city]
-                  .sort((a, b) => (a.scheduledDate || '').localeCompare(b.scheduledDate || '') || (a.scheduledTime || '').localeCompare(b.scheduledTime || ''))
-                  .map(job => {
-                    const customer = customers.find(c => c.id === job.customerId);
-                    const tech = technicians.find(t => t.id === job.technicianId);
-                    return (
-                      <EditableJobRow
-                        key={job.id}
-                        job={job}
-                        customer={customer}
-                        tech={tech}
-                        showAssignment={showAssignment}
-                        editingId={editingId}
-                        onStartEdit={setEditingId}
-                        onCancelEdit={() => setEditingId(null)}
-                        onSave={handleSave}
-                      />
-                    );
-                  })}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      ))}
+        ))}
     </div>
   );
 }
 
-export default function JobCategoryPage({ category }: { category: 'malfunctions' | 'installations' | 'service' }) {
-  const { jobs, dbSyncStatus, dbSyncError, dbLastSyncedAt, refreshDbJobs } = useJobsContext();
+export default function JobCategoryPage({
+  category,
+}: {
+  category: "malfunctions" | "installations" | "service";
+}) {
+  const { jobs, dbSyncStatus, dbSyncError, dbLastSyncedAt, refreshDbJobs } =
+    useJobsContext();
   const config = categoryConfig[category];
-  const allOfType = jobs.filter(j => j.type === config.type);
-  const showLiveSyncStatus = category !== 'service';
-  const isRefreshing = dbSyncStatus === 'loading' || dbSyncStatus === 'syncing';
+  const allOfType = jobs.filter((j) => j.type === config.type);
+  const showLiveSyncStatus = category !== "service";
+  const isRefreshing = dbSyncStatus === "loading" || dbSyncStatus === "syncing";
 
-  const unassigned = allOfType.filter(j => !j.technicianId && !j.scheduledDate && j.status === 'draft');
-  const assigned = allOfType.filter(j => j.technicianId || j.scheduledDate || j.status !== 'draft');
+  const unassigned = allOfType.filter(
+    (j) => !j.technicianId && !j.scheduledDate && j.status === "draft",
+  );
+  const assigned = allOfType.filter(
+    (j) => j.technicianId || j.scheduledDate || j.status !== "draft",
+  );
 
   return (
-    <div dir="rtl">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-foreground">{config.title}</h2>
-        <div className="flex items-center gap-3 text-sm">
+    <div dir='rtl'>
+      <div className='flex items-center justify-between mb-4'>
+        <h2 className='text-2xl font-bold text-foreground'>{config.title}</h2>
+        <div className='flex items-center gap-3 text-sm'>
           {showLiveSyncStatus && (
             <>
-              <LiveSyncStatus status={dbSyncStatus} error={dbSyncError} lastSyncedAt={dbLastSyncedAt} />
+              <LiveSyncStatus
+                status={dbSyncStatus}
+                error={dbSyncError}
+                lastSyncedAt={dbLastSyncedAt}
+              />
               <Button
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1.5 px-2.5 text-xs"
-                onClick={() => { void refreshDbJobs(); }}
+                variant='outline'
+                size='sm'
+                className='h-7 gap-1.5 px-2.5 text-xs'
+                onClick={() => {
+                  void refreshDbJobs();
+                }}
                 disabled={isRefreshing}
-                aria-label="רענן נתונים מהשרת"
-                title="רענן נתונים מהשרת"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                aria-label='רענן נתונים מהשרת'
+                title='רענן נתונים מהשרת'>
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+                />
                 רענן
               </Button>
             </>
           )}
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+          <span className='flex items-center gap-1.5 text-muted-foreground'>
+            <span className='w-2 h-2 rounded-full bg-muted-foreground' />
             ממתינים: {unassigned.length}
           </span>
-          <span className="flex items-center gap-1.5 text-info">
-            <span className="w-2 h-2 rounded-full bg-info" />
+          <span className='flex items-center gap-1.5 text-info'>
+            <span className='w-2 h-2 rounded-full bg-info' />
             שובצו: {assigned.length}
           </span>
         </div>
       </div>
 
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-muted-foreground" />
+      <div className='mb-6'>
+        <h3 className='text-lg font-semibold text-foreground mb-3 flex items-center gap-2'>
+          <Clock className='w-4 h-4 text-muted-foreground' />
           ממתינים לשיבוץ ({unassigned.length})
         </h3>
         <JobsByArea jobs={unassigned} />
@@ -341,8 +495,8 @@ export default function JobCategoryPage({ category }: { category: 'malfunctions'
 
       {assigned.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-info" />
+          <h3 className='text-lg font-semibold text-foreground mb-3 flex items-center gap-2'>
+            <CheckCircle2 className='w-4 h-4 text-info' />
             שובצו בלוח ({assigned.length})
           </h3>
           <JobsByArea jobs={assigned} showAssignment />
