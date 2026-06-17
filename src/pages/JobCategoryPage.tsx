@@ -15,14 +15,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { technicians } from "@/data/mockData";
 import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
+import { groupJobsByArea } from "@/lib/areas";
 import { geocodeAddress } from "@/lib/geocodeAddress";
 import { Customer, Job, JobType, STATUS_CONFIG } from "@/types";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   Clock,
   MapPin,
   Pencil,
@@ -280,18 +287,6 @@ function JobsByArea({
   const { fetchKey } = useGoogleMapsKey();
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const latestDbInst = customers
-    .filter((c) => c.id.startsWith("db-inst-cust-"))
-    .slice(-1)[0];
-  console.log(
-    "[render JobsByArea] db-inst customers:",
-    customers.filter((c) => c.id.startsWith("db-inst-cust-")).length,
-    "| last name:",
-    latestDbInst?.name,
-    "| last address:",
-    latestDbInst?.address,
-  );
-
   const handleSave = async (
     jobId: string,
     customerId: string,
@@ -345,83 +340,77 @@ function JobsByArea({
     );
   }
 
-  const grouped: Record<string, Job[]> = {};
-  jobs.forEach((job) => {
-    const city = job.city || "לא צוין";
-    if (!grouped[city]) grouped[city] = [];
-    grouped[city].push(job);
-  });
+  const areaGroups = groupJobsByArea(jobs);
 
   return (
-    <div className='space-y-4'>
-      {Object.keys(grouped)
-        .sort()
-        .map((city) => (
-          <div
-            key={city}
-            className='bg-card rounded-xl shadow-card border border-border overflow-hidden'>
-            <div className='flex items-center gap-2 p-3 border-b border-border bg-muted/30'>
-              <MapPin className='w-4 h-4 text-muted-foreground' />
-              <h4 className='font-semibold text-card-foreground'>{city}</h4>
-              <span className='text-xs text-muted-foreground'>
-                ({grouped[city].length})
-              </span>
-            </div>
-            <div className='overflow-x-auto'>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className='text-right'>לקוח</TableHead>
-                    <TableHead className='text-right'>כתובת</TableHead>
-                    <TableHead className='text-right'>עדיפות</TableHead>
-                    <TableHead className='text-right'>סטטוס</TableHead>
-                    {showAssignment && (
-                      <TableHead className='text-right'>טכנאי</TableHead>
-                    )}
-                    {showAssignment && (
-                      <TableHead className='text-right'>תאריך</TableHead>
-                    )}
-                    <TableHead className='text-right'>הערות</TableHead>
-                    <TableHead className='text-right w-12'></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {grouped[city]
-                    .sort(
-                      (a, b) =>
-                        (a.scheduledDate || "").localeCompare(
-                          b.scheduledDate || "",
-                        ) ||
-                        (a.scheduledTime || "").localeCompare(
-                          b.scheduledTime || "",
-                        ),
-                    )
-                    .map((job) => {
-                      const customer = customers.find(
-                        (c) => c.id === job.customerId,
-                      );
-                      const tech = technicians.find(
-                        (t) => t.id === job.technicianId,
-                      );
-                      return (
-                        <EditableJobRow
-                          key={job.id}
-                          job={job}
-                          customer={customer}
-                          tech={tech}
-                          showAssignment={showAssignment}
-                          editingId={editingId}
-                          onStartEdit={setEditingId}
-                          onCancelEdit={() => setEditingId(null)}
-                          onSave={handleSave}
-                        />
-                      );
-                    })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        ))}
+    <div className='space-y-6'>
+      {areaGroups.map(({ area, count, cities }) => (
+        <Collapsible key={area} defaultOpen className='space-y-3'>
+          <CollapsibleTrigger className='group flex w-full items-center gap-2 rounded-lg bg-primary/10 px-4 py-2.5 text-right transition-colors hover:bg-primary/15'>
+            <ChevronDown className='w-5 h-5 text-primary transition-transform group-data-[state=closed]:-rotate-90' />
+            <h3 className='text-lg font-bold text-primary'>{area}</h3>
+            <span className='text-sm font-medium text-primary/70'>({count})</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className='space-y-4 pr-2'>
+            {cities.map(({ city, jobs: cityJobs }) => (
+              <div
+                key={city}
+                className='bg-card rounded-xl shadow-card border border-border overflow-hidden'>
+                <div className='flex items-center gap-2 p-3 border-b border-border bg-muted/30'>
+                  <MapPin className='w-4 h-4 text-muted-foreground' />
+                  <h4 className='font-semibold text-card-foreground'>{city}</h4>
+                  <span className='text-xs text-muted-foreground'>
+                    ({cityJobs.length})
+                  </span>
+                </div>
+                <div className='overflow-x-auto'>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className='text-right'>לקוח</TableHead>
+                        <TableHead className='text-right'>כתובת</TableHead>
+                        <TableHead className='text-right'>עדיפות</TableHead>
+                        <TableHead className='text-right'>סטטוס</TableHead>
+                        {showAssignment && (
+                          <TableHead className='text-right'>טכנאי</TableHead>
+                        )}
+                        {showAssignment && (
+                          <TableHead className='text-right'>תאריך</TableHead>
+                        )}
+                        <TableHead className='text-right'>הערות</TableHead>
+                        <TableHead className='text-right w-12'></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cityJobs.map((job) => {
+                        const customer = customers.find(
+                          (c) => c.id === job.customerId,
+                        );
+                        const tech = technicians.find(
+                          (t) => t.id === job.technicianId,
+                        );
+                        return (
+                          <EditableJobRow
+                            key={job.id}
+                            job={job}
+                            customer={customer}
+                            tech={tech}
+                            showAssignment={showAssignment}
+                            editingId={editingId}
+                            onStartEdit={setEditingId}
+                            onCancelEdit={() => setEditingId(null)}
+                            onSave={handleSave}
+                          />
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      ))}
     </div>
   );
 }

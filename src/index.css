@@ -239,7 +239,9 @@
     @apply font-semibold tracking-tight;
   }
 }
-
+button{
+  cursor:pointer;
+}
 @layer utilities {
   .text-gradient-primary {
     background: var(--gradient-primary);

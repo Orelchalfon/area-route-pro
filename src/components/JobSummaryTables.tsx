@@ -3,7 +3,9 @@ import { technicians } from '@/data/mockData';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, Wrench, Filter } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { groupJobsByArea } from '@/lib/areas';
+import { AlertTriangle, Wrench, Filter, ChevronDown, MapPin } from 'lucide-react';
 
 interface JobSummaryTablesProps {
   jobs: Job[];
@@ -39,60 +41,63 @@ function PriorityBadge({ priority }: { priority: string }) {
 
 function JobsByArea({ jobs }: { jobs: Job[] }) {
   const { customersList: customers } = useJobsContext();
-  const grouped: Record<string, Job[]> = {};
-  jobs.forEach(job => {
-    const city = job.city || 'לא צוין';
-    if (!grouped[city]) grouped[city] = [];
-    grouped[city].push(job);
-  });
-
-  const sortedCities = Object.keys(grouped).sort();
+  const areaGroups = groupJobsByArea(jobs);
 
   return (
-    <div className="space-y-4">
-      {sortedCities.map(city => (
-        <div key={city} className="bg-card rounded-xl shadow-card border border-border overflow-hidden">
-          <div className="flex items-center gap-2 p-3 border-b border-border bg-muted/30">
-            <h4 className="font-semibold text-card-foreground">{city}</h4>
-            <span className="text-xs text-muted-foreground">({grouped[city].length})</span>
-          </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">תאריך</TableHead>
-                  <TableHead className="text-right">שעה</TableHead>
-                  <TableHead className="text-right">לקוח</TableHead>
-                  <TableHead className="text-right">כתובת</TableHead>
-                  <TableHead className="text-right">טכנאי</TableHead>
-                  <TableHead className="text-right">עדיפות</TableHead>
-                  <TableHead className="text-right">סטטוס</TableHead>
-                  <TableHead className="text-right">הערות</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {grouped[city]
-                  .sort((a, b) => (a.scheduledDate || '').localeCompare(b.scheduledDate || '') || (a.scheduledTime || '').localeCompare(b.scheduledTime || ''))
-                  .map(job => {
-                    const customer = customers.find(c => c.id === job.customerId);
-                    const tech = technicians.find(t => t.id === job.technicianId);
-                    return (
-                      <TableRow key={job.id}>
-                        <TableCell className="whitespace-nowrap">{job.scheduledDate}</TableCell>
-                        <TableCell>{job.scheduledTime}</TableCell>
-                        <TableCell className="font-medium">{customer?.name}</TableCell>
-                        <TableCell>{job.location}</TableCell>
-                        <TableCell>{tech?.name}</TableCell>
-                        <TableCell><PriorityBadge priority={job.priority} /></TableCell>
-                        <TableCell><StatusBadge status={job.status} /></TableCell>
-                        <TableCell className="max-w-[200px] truncate">{job.notes}</TableCell>
+    <div className="space-y-6">
+      {areaGroups.map(({ area, count, cities }) => (
+        <Collapsible key={area} defaultOpen className="space-y-3">
+          <CollapsibleTrigger className="group flex w-full items-center gap-2 rounded-lg bg-primary/10 px-4 py-2.5 text-right transition-colors hover:bg-primary/15">
+            <ChevronDown className="w-5 h-5 text-primary transition-transform group-data-[state=closed]:-rotate-90" />
+            <h3 className="text-lg font-bold text-primary">{area}</h3>
+            <span className="text-sm font-medium text-primary/70">({count})</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4 pr-2">
+            {cities.map(({ city, jobs: cityJobs }) => (
+              <div key={city} className="bg-card rounded-xl shadow-card border border-border overflow-hidden">
+                <div className="flex items-center gap-2 p-3 border-b border-border bg-muted/30">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <h4 className="font-semibold text-card-foreground">{city}</h4>
+                  <span className="text-xs text-muted-foreground">({cityJobs.length})</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right">תאריך</TableHead>
+                        <TableHead className="text-right">שעה</TableHead>
+                        <TableHead className="text-right">לקוח</TableHead>
+                        <TableHead className="text-right">כתובת</TableHead>
+                        <TableHead className="text-right">טכנאי</TableHead>
+                        <TableHead className="text-right">עדיפות</TableHead>
+                        <TableHead className="text-right">סטטוס</TableHead>
+                        <TableHead className="text-right">הערות</TableHead>
                       </TableRow>
-                    );
-                  })}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+                    </TableHeader>
+                    <TableBody>
+                      {cityJobs.map(job => {
+                        const customer = customers.find(c => c.id === job.customerId);
+                        const tech = technicians.find(t => t.id === job.technicianId);
+                        return (
+                          <TableRow key={job.id}>
+                            <TableCell className="whitespace-nowrap">{job.scheduledDate}</TableCell>
+                            <TableCell>{job.scheduledTime}</TableCell>
+                            <TableCell className="font-medium">{customer?.name}</TableCell>
+                            <TableCell>{job.location}</TableCell>
+                            <TableCell>{tech?.name}</TableCell>
+                            <TableCell><PriorityBadge priority={job.priority} /></TableCell>
+                            <TableCell><StatusBadge status={job.status} /></TableCell>
+                            <TableCell className="max-w-[200px] truncate">{job.notes}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
       ))}
     </div>
   );
