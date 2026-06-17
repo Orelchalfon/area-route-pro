@@ -3,6 +3,7 @@ import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, A
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
 import { useICSImport } from '@/hooks/useICSImport';
+import { useCustomers } from '@/hooks/useCustomers';
 import { useMalfunctionsInstallations } from '@/hooks/useMalfunctionsInstallations';
 import { supabase } from '@/integrations/supabase/client';
 import { buildDbJobUpdatePatch, getDbJobRef, JobSyncPatch } from '@/lib/dbJobSync';
@@ -23,6 +24,7 @@ export function useJobs() {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const { icsCustomers, icsJobs, icsLoaded } = useICSImport();
+  const { customers: dbBaseCustomers, loaded: baseCustomersLoaded } = useCustomers();
   const {
     jobs: dbJobs,
     customers: dbCustomers,
@@ -50,18 +52,32 @@ export function useJobs() {
     });
   }, []);
 
-  // Load real customers from CSV
+  // Load base customers: prefer the Supabase `customers` table (source of truth).
+  // During the spreadsheet-retirement transition, fall back to the bundled
+  // contacts.csv only while the customers table is still empty/unavailable.
   useEffect(() => {
+    if (!baseCustomersLoaded) return;
+
+    const setBaseCustomers = (base: Customer[]) => {
+      setCustomersList(prev => {
+        const derived = prev.filter(c => c.id.startsWith('db-malf-cust-') || c.id.startsWith('db-inst-cust-'));
+        return [...base, ...derived];
+      });
+      setDataLoaded(true);
+    };
+
+    if (dbBaseCustomers.length > 0) {
+      setBaseCustomers(dbBaseCustomers);
+      return;
+    }
+
     loadCustomersFromCSV('/contacts.csv')
-      .then(customers => {
-        setCustomersList(customers);
-        setDataLoaded(true);
-      })
+      .then(setBaseCustomers)
       .catch(err => {
-        console.error('Failed to load customers CSV:', err);
+        console.error('Failed to load customers CSV fallback:', err);
         setDataLoaded(true);
       });
-  }, []);
+  }, [baseCustomersLoaded, dbBaseCustomers]);
 
   // Sync malfunctions + installations from DB (replaces previous CSV loaders)
   useEffect(() => {

@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      customers: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          filter_replacement_month: number | null
+          id: string
+          import_key: string | null
+          lat: number | null
+          lng: number | null
+          name: string
+          next_service_date: string | null
+          notes: string | null
+          phone: string | null
+          place_id: string | null
+          product: string | null
+          service_track: string | null
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          filter_replacement_month?: number | null
+          id?: string
+          import_key?: string | null
+          lat?: number | null
+          lng?: number | null
+          name: string
+          next_service_date?: string | null
+          notes?: string | null
+          phone?: string | null
+          place_id?: string | null
+          product?: string | null
+          service_track?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          filter_replacement_month?: number | null
+          id?: string
+          import_key?: string | null
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          next_service_date?: string | null
+          notes?: string | null
+          phone?: string | null
+          place_id?: string | null
+          product?: string | null
+          service_track?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       installations: {
         Row: {
           address: string | null
