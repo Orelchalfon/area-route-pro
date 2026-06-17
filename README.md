@@ -1,73 +1,80 @@
-# Welcome to your Lovable project
+# טל חרמון — Field Service Management
 
-## Project info
+A field-service management web app (Hebrew, RTL): jobs, malfunctions, installations,
+ongoing service, customers, daily route planning with Google Maps, and a customer
+appointment-confirmation page.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech stack
 
-## How can I edit this code?
+- Vite + React + TypeScript
+- shadcn/ui + Tailwind CSS
+- Supabase (Postgres, Auth, Edge Functions)
+- Google Maps (`@react-google-maps/api`)
+- TanStack Query, React Router
 
-There are several ways of editing your application.
+## Local development
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requires Node.js 20+ (see `.nvmrc`) and npm.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
+cp .env.example .env        # then fill in your Supabase values
+npm run dev                 # http://localhost:8080
 ```
 
-**Edit a file directly in GitHub**
+### Environment variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Copy `.env.example` to `.env` and set:
 
-**Use GitHub Codespaces**
+| Variable                        | Description                                  |
+| ------------------------------- | -------------------------------------------- |
+| `VITE_SUPABASE_URL`             | Supabase project URL                         |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable (anon) key              |
+| `VITE_SUPABASE_PROJECT_ID`      | Supabase project ref                         |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+These values are public (they ship in the client bundle) — security is enforced by
+Supabase Auth + RLS, not by hiding them.
 
-## What technologies are used for this project?
+### Scripts
 
-This project is built with:
+- `npm run dev` — dev server
+- `npm run build` — production build to `dist/`
+- `npm run preview` — preview the production build locally
+- `npm run lint` — ESLint
+- `npm test` — Vitest
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Authentication
 
-## How can I deploy this project?
+The app requires login (Supabase Auth, email/password). There is **no public sign-up
+screen** — users are provisioned manually:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+1. In the Supabase dashboard: **Authentication → Users → Add user** to create each user.
+2. **Authentication → Providers → Email** → turn **off** "Enable sign-ups" so the public
+   cannot self-register.
 
-## Can I connect a custom domain to my Lovable project?
+Unauthenticated visitors are redirected to `/login`. The only public route is `/confirm`
+(the customer appointment-confirmation page), which does not access the database.
 
-Yes, you can!
+## Deployment (Netlify)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Deployment is configured in `netlify.toml` (build command, publish dir, Node version, and
+the SPA fallback redirect required by React Router).
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+1. In Netlify, **Add new site → Import from Git** and select this GitHub repo.
+   Build settings are read from `netlify.toml` (no manual config needed).
+2. **Site settings → Environment variables**: add `VITE_SUPABASE_URL`,
+   `VITE_SUPABASE_PUBLISHABLE_KEY`, and `VITE_SUPABASE_PROJECT_ID`.
+3. Deploy. Pushes to the default branch trigger automatic deploys.
+
+### Supabase setup (one-time, before/at first deploy)
+
+1. **Apply migrations**, including `supabase/migrations/*_restrict_rls_to_authenticated.sql`,
+   which locks all tables to authenticated users only. Apply with the Supabase CLI
+   (`supabase db push`) or via the dashboard. **Create at least one auth user first**
+   (see [Authentication](#authentication)) so you can still log in after RLS is tightened.
+2. **Deploy the edge functions**: `get-google-maps-key`, `receive-from-make`, `send-to-make`
+   (`supabase functions deploy <name>`).
+3. **Set Supabase function secrets**:
+   - `GOOGLE_MAPS_API_KEY` — used by `get-google-maps-key`. Restrict the key in Google Cloud
+     Console (HTTP referrers / enabled APIs) since it is served to the browser at runtime.
+   - `MAKE_WEBHOOK_SECRET` — shared secret validating Make → Supabase webhook calls.

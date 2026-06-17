@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/logo.png';
-import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter, CalendarDays, LogOut, UserCog } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { to: '/', label: 'לוח בקרה', icon: LayoutDashboard },
@@ -11,10 +12,12 @@ const navItems = [
   { to: '/work-schedule', label: 'לוז עבודה', icon: CalendarDays },
   { to: '/technician', label: 'טכנאי', icon: Users },
   { to: '/customers', label: 'לקוחות', icon: Contact },
+  { to: '/users', label: 'משתמשים', icon: UserCog },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const { signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,6 +47,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   </Button>
                 );
               })}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-sm text-muted-foreground"
+                onClick={() => signOut()}
+              >
+                <LogOut className="w-4 h-4 ml-1.5" />
+                התנתק
+              </Button>
             </nav>
           </div>
         </div>
