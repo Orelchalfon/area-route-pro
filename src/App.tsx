@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { RequireAuth } from "./components/RequireAuth";
+import { RequireAdmin } from "./components/RequireAdmin";
 import { AuthProvider } from "./contexts/AuthContext";
 import { JobsProvider } from "./contexts/JobsContext";
 import Dashboard from "./pages/Dashboard";
@@ -43,13 +44,13 @@ const App = () => (
                       <Routes>
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/daily-route" element={<DailyRoutePage />} />
-                        <Route path="/malfunctions" element={<JobCategoryPage category="malfunctions" />} />
-                        <Route path="/installations" element={<JobCategoryPage category="installations" />} />
-                        <Route path="/service" element={<ServiceCyclePage />} />
-                        <Route path="/work-schedule" element={<WorkSchedulePage />} />
+                        <Route path="/malfunctions" element={<RequireAdmin><JobCategoryPage category="malfunctions" /></RequireAdmin>} />
+                        <Route path="/installations" element={<RequireAdmin><JobCategoryPage category="installations" /></RequireAdmin>} />
+                        <Route path="/service" element={<RequireAdmin><ServiceCyclePage /></RequireAdmin>} />
+                        <Route path="/work-schedule" element={<RequireAdmin><WorkSchedulePage /></RequireAdmin>} />
                         <Route path="/technician" element={<TechnicianPage />} />
-                        <Route path="/customers" element={<CustomersPage />} />
-                        <Route path="/users" element={<UsersPage />} />
+                        <Route path="/customers" element={<RequireAdmin><CustomersPage /></RequireAdmin>} />
+                        <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppLayout>

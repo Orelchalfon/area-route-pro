@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { technicians } from '@/data/mockData';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
@@ -19,7 +20,10 @@ interface TechnicianViewProps {
 }
 
 export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianViewProps) {
+  const { isAdmin, technicianId } = useAuth();
   const [selectedTech, setSelectedTech] = useState(technicians[0].id);
+  // Admins may browse any technician; employees are locked to their own.
+  const activeTechId = isAdmin ? selectedTech : technicianId;
   const [completingJobId, setCompletingJobId] = useState<string | null>(null);
   const [completionNotes, setCompletionNotes] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<CompletionStatus>('done');
@@ -30,7 +34,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [editNotes, setEditNotes] = useState('');
   const todayStr = getTodayStr();
 
-  const tech = technicians.find(t => t.id === selectedTech)!;
+  const tech = technicians.find(t => t.id === activeTechId);
 
   // Week days based on offset
   const weekDays = useMemo(() => {
@@ -49,7 +53,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   }, [weekOffset]);
 
   const techJobs = jobs
-    .filter(j => j.technicianId === selectedTech && j.scheduledDate === selectedDay)
+    .filter(j => j.technicianId === activeTechId && j.scheduledDate === selectedDay)
     .sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || ''));
 
   const activeJobs = techJobs.filter(j => j.status === 'confirmed');
@@ -89,6 +93,18 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
     setEditingJobId(null);
   };
 
+  if (!tech) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6" dir="rtl">
+        <div className="text-center text-muted-foreground">
+          <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
+          <p className="font-medium">לא שויך טכנאי לחשבון זה</p>
+          <p className="text-sm">פנה למנהל המערכת כדי לשייך אותך לטכנאי</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
@@ -110,20 +126,22 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </div>
         </div>
 
-        {/* Tech Selector */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {technicians.map(t => (
-            <Button
-              key={t.id}
-              size="sm"
-              variant={t.id === selectedTech ? 'secondary' : 'ghost'}
-              className={t.id !== selectedTech ? 'text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10' : ''}
-              onClick={() => setSelectedTech(t.id)}
-            >
-              {t.name.split(' ')[0]}
-            </Button>
-          ))}
-        </div>
+        {/* Tech Selector — admins only; employees are locked to their own view */}
+        {isAdmin && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {technicians.map(t => (
+              <Button
+                key={t.id}
+                size="sm"
+                variant={t.id === selectedTech ? 'secondary' : 'ghost'}
+                className={t.id !== selectedTech ? 'text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10' : ''}
+                onClick={() => setSelectedTech(t.id)}
+              >
+                {t.name.split(' ')[0]}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="p-4 -mt-3 space-y-4">
@@ -153,7 +171,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </Button>
           <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
             {weekDays.map(day => {
-              const dayJobCount = jobs.filter(j => j.technicianId === selectedTech && j.scheduledDate === day.date && (j.status === 'confirmed' || j.status === 'completed')).length;
+              const dayJobCount = jobs.filter(j => j.technicianId === activeTechId && j.scheduledDate === day.date && (j.status === 'confirmed' || j.status === 'completed')).length;
               const isSelected = day.date === selectedDay;
               return (
                 <button

@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -14,22 +17,35 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
+import { technicians } from '@/data/mockData';
+
+type Role = 'admin' | 'employee';
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
   return new Date(value).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+const technicianName = (id: string | null): string =>
+  id ? (technicians.find(t => t.id === id)?.name ?? id) : '—';
+
 export default function UsersPage() {
   const { users, loading, error, createUser } = useAdminUsers();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<Role>('employee');
+  const [technicianId, setTechnicianId] = useState(technicians[0].id);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { error: createError } = await createUser(email.trim(), password);
+    const { error: createError } = await createUser(
+      email.trim(),
+      password,
+      role,
+      role === 'employee' ? technicianId : null,
+    );
     setSubmitting(false);
 
     if (createError) {
@@ -39,6 +55,8 @@ export default function UsersPage() {
     toast.success('המשתמש נוצר בהצלחה');
     setEmail('');
     setPassword('');
+    setRole('employee');
+    setTechnicianId(technicians[0].id);
   };
 
   return (
@@ -84,6 +102,38 @@ export default function UsersPage() {
                 />
                 <p className="text-xs text-muted-foreground">לפחות 6 תווים</p>
               </div>
+              <div className="space-y-2">
+                <Label>תפקיד</Label>
+                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent dir="rtl">
+                    <SelectItem value="employee">עובד (טכנאי)</SelectItem>
+                    <SelectItem value="admin">מנהל</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {role === 'employee'
+                    ? 'עובד רואה רק את המשימות שלו ויכול לדווח על ביצוע בלבד'
+                    : 'מנהל בעל גישה מלאה למערכת'}
+                </p>
+              </div>
+              {role === 'employee' && (
+                <div className="space-y-2">
+                  <Label>טכנאי</Label>
+                  <Select value={technicianId} onValueChange={setTechnicianId}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent dir="rtl">
+                      {technicians.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting && <Loader2 className="w-4 h-4 animate-spin ml-2" />}
                 צור משתמש
@@ -108,6 +158,8 @@ export default function UsersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-right">אימייל</TableHead>
+                    <TableHead className="text-right">תפקיד</TableHead>
+                    <TableHead className="text-right">טכנאי</TableHead>
                     <TableHead className="text-right">נוצר</TableHead>
                     <TableHead className="text-right">כניסה אחרונה</TableHead>
                   </TableRow>
@@ -116,6 +168,8 @@ export default function UsersPage() {
                   {users.map(user => (
                     <TableRow key={user.id}>
                       <TableCell dir="ltr" className="text-right">{user.email}</TableCell>
+                      <TableCell>{user.role === 'admin' ? 'מנהל' : user.role === 'employee' ? 'עובד' : '—'}</TableCell>
+                      <TableCell>{technicianName(user.technician_id)}</TableCell>
                       <TableCell>{formatDate(user.created_at)}</TableCell>
                       <TableCell>{formatDate(user.last_sign_in_at)}</TableCell>
                     </TableRow>

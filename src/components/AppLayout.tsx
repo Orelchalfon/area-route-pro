@@ -1,23 +1,25 @@
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/logo.png';
-import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter, CalendarDays, LogOut, UserCog } from 'lucide-react';
+import { LayoutDashboard, Users, Contact, AlertTriangle, Wrench, Filter, CalendarDays, LogOut, UserCog, Map } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
-  { to: '/', label: 'לוח בקרה', icon: LayoutDashboard },
-  { to: '/malfunctions', label: 'תקלות', icon: AlertTriangle },
-  { to: '/installations', label: 'התקנות', icon: Wrench },
-  { to: '/service', label: 'שירות שוטף', icon: Filter },
-  { to: '/work-schedule', label: 'לוז עבודה', icon: CalendarDays },
-  { to: '/technician', label: 'טכנאי', icon: Users },
-  { to: '/customers', label: 'לקוחות', icon: Contact },
-  { to: '/users', label: 'משתמשים', icon: UserCog },
+  { to: '/', label: 'לוח בקרה', icon: LayoutDashboard, adminOnly: false },
+  { to: '/malfunctions', label: 'תקלות', icon: AlertTriangle, adminOnly: true },
+  { to: '/installations', label: 'התקנות', icon: Wrench, adminOnly: true },
+  { to: '/service', label: 'שירות שוטף', icon: Filter, adminOnly: true },
+  { to: '/work-schedule', label: 'לוז עבודה', icon: CalendarDays, adminOnly: true },
+  { to: '/technician', label: 'טכנאי', icon: Users, adminOnly: false },
+  { to: '/daily-route', label: 'מסלול יומי', icon: Map, adminOnly: false },
+  { to: '/customers', label: 'לקוחות', icon: Contact, adminOnly: true },
+  { to: '/users', label: 'משתמשים', icon: UserCog, adminOnly: true },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, isAdmin } = useAuth();
+  const visibleNavItems = navItems.filter(item => isAdmin || !item.adminOnly);
 
   return (
     <div className="min-h-screen bg-background">
@@ -29,7 +31,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <h1 className="font-bold text-lg text-foreground">טל חרמון</h1>
             </div>
             <nav className="flex items-center gap-1">
-              {navItems.map(item => {
+              {visibleNavItems.map(item => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.to;
                 return (

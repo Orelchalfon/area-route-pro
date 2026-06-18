@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { technicians } from '@/data/mockData';
 import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,10 @@ interface JobWithCustomer {
 
 export default function DailyRoutePage() {
   const { jobs, customersList, approveDaySchedule, updateJob, updateCustomer } = useJobsContext();
+  const { isAdmin, technicianId } = useAuth();
   const [selectedTechId, setSelectedTechId] = useState(technicians[0].id);
+  // Admins may browse any technician; employees are locked to their own route.
+  const activeTechId = isAdmin ? selectedTechId : (technicianId ?? '');
   const [plannerMode, setPlannerMode] = useState(false);
   const [orderedJobIds, setOrderedJobIds] = useState<string[] | null>(null);
   const [routeSaved, setRouteSaved] = useState(false);
@@ -42,10 +46,10 @@ export default function DailyRoutePage() {
   const todayJobs = useMemo(() =>
     jobs.filter(j =>
       j.scheduledDate === todayStr &&
-      j.technicianId === selectedTechId &&
+      j.technicianId === activeTechId &&
       (j.status === 'confirmed' || j.status === 'completed' || j.status === 'in_progress')
     ).sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || '')),
-    [jobs, todayStr, selectedTechId]
+    [jobs, todayStr, activeTechId]
   );
 
   // Resolve route-specific customer/location for each job
@@ -111,7 +115,7 @@ export default function DailyRoutePage() {
       const time = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
       return {
         jobId: jc.job.id,
-        technicianId: selectedTechId,
+        technicianId: activeTechId,
         scheduledDate: todayStr,
         scheduledTime: time,
       };
@@ -119,7 +123,7 @@ export default function DailyRoutePage() {
     approveDaySchedule(assignments);
     setRouteSaved(true);
     toast.success(`מסלול נשמר! ${assignments.length} עצירות סודרו מחדש`);
-  }, [orderedJobIds, orderedJobs, selectedTechId, todayStr, approveDaySchedule]);
+  }, [orderedJobIds, orderedJobs, activeTechId, todayStr, approveDaySchedule]);
 
   const handleSaveEdit = useCallback((
     jobId: string,
@@ -167,16 +171,18 @@ export default function DailyRoutePage() {
               סגור תכנון
             </Button>
           )}
-          <Select value={selectedTechId} onValueChange={(v) => { setSelectedTechId(v); setOrderedJobIds(null); setPlannerMode(false); setEditingJobId(null); }}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              {technicians.map(t => (
-                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isAdmin && (
+            <Select value={selectedTechId} onValueChange={(v) => { setSelectedTechId(v); setOrderedJobIds(null); setPlannerMode(false); setEditingJobId(null); }}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent dir="rtl">
+                {technicians.map(t => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -197,15 +203,17 @@ export default function DailyRoutePage() {
                   <MapPin className="w-4 h-4 text-primary" />
                   סדר עצירות ({orderedJobs.length})
                 </h3>
-                <Button
-                  size="sm"
-                  onClick={handleSaveRoute}
-                  disabled={routeSaved}
-                  className="gap-1.5"
-                >
-                  {routeSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                  {routeSaved ? 'נשמר!' : 'שמור מסלול'}
-                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    onClick={handleSaveRoute}
+                    disabled={routeSaved}
+                    className="gap-1.5"
+                  >
+                    {routeSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                    {routeSaved ? 'נשמר!' : 'שמור מסלול'}
+                  </Button>
+                )}
               </div>
 
               <p className="text-xs text-muted-foreground">גרור כדי לשנות את סדר ההגעה</p>
@@ -232,6 +240,7 @@ export default function DailyRoutePage() {
                                   onSave={handleSaveEdit}
                                   dragHandleProps={provided.dragHandleProps}
                                   isDragging={snapshot.isDragging}
+                                  readOnly={!isAdmin}
                                 />
                               </div>
                             )}
@@ -300,6 +309,7 @@ export default function DailyRoutePage() {
                 onCancelEdit={() => setEditingJobId(null)}
                 onSave={handleSaveEdit}
                 showTime
+                readOnly={!isAdmin}
               />
             ))}
           </div>

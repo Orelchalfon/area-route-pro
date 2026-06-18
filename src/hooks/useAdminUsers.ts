@@ -6,6 +6,9 @@ export type AdminUser = {
   email: string | null;
   created_at: string;
   last_sign_in_at: string | null;
+  role: 'admin' | 'employee' | null;
+  technician_id: string | null;
+  full_name: string | null;
 };
 
 async function extractFunctionError(fnError: unknown): Promise<string> {
@@ -45,9 +48,14 @@ export function useAdminUsers() {
   }, [loadUsers]);
 
   const createUser = useCallback(
-    async (email: string, password: string): Promise<{ error: string | null }> => {
+    async (
+      email: string,
+      password: string,
+      role: 'admin' | 'employee',
+      technicianId: string | null,
+    ): Promise<{ error: string | null }> => {
       const { error: fnError } = await supabase.functions.invoke('admin-create-user', {
-        body: { action: 'create', email, password },
+        body: { action: 'create', email, password, role, technicianId },
       });
       // On a non-2xx response supabase-js returns a FunctionsHttpError whose
       // `.context` is the raw Response; the real message lives in its body.
