@@ -32,11 +32,12 @@ interface EditableRouteStopProps {
   dragHandleProps?: DraggableProvidedDragHandleProps | null;
   isDragging?: boolean;
   showTime?: boolean;
+  readOnly?: boolean;
 }
 
 export function EditableRouteStop({
   job, customer, index, isEditing, onStartEdit, onCancelEdit, onSave,
-  dragHandleProps, isDragging, showTime,
+  dragHandleProps, isDragging, showTime, readOnly,
 }: EditableRouteStopProps) {
   const { fetchKey } = useGoogleMapsKey();
   const isDone = job.completionStatus === 'done';
@@ -138,7 +139,7 @@ export function EditableRouteStop({
           </div>
           <p className="text-[11px] text-muted-foreground/60 mt-0.5 truncate">{customer?.address || job.location}</p>
         </div>
-        {!isEditing && (
+        {!isEditing && !readOnly && (
           <button
             onClick={onStartEdit}
             className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors shrink-0"

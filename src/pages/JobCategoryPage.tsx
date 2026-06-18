@@ -363,8 +363,8 @@ function JobsByArea({
                     ({cityJobs.length})
                   </span>
                 </div>
-                <div className='overflow-x-auto'>
-                  <Table>
+                <div className='overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0'>
+                  <Table className='min-w-[720px]'>
                     <TableHeader>
                       <TableRow>
                         <TableHead className='text-right'>לקוח</TableHead>

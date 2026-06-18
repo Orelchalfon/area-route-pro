@@ -1,10 +1,11 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { technicians } from '@/data/mockData';
 import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { EditableRouteStop } from '@/components/EditableRouteStop';
@@ -29,7 +30,10 @@ interface JobWithCustomer {
 
 export default function DailyRoutePage() {
   const { jobs, customersList, approveDaySchedule, updateJob, updateCustomer } = useJobsContext();
+  const { isAdmin, technicianId } = useAuth();
   const [selectedTechId, setSelectedTechId] = useState(technicians[0].id);
+  // Admins may browse any technician; employees are locked to their own route.
+  const activeTechId = isAdmin ? selectedTechId : (technicianId ?? '');
   const [plannerMode, setPlannerMode] = useState(false);
   const [orderedJobIds, setOrderedJobIds] = useState<string[] | null>(null);
   const [routeSaved, setRouteSaved] = useState(false);
@@ -42,10 +46,10 @@ export default function DailyRoutePage() {
   const todayJobs = useMemo(() =>
     jobs.filter(j =>
       j.scheduledDate === todayStr &&
-      j.technicianId === selectedTechId &&
+      j.technicianId === activeTechId &&
       (j.status === 'confirmed' || j.status === 'completed' || j.status === 'in_progress')
     ).sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || '')),
-    [jobs, todayStr, selectedTechId]
+    [jobs, todayStr, activeTechId]
   );
 
   // Resolve route-specific customer/location for each job
@@ -98,6 +102,19 @@ export default function DailyRoutePage() {
     setRouteSaved(false);
   }, [orderedJobIds]);
 
+  // Touch-friendly reordering alternative to drag (gesture-alternative on mobile).
+  const handleMove = useCallback((index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    setOrderedJobIds(prev => {
+      const base = prev ?? orderedJobs.map(jc => jc.job.id);
+      if (target < 0 || target >= base.length) return base;
+      const newOrder = [...base];
+      [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
+      return newOrder;
+    });
+    setRouteSaved(false);
+  }, [orderedJobs]);
+
   const handleSaveRoute = useCallback(() => {
     if (!orderedJobIds) return;
     const startHour = 10;
@@ -111,7 +128,7 @@ export default function DailyRoutePage() {
       const time = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
       return {
         jobId: jc.job.id,
-        technicianId: selectedTechId,
+        technicianId: activeTechId,
         scheduledDate: todayStr,
         scheduledTime: time,
       };
@@ -119,7 +136,7 @@ export default function DailyRoutePage() {
     approveDaySchedule(assignments);
     setRouteSaved(true);
     toast.success(`מסלול נשמר! ${assignments.length} עצירות סודרו מחדש`);
-  }, [orderedJobIds, orderedJobs, selectedTechId, todayStr, approveDaySchedule]);
+  }, [orderedJobIds, orderedJobs, activeTechId, todayStr, approveDaySchedule]);
 
   const handleSaveEdit = useCallback((
     jobId: string,
@@ -167,16 +184,18 @@ export default function DailyRoutePage() {
               סגור תכנון
             </Button>
           )}
-          <Select value={selectedTechId} onValueChange={(v) => { setSelectedTechId(v); setOrderedJobIds(null); setPlannerMode(false); setEditingJobId(null); }}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent dir="rtl">
-              {technicians.map(t => (
-                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isAdmin && (
+            <Select value={selectedTechId} onValueChange={(v) => { setSelectedTechId(v); setOrderedJobIds(null); setPlannerMode(false); setEditingJobId(null); }}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent dir="rtl">
+                {technicians.map(t => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -197,15 +216,17 @@ export default function DailyRoutePage() {
                   <MapPin className="w-4 h-4 text-primary" />
                   סדר עצירות ({orderedJobs.length})
                 </h3>
-                <Button
-                  size="sm"
-                  onClick={handleSaveRoute}
-                  disabled={routeSaved}
-                  className="gap-1.5"
-                >
-                  {routeSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                  {routeSaved ? 'נשמר!' : 'שמור מסלול'}
-                </Button>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    onClick={handleSaveRoute}
+                    disabled={routeSaved}
+                    className="gap-1.5"
+                  >
+                    {routeSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                    {routeSaved ? 'נשמר!' : 'שמור מסלול'}
+                  </Button>
+                )}
               </div>
 
               <p className="text-xs text-muted-foreground">גרור כדי לשנות את סדר ההגעה</p>
@@ -221,18 +242,46 @@ export default function DailyRoutePage() {
                       {orderedJobs.map((jc, idx) => (
                           <Draggable key={jc.job.id} draggableId={jc.job.id} index={idx}>
                             {(provided, snapshot) => (
-                              <div ref={provided.innerRef} {...provided.draggableProps}>
-                                <EditableRouteStop
-                                  job={jc.job}
-                                  customer={jc.customer}
-                                  index={idx}
-                                  isEditing={editingJobId === jc.job.id}
-                                  onStartEdit={() => setEditingJobId(jc.job.id)}
-                                  onCancelEdit={() => setEditingJobId(null)}
-                                  onSave={handleSaveEdit}
-                                  dragHandleProps={provided.dragHandleProps}
-                                  isDragging={snapshot.isDragging}
-                                />
+                              <div ref={provided.innerRef} {...provided.draggableProps} className="flex items-stretch gap-1.5">
+                                <div className="flex-1">
+                                  <EditableRouteStop
+                                    job={jc.job}
+                                    customer={jc.customer}
+                                    index={idx}
+                                    isEditing={editingJobId === jc.job.id}
+                                    onStartEdit={() => setEditingJobId(jc.job.id)}
+                                    onCancelEdit={() => setEditingJobId(null)}
+                                    onSave={handleSaveEdit}
+                                    dragHandleProps={provided.dragHandleProps}
+                                    isDragging={snapshot.isDragging}
+                                    readOnly={!isAdmin}
+                                  />
+                                </div>
+                                {/* Touch reorder controls — drag still works on desktop */}
+                                {isAdmin && (
+                                  <div className="flex flex-col justify-center gap-1 lg:hidden">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-11 w-11"
+                                      aria-label="הזז למעלה"
+                                      disabled={idx === 0}
+                                      onClick={() => handleMove(idx, -1)}
+                                    >
+                                      <ChevronUp className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-11 w-11"
+                                      aria-label="הזז למטה"
+                                      disabled={idx === orderedJobs.length - 1}
+                                      onClick={() => handleMove(idx, 1)}
+                                    >
+                                      <ChevronDown className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </Draggable>
@@ -246,7 +295,7 @@ export default function DailyRoutePage() {
           </div>
 
           {/* Map - LEFT side */}
-          <div className="rounded-xl overflow-hidden border border-border shadow-card order-first" style={{ height: '80vh' }}>
+          <div className="rounded-xl overflow-hidden border border-border shadow-card order-first h-[50vh] md:h-[60vh] lg:h-[80vh]">
             {keyLoading ? (
               <div className="flex items-center justify-center h-full bg-muted/30">
                 <div className="text-center">
@@ -300,6 +349,7 @@ export default function DailyRoutePage() {
                 onCancelEdit={() => setEditingJobId(null)}
                 onSave={handleSaveEdit}
                 showTime
+                readOnly={!isAdmin}
               />
             ))}
           </div>

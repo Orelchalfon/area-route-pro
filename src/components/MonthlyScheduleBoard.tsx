@@ -397,7 +397,7 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden" dir="rtl">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -415,12 +415,12 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-4" style={{ direction: 'ltr' }}>
             {/* Map - LEFT side */}
-            <div className="rounded-xl overflow-hidden border border-border order-first" style={{ height: '70vh' }}>
-              <DayRouteMap jobs={orderedJobs} height="70vh" />
+            <div className="rounded-xl overflow-hidden border border-border order-first h-[45vh] lg:h-[70vh]">
+              <DayRouteMap jobs={orderedJobs} height="100%" />
             </div>
 
             {/* Job list - RIGHT side */}
-            <div className="order-last flex flex-col gap-3" dir="rtl" style={{ height: '70vh' }}>
+            <div className="order-last flex flex-col gap-3 h-[55vh] lg:h-[70vh]" dir="rtl">
               {/* Summary */}
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 text-sm shrink-0">
                 <span>{orderedJobs.length} משימות</span>
@@ -775,7 +775,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden" dir="rtl">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>{dayLabel}</span>
@@ -789,9 +789,9 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
 
         <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-4" style={{ direction: 'ltr' }}>
           {/* Map - LEFT side */}
-          <div className="rounded-xl overflow-hidden border border-border order-first" style={{ height: '70vh' }}>
+          <div className="rounded-xl overflow-hidden border border-border order-first h-[45vh] lg:h-[70vh]">
             {orderedJobs.length > 0 ? (
-              <DayRouteMap jobs={orderedJobs} height="70vh" />
+              <DayRouteMap jobs={orderedJobs} height="100%" />
             ) : (
               <div className="flex items-center justify-center h-full bg-muted/20">
                 <p className="text-sm text-muted-foreground">אין משימות להצגה</p>
@@ -800,7 +800,7 @@ function DayDetailDialog({ open, onClose, dateStr, dayJobs, filterJobs, onRemove
           </div>
 
           {/* Job list - RIGHT side */}
-          <div className="order-last overflow-y-auto space-y-2" dir="rtl" style={{ height: '70vh' }}>
+          <div className="order-last overflow-y-auto space-y-2 h-[55vh] lg:h-[70vh]" dir="rtl">
             {orderedJobs.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">אין משימות ליום זה</p>}
             {orderedJobs.map((job, idx) => {
               const customer = customers.find(c => c.id === job.customerId);
@@ -1490,9 +1490,9 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
         const emptyBefore = isWeekView ? 0 : startDow;
 
         return (
-          <div className="bg-card rounded-xl shadow-card overflow-hidden">
-            {/* Day headers */}
-            <div className="grid grid-cols-7 border-b border-border">
+          <div className="bg-card rounded-xl shadow-card overflow-x-auto">
+            {/* Day headers — min-width lets the 7-col grid scroll on mobile instead of crushing */}
+            <div className="grid grid-cols-7 border-b border-border min-w-[700px]">
               {DAY_HEADERS.map((d, i) => (
                 <div key={i} className={`text-center py-2.5 text-sm font-semibold ${i === 5 || i === 6 ? 'text-muted-foreground/50' : 'text-card-foreground'}`}>
                   {d}
@@ -1501,7 +1501,7 @@ export function MonthlyScheduleBoard({ jobs, onApprove, onApproveDaySchedule, on
             </div>
 
             {/* Calendar cells */}
-            <div className="grid grid-cols-7">
+            <div className="grid grid-cols-7 min-w-[700px]">
               {Array.from({ length: emptyBefore }).map((_, i) => (
                 <div key={`empty-${i}`} className={`${isWeekView ? 'min-h-[280px]' : 'min-h-[130px]'} border-b border-r border-border bg-muted/20`} />
               ))}

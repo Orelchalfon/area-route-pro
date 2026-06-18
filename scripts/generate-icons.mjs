@@ -1,11 +1,11 @@
 // Generates the favicon/app-icon set in public/ from the brand logo.
 //
-// Requires sharp + png-to-ico (dev-only; not part of the app's runtime deps):
-//   npm i -D sharp png-to-ico
+// Uses pure-JS tooling (no native build), dev-only / not an app runtime dep:
+//   npm i -D jimp@0.22 png-to-ico
 //   node scripts/generate-icons.mjs
 //
 // Source logo: src/assets/logo.png (a 512x512 raster of the טל חרמון mark).
-import sharp from 'sharp';
+import Jimp from 'jimp';
 import pngToIco from 'png-to-ico';
 import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -15,23 +15,19 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = path.join(root, 'src/assets/logo.png');
 const PUBLIC = path.join(root, 'public');
 
-const png = (size) => sharp(SOURCE).resize(size, size, { fit: 'cover' }).png();
+const base = await Jimp.read(SOURCE);
+const png = (size) => base.clone().resize(size, size).getBufferAsync(Jimp.MIME_PNG);
 
-async function run() {
-  // PNG icons referenced from index.html / the web manifest.
-  await png(96).toFile(path.join(PUBLIC, 'favicon-96x96.png'));
-  await png(180).toFile(path.join(PUBLIC, 'apple-touch-icon.png'));
-  await png(192).toFile(path.join(PUBLIC, 'web-app-manifest-192x192.png'));
-  await png(512).toFile(path.join(PUBLIC, 'web-app-manifest-512x512.png'));
+// PNG icons referenced from index.html / the web manifest.
+await writeFile(path.join(PUBLIC, 'favicon-96x96.png'), await png(96));
+await writeFile(path.join(PUBLIC, 'apple-touch-icon.png'), await png(180));
+await writeFile(path.join(PUBLIC, 'web-app-manifest-192x192.png'), await png(192));
+await writeFile(path.join(PUBLIC, 'web-app-manifest-512x512.png'), await png(512));
 
-  // Multi-resolution favicon.ico for the browser's automatic /favicon.ico request.
-  const icoSources = await Promise.all([16, 32, 48].map((s) => png(s).toBuffer()));
-  await writeFile(path.join(PUBLIC, 'favicon.ico'), await pngToIco(icoSources));
+// Multi-resolution favicon.ico for the browser's automatic /favicon.ico request.
+await writeFile(
+  path.join(PUBLIC, 'favicon.ico'),
+  await pngToIco([await png(16), await png(32), await png(48)]),
+);
 
-  console.log('Generated icons in public/: favicon.ico, favicon-96x96.png, apple-touch-icon.png, web-app-manifest-{192,512}.png');
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+console.log('Generated public/: favicon.ico, favicon-96x96.png, apple-touch-icon.png, web-app-manifest-{192,512}.png');
