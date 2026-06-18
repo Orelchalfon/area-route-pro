@@ -166,7 +166,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
 
         {/* Week Navigation + Day Selector */}
         <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setWeekOffset(w => w + 1); }}>
+          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => { setWeekOffset(w => w + 1); }}>
             <ChevronRight className="w-4 h-4" />
           </Button>
           <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
@@ -196,7 +196,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
               );
             })}
           </div>
-          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { setWeekOffset(w => w - 1); }}>
+          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => { setWeekOffset(w => w - 1); }}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
         </div>
@@ -232,7 +232,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                 <div className="flex gap-2 mt-2 px-1">
                   <Button
                     size="sm"
-                    className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+                    className="flex-1 h-11 bg-success hover:bg-success/90 text-success-foreground"
                     onClick={() => openCompletionDialog(job.id, 'done')}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
@@ -241,7 +241,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
+                    className="flex-1 h-11 border-destructive text-destructive hover:bg-destructive/10"
                     onClick={() => openCompletionDialog(job.id, 'not_done')}
                   >
                     <XCircle className="w-3.5 h-3.5 ml-1" />
@@ -250,7 +250,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1 border-warning text-warning hover:bg-warning/10"
+                    className="flex-1 h-11 border-warning text-warning hover:bg-warning/10"
                     onClick={() => openCompletionDialog(job.id, 'need_return')}
                   >
                     <RotateCcw className="w-3.5 h-3.5 ml-1" />

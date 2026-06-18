@@ -154,28 +154,30 @@ export default function UsersPage() {
             ) : error ? (
               <p className="text-sm text-destructive py-4">טעינת המשתמשים נכשלה: {error}</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">אימייל</TableHead>
-                    <TableHead className="text-right">תפקיד</TableHead>
-                    <TableHead className="text-right">טכנאי</TableHead>
-                    <TableHead className="text-right">נוצר</TableHead>
-                    <TableHead className="text-right">כניסה אחרונה</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map(user => (
-                    <TableRow key={user.id}>
-                      <TableCell dir="ltr" className="text-right">{user.email}</TableCell>
-                      <TableCell>{user.role === 'admin' ? 'מנהל' : user.role === 'employee' ? 'עובד' : '—'}</TableCell>
-                      <TableCell>{technicianName(user.technician_id)}</TableCell>
-                      <TableCell>{formatDate(user.created_at)}</TableCell>
-                      <TableCell>{formatDate(user.last_sign_in_at)}</TableCell>
+              <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">אימייל</TableHead>
+                      <TableHead className="text-right">תפקיד</TableHead>
+                      <TableHead className="text-right">טכנאי</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">נוצר</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">כניסה אחרונה</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map(user => (
+                      <TableRow key={user.id}>
+                        <TableCell dir="ltr" className="text-right">{user.email}</TableCell>
+                        <TableCell>{user.role === 'admin' ? 'מנהל' : user.role === 'employee' ? 'עובד' : '—'}</TableCell>
+                        <TableCell>{technicianName(user.technician_id)}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{formatDate(user.created_at)}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{formatDate(user.last_sign_in_at)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -5,7 +5,7 @@ import { technicians } from '@/data/mockData';
 import { Job, JOB_TYPE_CONFIG, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { CheckCircle, Navigation, Clock, MapPin, Filter, AlertTriangle, Wrench, Sparkles, Map as MapIcon, Save, GripVertical, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { EditableRouteStop } from '@/components/EditableRouteStop';
@@ -101,6 +101,19 @@ export default function DailyRoutePage() {
     setOrderedJobIds(newOrder);
     setRouteSaved(false);
   }, [orderedJobIds]);
+
+  // Touch-friendly reordering alternative to drag (gesture-alternative on mobile).
+  const handleMove = useCallback((index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    setOrderedJobIds(prev => {
+      const base = prev ?? orderedJobs.map(jc => jc.job.id);
+      if (target < 0 || target >= base.length) return base;
+      const newOrder = [...base];
+      [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
+      return newOrder;
+    });
+    setRouteSaved(false);
+  }, [orderedJobs]);
 
   const handleSaveRoute = useCallback(() => {
     if (!orderedJobIds) return;
@@ -229,19 +242,46 @@ export default function DailyRoutePage() {
                       {orderedJobs.map((jc, idx) => (
                           <Draggable key={jc.job.id} draggableId={jc.job.id} index={idx}>
                             {(provided, snapshot) => (
-                              <div ref={provided.innerRef} {...provided.draggableProps}>
-                                <EditableRouteStop
-                                  job={jc.job}
-                                  customer={jc.customer}
-                                  index={idx}
-                                  isEditing={editingJobId === jc.job.id}
-                                  onStartEdit={() => setEditingJobId(jc.job.id)}
-                                  onCancelEdit={() => setEditingJobId(null)}
-                                  onSave={handleSaveEdit}
-                                  dragHandleProps={provided.dragHandleProps}
-                                  isDragging={snapshot.isDragging}
-                                  readOnly={!isAdmin}
-                                />
+                              <div ref={provided.innerRef} {...provided.draggableProps} className="flex items-stretch gap-1.5">
+                                <div className="flex-1">
+                                  <EditableRouteStop
+                                    job={jc.job}
+                                    customer={jc.customer}
+                                    index={idx}
+                                    isEditing={editingJobId === jc.job.id}
+                                    onStartEdit={() => setEditingJobId(jc.job.id)}
+                                    onCancelEdit={() => setEditingJobId(null)}
+                                    onSave={handleSaveEdit}
+                                    dragHandleProps={provided.dragHandleProps}
+                                    isDragging={snapshot.isDragging}
+                                    readOnly={!isAdmin}
+                                  />
+                                </div>
+                                {/* Touch reorder controls — drag still works on desktop */}
+                                {isAdmin && (
+                                  <div className="flex flex-col justify-center gap-1 lg:hidden">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-11 w-11"
+                                      aria-label="הזז למעלה"
+                                      disabled={idx === 0}
+                                      onClick={() => handleMove(idx, -1)}
+                                    >
+                                      <ChevronUp className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-11 w-11"
+                                      aria-label="הזז למטה"
+                                      disabled={idx === orderedJobs.length - 1}
+                                      onClick={() => handleMove(idx, 1)}
+                                    >
+                                      <ChevronDown className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </Draggable>
@@ -255,7 +295,7 @@ export default function DailyRoutePage() {
           </div>
 
           {/* Map - LEFT side */}
-          <div className="rounded-xl overflow-hidden border border-border shadow-card order-first" style={{ height: '80vh' }}>
+          <div className="rounded-xl overflow-hidden border border-border shadow-card order-first h-[50vh] md:h-[60vh] lg:h-[80vh]">
             {keyLoading ? (
               <div className="flex items-center justify-center h-full bg-muted/30">
                 <div className="text-center">

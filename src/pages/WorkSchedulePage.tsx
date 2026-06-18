@@ -148,7 +148,7 @@ export default function WorkSchedulePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {technicians.map(tech => (
           <div key={tech.id} className="space-y-2">
             <div className="flex items-center gap-2 sticky top-14 bg-background z-10 py-2">

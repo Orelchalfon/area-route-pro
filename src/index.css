@@ -225,9 +225,20 @@
     @apply border-border;
   }
 
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: "Inter", system-ui, sans-serif;
+  }
+
+  /* Remove the 300ms tap delay and avoid double-tap zoom on controls (mobile). */
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
   }
 
   h1,

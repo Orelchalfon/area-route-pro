@@ -67,7 +67,7 @@ export default function EmployeeDashboard() {
       </div>
 
       {/* Bento grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="p-4 flex flex-col gap-1">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Calendar className="w-4 h-4" /> משימות היום

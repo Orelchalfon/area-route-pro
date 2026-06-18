@@ -125,7 +125,7 @@ export default function ServiceCyclePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
         {monthStats.map(stat => (
           <div
             key={stat.month}
@@ -214,15 +214,15 @@ function MonthCalendarView({ services, selectedMonth, selectedYear }: { services
   });
 
   return (
-    <div className="bg-card rounded-xl border border-border overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-border">
+    <div className="bg-card rounded-xl border border-border overflow-x-auto">
+      <div className="grid grid-cols-7 border-b border-border min-w-[640px]">
         {DAY_HEADERS.map(d => (
           <div key={d} className="p-2 text-center text-xs font-semibold text-muted-foreground bg-muted/30">
             {d}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 min-w-[640px]">
         {calDays.map((day, idx) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const isCurrentMonth = day.getMonth() === selectedMonth - 1;
@@ -234,7 +234,7 @@ function MonthCalendarView({ services, selectedMonth, selectedYear }: { services
             <div
               key={idx}
               className={cn(
-                'min-h-[110px] border-b border-r border-border p-1.5 transition-colors',
+                'min-h-[80px] sm:min-h-[110px] border-b border-r border-border p-1.5 transition-colors',
                 !isCurrentMonth && 'bg-muted/20 opacity-40',
                 isWeekend && isCurrentMonth && 'bg-muted/10',
                 isToday && 'ring-2 ring-primary ring-inset',
