@@ -13,6 +13,12 @@ const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 type ViewMode = 'annual' | 'month-calendar' | 'month-list';
 
+// בוצע = green, לא בוצע = red — matching the completion colors in WorkSchedulePage.
+const statusClass = (isDone: boolean | null) =>
+  isDone ? 'bg-green-100 border-green-300 text-green-800' : 'bg-red-100 border-red-300 text-red-800';
+const statusText = (s: { is_done: boolean | null; status_label: string | null }) =>
+  s.status_label || (s.is_done ? 'בוצע' : 'לא בוצע');
+
 export default function ServiceCyclePage() {
   const { services, loading } = useOngoingServices();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -73,7 +79,9 @@ export default function ServiceCyclePage() {
             <Filter className="w-5 h-5 inline ml-2 text-primary" />
             שירות שוטף — {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
           </h2>
-          <span className="text-sm text-muted-foreground">{stat.total} משימות</span>
+          <span className="text-sm text-muted-foreground">
+            {stat.total} משימות · {stat.services.filter(s => s.is_done).length} בוצעו
+          </span>
           <div className="mr-auto flex gap-1">
             <Button
               variant={viewMode === 'month-list' ? 'default' : 'outline'}
@@ -190,6 +198,10 @@ function MonthListView({ services }: { services: OngoingService[] }) {
                 {s.location && (
                   <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
                 )}
+                <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s.is_done))}>
+                  {s.is_done && <CheckCircle className="w-3 h-3" />}
+                  {statusText(s)}
+                </span>
               </div>
             ))}
           </div>
@@ -251,10 +263,10 @@ function MonthCalendarView({ services, selectedMonth, selectedYear }: { services
                   {dayServices.slice(0, 4).map(s => (
                     <div
                       key={s.id}
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border bg-primary/10 text-primary border-primary/30 truncate"
-                      title={`${s.task_description} — ${s.location}`}
+                      className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border truncate', statusClass(s.is_done))}
+                      title={`${s.task_description} — ${s.location} — ${statusText(s)}`}
                     >
-                      <Filter className="w-2.5 h-2.5 flex-shrink-0" />
+                      {s.is_done ? <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" /> : <Filter className="w-2.5 h-2.5 flex-shrink-0" />}
                       <span className="truncate">{s.task_description}</span>
                     </div>
                   ))}

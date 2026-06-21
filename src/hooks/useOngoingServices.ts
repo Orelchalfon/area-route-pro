@@ -6,6 +6,8 @@ export interface OngoingService {
   service_date: string;
   task_description: string;
   location: string;
+  is_done: boolean | null;
+  status_label: string | null;
 }
 
 export function useOngoingServices() {

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
@@ -8,6 +8,10 @@ import { useMalfunctionsInstallations } from '@/hooks/useMalfunctionsInstallatio
 import { supabase } from '@/integrations/supabase/client';
 import { buildDbJobUpdatePatch, getDbJobRef, JobSyncPatch } from '@/lib/dbJobSync';
 import { getDbSyncStatus } from '@/lib/dbSyncStatus';
+
+// Referentially stable empty array so customers with no logs don't get a fresh
+// array on every render (which would defeat React.memo on CustomerCard).
+const EMPTY_LOGS: ActivityLog[] = Object.freeze([]) as ActivityLog[];
 
 function shouldResetStoredCoords(data: Partial<Customer>) {
   const updatesAddress = Object.prototype.hasOwnProperty.call(data, 'address') || Object.prototype.hasOwnProperty.call(data, 'city');
@@ -398,14 +402,14 @@ export function useJobs() {
     setCustomersList(prev => [...prev, newCustomer]);
   };
 
-  const updateCustomer = (customerId: string, data: Partial<Customer>) => {
+  const updateCustomer = useCallback((customerId: string, data: Partial<Customer>) => {
     const nextData = shouldResetStoredCoords(data)
       ? { ...data, lat: undefined, lng: undefined, placeId: undefined }
       : data;
 
     setCustomersList(prev => prev.map(c => c.id === customerId ? { ...c, ...nextData } : c));
     addLog(customerId, 'עדכון פרטים', 'פרטי הלקוח עודכנו');
-  };
+  }, [addLog]);
 
   const distributeServiceTracks = (assignments: { customerId: string; track: ServiceTrack; nextServiceDate: string }[]) => {
     setCustomersList(prev => {
@@ -453,7 +457,22 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  const getCustomerLogs = (customerId: string) => activityLogs.filter(l => l.customerId === customerId);
+  // Group logs by customer once per change instead of filtering the full list
+  // per card on every render (was O(customers × logs)).
+  const logsByCustomer = useMemo(() => {
+    const map = new Map<string, ActivityLog[]>();
+    for (const log of activityLogs) {
+      const existing = map.get(log.customerId);
+      if (existing) existing.push(log);
+      else map.set(log.customerId, [log]);
+    }
+    return map;
+  }, [activityLogs]);
+
+  const getCustomerLogs = useCallback(
+    (customerId: string) => logsByCustomer.get(customerId) ?? EMPTY_LOGS,
+    [logsByCustomer],
+  );
 
   return { jobs, customersList, closedJobs, activityLogs, dataLoaded, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }

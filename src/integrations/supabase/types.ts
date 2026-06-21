@@ -232,24 +232,36 @@ export type Database = {
       }
       ongoing_services: {
         Row: {
+          category: string | null
           created_at: string
           id: string
+          is_done: boolean | null
           location: string | null
           service_date: string
+          status_label: string | null
+          status_synced_at: string | null
           task_description: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           id?: string
+          is_done?: boolean | null
           location?: string | null
           service_date: string
+          status_label?: string | null
+          status_synced_at?: string | null
           task_description: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           id?: string
+          is_done?: boolean | null
           location?: string | null
           service_date?: string
+          status_label?: string | null
+          status_synced_at?: string | null
           task_description?: string
         }
         Relationships: []
