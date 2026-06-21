@@ -3,7 +3,7 @@ import { Job, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus } from '@/typ
 import { technicians } from '@/data/mockData';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical, Navigation, ListPlus, Pencil, Save } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Calendar, XCircle, RotateCcw, Archive, Undo2, GripVertical, Navigation, ListPlus, Pencil, Save, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, getDay, addMonths, subMonths, addWeeks, subWeeks, isSameMonth } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -19,6 +19,7 @@ import { CustomerInfoPopover } from './CustomerInfoPopover';
 import { AddressAutocomplete } from './AddressAutocomplete';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { geocodeAddress } from '@/lib/geocodeAddress';
+import { normalizeIsraeliPhone, whatsappUrl } from '@/lib/whatsapp';
 
 const REGIONS = [
   'דרום רחוק', 'מרכז דרום', 'תל אביב', 'ירושלים',
@@ -368,6 +369,7 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
   const [overIdx, setOverIdx] = useState<number | null>(null);
   const dayDate = new Date(dateStr + 'T00:00:00');
   const dayLabel = format(dayDate, 'EEEE d/M', { locale: he });
+  const dayDateText = format(dayDate, 'd/M/yyyy');
   const isApproved = approvedDays.has(dateStr);
 
   // Sync when source data changes
@@ -476,6 +478,21 @@ function DayApprovalDialog({ open, onClose, dateStr, dayJobs, filterJobs, onAppr
                       {customer?.phone && (
                         <div className="text-xs opacity-60 mt-0.5">📱 {customer.phone}</div>
                       )}
+                      {/* WhatsApp — fades in once the day is approved; coordinates the appointment a week ahead */}
+                      {isApproved && customer && (() => {
+                        const waPhone = normalizeIsraeliPhone(customer.phone);
+                        if (!waPhone) return null;
+                        const msg = `היי ${customer.name} מדברים מטל חרמון רצינו לתאם פגישה לשבוע הבא בתאריך ${dayDateText} בשעה ${startTime} ,אנא אשר הגעת טכנאי.`;
+                        return (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); window.open(whatsappUrl(waPhone, msg), '_blank'); }}
+                            className="mt-2 w-full flex items-center justify-center gap-1.5 h-8 rounded-md bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-300"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            תאם בוואטסאפ
+                          </button>
+                        );
+                      })()}
                     </div>
                   );
                 })}

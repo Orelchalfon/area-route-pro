@@ -1,16 +1,18 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { technicians } from '@/data/mockData';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Calendar, CheckCircle2, ChevronRight, ChevronLeft, Clock, LayoutDashboard, XCircle, RotateCcw, Pencil } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronRight, ChevronLeft, Clock, LayoutDashboard, XCircle, RotateCcw, Pencil, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, addWeeks, subWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
+import { normalizeIsraeliPhone, whatsappUrl } from '@/lib/whatsapp';
 
 const getTodayStr = () => format(new Date(), 'yyyy-MM-dd');
 
@@ -21,6 +23,7 @@ interface TechnicianViewProps {
 
 export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianViewProps) {
   const { isAdmin, technicianId } = useAuth();
+  const { customersList } = useJobsContext();
   const [selectedTech, setSelectedTech] = useState(technicians[0].id);
   // Admins may browse any technician; employees are locked to their own.
   const activeTechId = isAdmin ? selectedTech : technicianId;
@@ -221,13 +224,29 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse-soft" />
               משימות פעילות
             </h2>
-            {activeJobs.map((job, idx) => (
+            {activeJobs.map((job, idx) => {
+              const customer = customersList.find(c => c.id === job.customerId);
+              const waPhone = normalizeIsraeliPhone(customer?.phone);
+              return (
               <div key={job.id}>
                 <JobCard
                   job={job}
                   variant="technician"
                   isNext={idx === 0}
                 />
+                {/* WhatsApp — pre-filled ETA message to the customer */}
+                {customer && waPhone && (
+                  <div className="mt-2 px-1">
+                    <Button
+                      size="sm"
+                      className="w-full h-11 bg-[#25D366] hover:bg-[#1da851] text-white"
+                      onClick={() => window.open(whatsappUrl(waPhone, `היי ${customer.name} מדבר ${tech.name} אנחנו מגיעים אליך עוד חצי שעה`), '_blank')}
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 ml-1" />
+                      וואטסאפ — בדרך אליך
+                    </Button>
+                  </div>
+                )}
                 {/* 3 action buttons */}
                 <div className="flex gap-2 mt-2 px-1">
                   <Button
@@ -258,7 +277,8 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                   </Button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
