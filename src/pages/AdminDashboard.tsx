@@ -8,7 +8,7 @@ import { ClipboardCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminDashboard() {
-  const { jobs, customersList, closedJobs, activityLogs, approveSchedule, approveDaySchedule, updateJobStatus, addJob, assignJob, unassignJob, closeJob, returnJob, recalcNextServiceDate } = useJobsContext();
+  const { jobs, customersList, closedJobs, activityLogs, approveSchedule, approveDaySchedule, updateJobStatus, addJob, addCustomer, assignJob, unassignJob, closeJob, returnJob, recalcNextServiceDate } = useJobsContext();
   const [summaryOpen, setSummaryOpen] = useState(false);
 
   return (
@@ -25,7 +25,7 @@ export default function AdminDashboard() {
             <ClipboardCheck className="w-4 h-4" />
             סיכום יום
           </Button>
-          <NewJobDialog customers={customersList} onAdd={addJob} />
+          <NewJobDialog customers={customersList} onAdd={addJob} onAddCustomer={addCustomer} />
         </div>
       </div>
 

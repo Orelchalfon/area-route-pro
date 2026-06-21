@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -6,61 +6,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Plus, ChevronsUpDown, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus } from 'lucide-react';
 import { JobType, Customer } from '@/types';
 import { technicians } from '@/data/mockData';
+import { CustomerSearchField } from './CustomerSearchField';
+import { AddressAutocomplete } from './AddressAutocomplete';
+
+type AddCustomerData = { name: string; phone: string; address: string; city: string; email: string; product: string; lat?: number; lng?: number; placeId?: string };
 
 interface NewJobDialogProps {
   customers: Customer[];
-  onAdd: (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string }) => void;
-}
-
-function CustomerSearchField({ customers, customerId, setCustomerId }: { customers: Customer[]; customerId: string; setCustomerId: (id: string) => void }) {
-  const [customerOpen, setCustomerOpen] = useState(false);
-  const selectedCustomer = customers.find(c => c.id === customerId);
-
-  return (
-    <div className="space-y-2">
-      <Label>לקוח</Label>
-      <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" aria-expanded={customerOpen} className="w-full justify-between font-normal">
-            {selectedCustomer ? `${selectedCustomer.name} - ${selectedCustomer.city}` : 'חפש ובחר לקוח...'}
-            <ChevronsUpDown className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
-          <Command dir="rtl">
-            <CommandInput placeholder="חפש לפי שם, טלפון, עיר..." />
-            <CommandList>
-              <CommandEmpty>לא נמצאו לקוחות</CommandEmpty>
-              <CommandGroup>
-                {customers.map(c => (
-                  <CommandItem
-                    key={c.id}
-                    value={`${c.name} ${c.phone} ${c.city} ${c.address}`}
-                    onSelect={() => {
-                      setCustomerId(c.id);
-                      setCustomerOpen(false);
-                    }}
-                  >
-                    <Check className={cn("ml-2 h-4 w-4", customerId === c.id ? "opacity-100" : "opacity-0")} />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{c.name}</span>
-                      <span className="text-xs text-muted-foreground">{c.phone} · {c.city}</span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
+  onAdd: (data: { type: JobType; customerId: string; technicianId: string; scheduledDate: string; scheduledTime: string; notes: string; location?: string; city?: string }) => void;
+  onAddCustomer: (data: AddCustomerData) => Customer;
 }
 
 function JobFormFields({ customers, customerId, setCustomerId, technicianId, setTechnicianId, scheduledDate, setScheduledDate, scheduledTime, setScheduledTime, notes, setNotes }: {
@@ -106,7 +64,7 @@ function JobFormFields({ customers, customerId, setCustomerId, technicianId, set
   );
 }
 
-export function NewJobDialog({ customers, onAdd }: NewJobDialogProps) {
+export function NewJobDialog({ customers, onAdd, onAddCustomer }: NewJobDialogProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('malfunction');
   const [customerId, setCustomerId] = useState('');
@@ -115,13 +73,41 @@ export function NewJobDialog({ customers, onAdd }: NewJobDialogProps) {
   const [scheduledTime, setScheduledTime] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Non-customer installation fields
+  const [isNonCustomer, setIsNonCustomer] = useState(false);
+  const [ncName, setNcName] = useState('');
+  const [ncPhone, setNcPhone] = useState('');
+  const [ncAddress, setNcAddress] = useState('');
+  const [ncCity, setNcCity] = useState('');
+  const [ncOrderDetails, setNcOrderDetails] = useState('');
+  const [lat, setLat] = useState<number | undefined>();
+  const [lng, setLng] = useState<number | undefined>();
+  const [placeId, setPlaceId] = useState<string | undefined>();
+
   const resetForm = () => {
     setCustomerId('');
     setTechnicianId('');
     setScheduledDate('');
     setScheduledTime('');
     setNotes('');
+    setIsNonCustomer(false);
+    setNcName('');
+    setNcPhone('');
+    setNcAddress('');
+    setNcCity('');
+    setNcOrderDetails('');
+    setLat(undefined);
+    setLng(undefined);
+    setPlaceId(undefined);
   };
+
+  const handlePlaceSelect = useCallback((place: { address: string; city: string; lat: number; lng: number; placeId: string }) => {
+    setNcAddress(place.address);
+    setNcCity(place.city);
+    setLat(place.lat);
+    setLng(place.lng);
+    setPlaceId(place.placeId);
+  }, []);
 
   const handleSubmit = (type: JobType) => {
     if (!customerId || !technicianId || !scheduledDate || !scheduledTime) return;
@@ -130,7 +116,16 @@ export function NewJobDialog({ customers, onAdd }: NewJobDialogProps) {
     resetForm();
   };
 
+  const handleNonCustomerSubmit = () => {
+    if (!ncName || !ncPhone || !ncAddress || !scheduledDate || !scheduledTime) return;
+    const cust = onAddCustomer({ name: ncName, phone: ncPhone, address: ncAddress, city: ncCity, email: '', product: ncOrderDetails, lat, lng, placeId });
+    onAdd({ type: 'installation', customerId: cust.id, technicianId: '', scheduledDate, scheduledTime, notes, location: ncAddress, city: ncCity });
+    setOpen(false);
+    resetForm();
+  };
+
   const isDisabled = !customerId || !technicianId || !scheduledDate || !scheduledTime;
+  const isNonCustomerDisabled = !ncName || !ncPhone || !ncAddress || !scheduledDate || !scheduledTime;
 
   const formProps = { customers, customerId, setCustomerId, technicianId, setTechnicianId, scheduledDate, setScheduledDate, scheduledTime, setScheduledTime, notes, setNotes };
 
@@ -162,10 +157,63 @@ export function NewJobDialog({ customers, onAdd }: NewJobDialogProps) {
           </TabsContent>
 
           <TabsContent value="installation" className="space-y-4 mt-4">
-            <JobFormFields {...formProps} />
-            <Button onClick={() => handleSubmit('installation')} className="w-full" disabled={isDisabled}>
-              שמור התקנה
-            </Button>
+            <div className="flex items-center gap-2">
+              <Checkbox id="non-customer" checked={isNonCustomer} onCheckedChange={(v) => setIsNonCustomer(v === true)} />
+              <Label htmlFor="non-customer" className="cursor-pointer">לא לקוח</Label>
+            </div>
+
+            {isNonCustomer ? (
+              <>
+                <div className="space-y-2">
+                  <Label>שם הלקוח</Label>
+                  <Input value={ncName} onChange={e => setNcName(e.target.value)} placeholder="שם מלא" />
+                </div>
+                <div className="space-y-2">
+                  <Label>טלפון</Label>
+                  <Input value={ncPhone} onChange={e => setNcPhone(e.target.value)} placeholder="+972-50-0000000" />
+                </div>
+                <div className="space-y-2">
+                  <Label>כתובת מלאה</Label>
+                  <AddressAutocomplete
+                    value={ncAddress}
+                    onChange={setNcAddress}
+                    onPlaceSelect={handlePlaceSelect}
+                    placeholder="הקלד כתובת..."
+                  />
+                  {placeId && (
+                    <p className="text-xs text-muted-foreground">📍 כתובת מאומתת</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>פרטי ההזמנה</Label>
+                  <Textarea value={ncOrderDetails} onChange={e => setNcOrderDetails(e.target.value)} placeholder="פרטי ההזמנה / המוצר..." />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>תאריך</Label>
+                    <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>שעה</Label>
+                    <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>הערות</Label>
+                  <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="הערות נוספות..." />
+                </div>
+                <Button onClick={handleNonCustomerSubmit} className="w-full" disabled={isNonCustomerDisabled}>
+                  שמור התקנה
+                </Button>
+              </>
+            ) : (
+              <>
+                <JobFormFields {...formProps} />
+                <Button onClick={() => handleSubmit('installation')} className="w-full" disabled={isDisabled}>
+                  שמור התקנה
+                </Button>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="filter_replacement" className="space-y-4 mt-4">

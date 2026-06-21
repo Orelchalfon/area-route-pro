@@ -400,6 +400,7 @@ export function useJobs() {
       filterReplacementMonth: data.filterReplacementMonth || (new Date().getMonth() + 1),
     };
     setCustomersList(prev => [...prev, newCustomer]);
+    return newCustomer;
   };
 
   const updateCustomer = useCallback((customerId: string, data: Partial<Customer>) => {
