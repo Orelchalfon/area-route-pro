@@ -14,12 +14,13 @@ import { Customer, Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { Archive, GripVertical, Navigation, Pencil, Save, Undo2, X } from "lucide-react";
-import { type DragEvent, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "../../AddressAutocomplete";
 import { DayRouteMap } from "../../DayRouteMap";
 import { FollowUpTasksPopover } from "../FollowUpTasksPopover";
 import { typeColors, typeIcons } from "../constants";
+import { useDragReorder } from "../hooks/useDragReorder";
 
 export function DayDetailDialog({
   open,
@@ -61,8 +62,14 @@ export function DayDetailDialog({
     updateJob,
     updateCustomer,
   } = useJobsContext();
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const {
+    dragIdx,
+    overIdx,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    handleDrop,
+  } = useDragReorder(setOrderedJobs);
   const [showMap, setShowMap] = useState(false);
   const dayDate = new Date(dateStr + "T00:00:00");
   const dayLabel = format(dayDate, "EEEE d/M", { locale: he });
@@ -184,39 +191,6 @@ export function DayDetailDialog({
   useMemo(() => {
     setOrderedJobs([...filterJobs, ...dayJobs]);
   }, [filterJobs.length, dayJobs.length]);
-
-  const handleDragStart = useCallback((idx: number) => {
-    setDragIdx(idx);
-  }, []);
-
-  const handleDragOver = useCallback((e: DragEvent, idx: number) => {
-    e.preventDefault();
-    setOverIdx(idx);
-  }, []);
-
-  const handleDrop = useCallback(
-    (idx: number) => {
-      if (dragIdx === null || dragIdx === idx) {
-        setDragIdx(null);
-        setOverIdx(null);
-        return;
-      }
-      setOrderedJobs((prev) => {
-        const next = [...prev];
-        const [moved] = next.splice(dragIdx, 1);
-        next.splice(idx, 0, moved);
-        return next;
-      });
-      setDragIdx(null);
-      setOverIdx(null);
-    },
-    [dragIdx],
-  );
-
-  const handleDragEnd = useCallback(() => {
-    setDragIdx(null);
-    setOverIdx(null);
-  }, []);
 
   const completionColorMap: Record<string, string> = {
     done: "border-success bg-success/10",

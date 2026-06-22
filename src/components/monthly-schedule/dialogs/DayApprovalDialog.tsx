@@ -12,11 +12,12 @@ import { Job, JOB_TYPE_CONFIG } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { CheckCircle, Clock, GripVertical, MessageCircle } from "lucide-react";
-import { type DragEvent, useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CustomerInfoPopover } from "../../CustomerInfoPopover";
 import { DayRouteMap } from "../../DayRouteMap";
 import { typeColors, typeIcons } from "../constants";
+import { useDragReorder } from "../hooks/useDragReorder";
 import { calculateTimeRanges } from "../utils";
 
 // Day approval dialog with drag-and-drop reordering
@@ -43,8 +44,14 @@ export function DayApprovalDialog({
   );
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
   const { customersList: customers } = useJobsContext();
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const {
+    dragIdx,
+    overIdx,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    handleDrop,
+  } = useDragReorder(setOrderedJobs);
   const dayDate = new Date(dateStr + "T00:00:00");
   const dayLabel = format(dayDate, "EEEE d/M", { locale: he });
   const dayDateText = format(dayDate, "d/M/yyyy");
@@ -62,34 +69,6 @@ export function DayApprovalDialog({
   const totalMinutes = orderedJobs.reduce((s, j) => s + j.estimatedDuration, 0);
   const endMinutes = 10 * 60 + totalMinutes;
   const overTime = endMinutes > 17 * 60;
-
-  const handleDragStart = useCallback((idx: number) => setDragIdx(idx), []);
-  const handleDragOver = useCallback((e: DragEvent, idx: number) => {
-    e.preventDefault();
-    setOverIdx(idx);
-  }, []);
-  const handleDragEnd = useCallback(() => {
-    setDragIdx(null);
-    setOverIdx(null);
-  }, []);
-  const handleDrop = useCallback(
-    (idx: number) => {
-      if (dragIdx === null || dragIdx === idx) {
-        setDragIdx(null);
-        setOverIdx(null);
-        return;
-      }
-      setOrderedJobs((prev) => {
-        const next = [...prev];
-        const [moved] = next.splice(dragIdx, 1);
-        next.splice(idx, 0, moved);
-        return next;
-      });
-      setDragIdx(null);
-      setOverIdx(null);
-    },
-    [dragIdx],
-  );
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
