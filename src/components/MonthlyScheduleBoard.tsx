@@ -38,6 +38,7 @@ import { he } from "date-fns/locale";
 import {
   AlertTriangle,
   Archive,
+  ArrowLeft,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
@@ -353,10 +354,12 @@ function distributeFilterJobs(
 function MiniJobChip({
   job,
   onRemove,
+  onMoveNext,
   isAutoScheduled,
 }: {
   job: Job;
   onRemove?: () => void;
+  onMoveNext?: () => void;
   isAutoScheduled?: boolean;
 }) {
   const { customersList } = useJobsContext();
@@ -375,18 +378,20 @@ function MiniJobChip({
 
   return (
     <div
-      className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs border ${chipColor} group relative`}>
-      {typeIcons[job.type]}
-      {customer ? (
-        <CustomerInfoPopover customer={customer}>
-          <span className='truncate max-w-[90px]'>{customer.name}</span>
-        </CustomerInfoPopover>
-      ) : (
-        <span className='truncate max-w-[90px]'>—</span>
-      )}
-      {isAutoScheduled && !job.completionStatus && (
-        <span className='text-[9px] opacity-60'>●</span>
-      )}
+      className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded text-xs border ${chipColor} group relative`}>
+      <div className='flex items-center gap-1.5 min-w-0'>
+        {typeIcons[job.type]}
+        {customer ? (
+          <CustomerInfoPopover customer={customer}>
+            <span className='truncate max-w-[90px]'>{customer.name}</span>
+          </CustomerInfoPopover>
+        ) : (
+          <span className='truncate max-w-[90px]'>—</span>
+        )}
+        {isAutoScheduled && !job.completionStatus && (
+          <span className='text-[9px] opacity-60'>●</span>
+        )}
+      </div>
       {job.completionStatus === "done" && <span className='text-[9px]'>✓</span>}
       {job.completionStatus === "not_done" && (
         <span className='text-[9px]'>✗</span>
@@ -394,16 +399,30 @@ function MiniJobChip({
       {job.completionStatus === "need_return" && (
         <span className='text-[9px]'>↻</span>
       )}
-      {onRemove && !job.completionStatus && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className='opacity-0 group-hover:opacity-100 transition-opacity'>
-          <X className='w-3 h-3' />
-        </button>
-      )}
+      <div className='absolute top-0 left-2 h-full flex items-center gap-1 pr-1'>
+        {onRemove && !job.completionStatus && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className='opacity-0 group-hover:opacity-100 transition-opacity hover:*:text-destructive'
+            title='הסר מהלו״ז'>
+            <X className='w-3 h-3' />
+          </button>
+        )}
+        {onMoveNext && !job.completionStatus && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveNext();
+            }}
+            className='opacity-0 group-hover:opacity-100 transition-opacity  hover:*:text-primary'
+            title='העבר ליום הבא'>
+            <ArrowLeft className='w-3 h-3' />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -461,7 +480,6 @@ function UnifiedJobPickerDialog({
         (j) => j.type === "installation",
       ),
       filter_replacement: areaFilteredFilterJobs,
-      
     }),
     [areaFilteredManualJobs, areaFilteredFilterJobs],
   );
@@ -1011,6 +1029,7 @@ function DayDetailDialog({
   dayJobs,
   filterJobs,
   onRemoveJob,
+  onMoveJob,
   onCloseJob,
   onReturnJob,
   onAddJob,
@@ -1021,6 +1040,7 @@ function DayDetailDialog({
   dayJobs: Job[];
   filterJobs: Job[];
   onRemoveJob: (jobId: string) => void;
+  onMoveJob?: (jobId: string) => void;
   onCloseJob?: (jobId: string) => void;
   onReturnJob?: (jobId: string) => void;
   onAddJob?: (data: {
@@ -2037,19 +2057,80 @@ export function MonthlyScheduleBoard({
     ],
   );
 
-  // Remove a manual job — return it to the unassigned pool
-  const handleRemoveAndRescheduleManual = useCallback(
-    (jobId: string, _fromDateStr: string) => {
+  // Delete a filter job from the schedule (no reschedule)
+  const handleDeleteFilter = useCallback(
+    (jobId: string, fromDateStr: string) => {
+      const isAuto = (filterDistribution.get(fromDateStr) || []).some(
+        (j) => j.id === jobId,
+      );
+      if (isAuto) {
+        setRemovedFromAutoIds((prev) => new Set(prev).add(jobId));
+      } else {
+        setExtraFilterAssignments((prev) => {
+          const next = new Map(prev);
+          const dayJobs = next.get(fromDateStr) || [];
+          const filtered = dayJobs.filter((j) => j.id !== jobId);
+          if (filtered.length > 0) next.set(fromDateStr, filtered);
+          else next.delete(fromDateStr);
+          return next;
+        });
+      }
+      // Delete the persisted row + remove from global state
+      onUnassignFilterService?.(jobId);
+      toast.info("השירות הוסר מהלו״ז");
+    },
+    [filterDistribution, onUnassignFilterService],
+  );
+
+  // Delete a manual job — return it to the unassigned pool
+  const handleDeleteManual = useCallback(
+    (jobId: string) => {
       onUnassignJob(jobId);
       toast.info("המשימה הוסרה מהלו״ז וחזרה למאגר");
     },
     [onUnassignJob],
   );
 
+  // Move a manual job to the nearest same-area working day
+  const handleMoveManual = useCallback(
+    (jobId: string, fromDateStr: string) => {
+      const job =
+        manualJobs.find((j) => j.id === jobId) ||
+        jobs.find((j) => j.id === jobId);
+      if (!job) return;
+      const targetDate = findNearestAreaDay(fromDateStr, job.city);
+      if (targetDate) {
+        onAssignJob(jobId, selectedTechId, targetDate, "08:00");
+        toast.success(`המשימה הועברה ל-${targetDate} (${job.city})`);
+      } else {
+        toast.info("לא נמצא יום מתאים באותו אזור");
+      }
+    },
+    [manualJobs, jobs, findNearestAreaDay, onAssignJob, selectedTechId],
+  );
+
   // Stats
   const stats = useMemo(() => {
     const filterCount = filterJobs.length;
-    const manualAssigned = manualJobs.length;
+    // Manually-scheduled ongoing services (filter jobs) count as manual assignments too.
+    // Mirror getFilterDayJobs' sources — session-local extraFilterAssignments and persisted
+    // global jobs — deduped by id (a fresh add lives in both).
+    const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
+    const manualFilterIds = new Set<string>();
+    extraFilterAssignments.forEach((dayJobs, dateStr) => {
+      if (dateStr.startsWith(monthPrefix))
+        dayJobs.forEach((j) => manualFilterIds.add(j.id));
+    });
+    jobs.forEach((j) => {
+      if (
+        j.type === "filter_replacement" &&
+        j.technicianId === selectedTechId &&
+        j.scheduledDate?.startsWith(monthPrefix)
+      ) {
+        manualFilterIds.add(j.id);
+      }
+    });
+    const manualAssigned = manualJobs.length + manualFilterIds.size;
     const unassigned = unassignedManualJobs.length;
     return [
       { label: "שירות שוטף", count: filterCount, color: "bg-info" },
@@ -2060,7 +2141,16 @@ export function MonthlyScheduleBoard({
         color: "bg-muted-foreground",
       },
     ];
-  }, [filterJobs, manualJobs, unassignedManualJobs]);
+  }, [
+    filterJobs,
+    manualJobs,
+    unassignedManualJobs,
+    extraFilterAssignments,
+    jobs,
+    selectedTechId,
+    month,
+    year,
+  ]);
 
   // Calendar grid padding
   const startDow = getDay(monthStart); // 0=Sun
@@ -2371,7 +2461,8 @@ export function MonthlyScheduleBoard({
                             key={job.id}
                             job={job}
                             isAutoScheduled
-                            onRemove={() =>
+                            onRemove={() => handleDeleteFilter(job.id, dateStr)}
+                            onMoveNext={() =>
                               handleRemoveAndRescheduleFilter(job.id, dateStr)
                             }
                           />
@@ -2385,9 +2476,8 @@ export function MonthlyScheduleBoard({
                           <MiniJobChip
                             key={job.id}
                             job={job}
-                            onRemove={() =>
-                              handleRemoveAndRescheduleManual(job.id, dateStr)
-                            }
+                            onRemove={() => handleDeleteManual(job.id)}
+                            onMoveNext={() => handleMoveManual(job.id, dateStr)}
                           />
                         ))}
                         {dayManualJobs.length > maxShow && (
@@ -2507,9 +2597,17 @@ export function MonthlyScheduleBoard({
           onRemoveJob={(jobId) => {
             const isFilter = filterJobs.some((j) => j.id === jobId);
             if (isFilter) {
+              handleDeleteFilter(jobId, detailState.dateStr);
+            } else {
+              handleDeleteManual(jobId);
+            }
+          }}
+          onMoveJob={(jobId) => {
+            const isFilter = filterJobs.some((j) => j.id === jobId);
+            if (isFilter) {
               handleRemoveAndRescheduleFilter(jobId, detailState.dateStr);
             } else {
-              handleRemoveAndRescheduleManual(jobId, detailState.dateStr);
+              handleMoveManual(jobId, detailState.dateStr);
             }
           }}
           onCloseJob={onCloseJob}
