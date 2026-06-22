@@ -37,3 +37,5 @@ scripts/import/out/
 
 # Customer PII — source data for one-time import only
 sheets/
+*.xlsx 
+*.bin
