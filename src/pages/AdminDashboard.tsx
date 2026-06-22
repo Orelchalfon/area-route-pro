@@ -8,7 +8,7 @@ import { ClipboardCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminDashboard() {
-  const { jobs, customersList, closedJobs, activityLogs, approveSchedule, approveDaySchedule, updateJobStatus, addJob, addCustomer, assignJob, unassignJob, closeJob, returnJob, recalcNextServiceDate } = useJobsContext();
+  const { jobs, customersList, closedJobs, activityLogs, approveSchedule, approveDaySchedule, updateJobStatus, addJob, addCustomer, assignJob, unassignJob, assignFilterService, unassignFilterService, closeJob, returnJob, recalcNextServiceDate } = useJobsContext();
   const [summaryOpen, setSummaryOpen] = useState(false);
 
   return (
@@ -36,6 +36,8 @@ export default function AdminDashboard() {
         onStatusChange={updateJobStatus}
         onAssignJob={assignJob}
         onUnassignJob={unassignJob}
+        onAssignFilterService={assignFilterService}
+        onUnassignFilterService={unassignFilterService}
         onCloseJob={closeJob}
         onReturnJob={returnJob}
         onAddJob={addJob}

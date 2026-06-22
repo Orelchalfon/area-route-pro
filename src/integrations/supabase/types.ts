@@ -293,6 +293,60 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_filter_services: {
+        Row: {
+          city: string | null
+          completion_notes: string | null
+          completion_status: string | null
+          created_at: string
+          customer_id: string
+          estimated_duration: number | null
+          id: string
+          job_key: string
+          location: string | null
+          notes: string | null
+          scheduled_date: string
+          scheduled_time: string | null
+          status: string | null
+          technician_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
+          created_at?: string
+          customer_id: string
+          estimated_duration?: number | null
+          id?: string
+          job_key: string
+          location?: string | null
+          notes?: string | null
+          scheduled_date: string
+          scheduled_time?: string | null
+          status?: string | null
+          technician_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
+          created_at?: string
+          customer_id?: string
+          estimated_duration?: number | null
+          id?: string
+          job_key?: string
+          location?: string | null
+          notes?: string | null
+          scheduled_date?: string
+          scheduled_time?: string | null
+          status?: string | null
+          technician_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

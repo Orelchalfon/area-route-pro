@@ -65,6 +65,7 @@ function JobFormFields({ customers, customerId, setCustomerId, technicianId, set
 }
 
 export function NewJobDialog({ customers, onAdd, onAddCustomer }: NewJobDialogProps) {
+  
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('malfunction');
   const [customerId, setCustomerId] = useState('');
@@ -134,7 +135,8 @@ export function NewJobDialog({ customers, onAdd, onAddCustomer }: NewJobDialogPr
       <DialogTrigger asChild>
         <Button className="gap-1.5">
           <Plus className="w-4 h-4" />
-          פניה חדשה
+          
+          ה
         </Button>
       </DialogTrigger>
       <DialogContent dir="rtl" className="sm:max-w-md">

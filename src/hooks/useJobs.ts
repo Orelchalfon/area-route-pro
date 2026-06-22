@@ -5,6 +5,7 @@ import { loadCustomersFromCSV } from '@/lib/csvParser';
 import { useICSImport } from '@/hooks/useICSImport';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useMalfunctionsInstallations } from '@/hooks/useMalfunctionsInstallations';
+import { useScheduledFilterServices } from '@/hooks/useScheduledFilterServices';
 import { supabase } from '@/integrations/supabase/client';
 import { buildDbJobUpdatePatch, getDbJobRef, JobSyncPatch } from '@/lib/dbJobSync';
 import { getDbSyncStatus } from '@/lib/dbSyncStatus';
@@ -39,6 +40,10 @@ export function useJobs() {
     realtimeStatus,
     refresh: refreshDbJobs,
   } = useMalfunctionsInstallations();
+  const {
+    jobs: scheduledFilterJobs,
+    loaded: scheduledFilterLoaded,
+  } = useScheduledFilterServices();
   const dbSyncStatus = getDbSyncStatus({
     loading: dbLoading,
     error: dbSyncError,
@@ -54,6 +59,59 @@ export function useJobs() {
     supabase.from(ref.table).update(patch).eq('id', ref.dbId).then(({ error }) => {
       if (error) console.error(`Failed to persist ${ref.table} job ${jobId}:`, error);
     });
+  }, []);
+
+  // Filter (ongoing-service) jobs are synthetic and have no malfunctions/installations
+  // row, so persistDbJob no-ops for them. Their scheduling lives in scheduled_filter_services
+  // keyed by job_key (= the synthetic job id), upserted here.
+  const persistFilterServiceRow = useCallback((job: Job, technicianId: string, scheduledDate: string, scheduledTime: string) => {
+    supabase
+      .from('scheduled_filter_services')
+      .upsert({
+        job_key: job.id,
+        customer_id: job.customerId,
+        scheduled_date: scheduledDate,
+        scheduled_time: scheduledTime || null,
+        technician_id: technicianId || null,
+        status: 'confirmed',
+        estimated_duration: job.estimatedDuration,
+        location: job.location || '',
+        city: job.city || '',
+        notes: job.notes || '',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'job_key' })
+      .then(({ error }) => {
+        if (error) console.error(`Failed to persist scheduled filter service ${job.id}:`, error);
+      });
+  }, []);
+
+  // Schedule a filter job to a day: persist to DB and reflect it in global jobs so it
+  // renders immediately and survives refresh.
+  const assignFilterService = useCallback((job: Job, technicianId: string, scheduledDate: string, scheduledTime: string) => {
+    persistFilterServiceRow(job, technicianId, scheduledDate, scheduledTime);
+    const scheduledJob: Job = {
+      ...job,
+      status: 'confirmed',
+      technicianId,
+      scheduledDate,
+      scheduledTime,
+    };
+    setJobs(prev => {
+      const withoutSelf = prev.filter(j => j.id !== job.id);
+      return [...withoutSelf, scheduledJob];
+    });
+  }, [persistFilterServiceRow]);
+
+  // Remove a scheduled filter job: delete the DB row and drop it from global jobs.
+  const unassignFilterService = useCallback((jobId: string) => {
+    supabase
+      .from('scheduled_filter_services')
+      .delete()
+      .eq('job_key', jobId)
+      .then(({ error }) => {
+        if (error) console.error(`Failed to remove scheduled filter service ${jobId}:`, error);
+      });
+    setJobs(prev => prev.filter(j => j.id !== jobId));
   }, []);
 
   // Load base customers: prefer the Supabase `customers` table (source of truth).
@@ -98,6 +156,18 @@ export function useJobs() {
       return [...withoutDb, ...dbJobs];
     });
   }, [dataLoaded, dbLoaded, dbJobs, dbCustomers, dbLastSyncedAt]);
+
+  // Merge persisted scheduled filter (ongoing-service) jobs from the DB. These reconcile
+  // with the board's synthetic filter ids via job_key (id === job_key), so a job that was
+  // scheduled to a day survives a refresh instead of disappearing.
+  useEffect(() => {
+    if (!scheduledFilterLoaded) return;
+    setJobs(prev => {
+      const loadedIds = new Set(scheduledFilterJobs.map(j => j.id));
+      const withoutLoaded = prev.filter(j => !loadedIds.has(j.id));
+      return [...withoutLoaded, ...scheduledFilterJobs];
+    });
+  }, [scheduledFilterLoaded, scheduledFilterJobs]);
 
 
   // Merge ICS calendar data: update existing customers' filterReplacementMonth & serviceTrack, add ICS-only customers, and add service jobs
@@ -188,12 +258,16 @@ export function useJobs() {
         const assignment = assignmentMap.get(j.id);
         if (assignment) {
           addLog(j.customerId, 'שיבוץ', `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`, j.id);
-          persistDbJob(j.id, {
-            status: 'confirmed',
-            technicianId: assignment.technicianId,
-            scheduledDate: assignment.scheduledDate,
-            scheduledTime: assignment.scheduledTime,
-          });
+          if (j.type === 'filter_replacement') {
+            persistFilterServiceRow(j, assignment.technicianId, assignment.scheduledDate, assignment.scheduledTime);
+          } else {
+            persistDbJob(j.id, {
+              status: 'confirmed',
+              technicianId: assignment.technicianId,
+              scheduledDate: assignment.scheduledDate,
+              scheduledTime: assignment.scheduledTime,
+            });
+          }
           return {
             ...j,
             status: 'confirmed' as JobStatus,
@@ -212,12 +286,16 @@ export function useJobs() {
             const assignment = assignmentMap.get(job.id);
             if (assignment) {
               addLog(job.customerId, 'שיבוץ', `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`, job.id);
-              persistDbJob(job.id, {
-                status: 'confirmed',
-                technicianId: assignment.technicianId,
-                scheduledDate: assignment.scheduledDate,
-                scheduledTime: assignment.scheduledTime,
-              });
+              if (job.type === 'filter_replacement') {
+                persistFilterServiceRow(job, assignment.technicianId, assignment.scheduledDate, assignment.scheduledTime);
+              } else {
+                persistDbJob(job.id, {
+                  status: 'confirmed',
+                  technicianId: assignment.technicianId,
+                  scheduledDate: assignment.scheduledDate,
+                  scheduledTime: assignment.scheduledTime,
+                });
+              }
               updated.push({
                 ...job,
                 status: 'confirmed' as JobStatus,
@@ -475,5 +553,5 @@ export function useJobs() {
     [logsByCustomer],
   );
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }
