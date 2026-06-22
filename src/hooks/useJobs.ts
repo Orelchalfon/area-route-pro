@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ActivityLog, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
+import { useState, useCallback, useEffect } from 'react';
+import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
+import { useActivityLogs } from '@/hooks/useActivityLogs';
 import { useICSImport } from '@/hooks/useICSImport';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useMalfunctionsInstallations } from '@/hooks/useMalfunctionsInstallations';
@@ -9,10 +10,6 @@ import { useScheduledFilterServices } from '@/hooks/useScheduledFilterServices';
 import { supabase } from '@/integrations/supabase/client';
 import { buildDbJobUpdatePatch, getDbJobRef, JobSyncPatch } from '@/lib/dbJobSync';
 import { getDbSyncStatus } from '@/lib/dbSyncStatus';
-
-// Referentially stable empty array so customers with no logs don't get a fresh
-// array on every render (which would defeat React.memo on CustomerCard).
-const EMPTY_LOGS: ActivityLog[] = Object.freeze([]) as ActivityLog[];
 
 function shouldResetStoredCoords(data: Partial<Customer>) {
   const updatesAddress = Object.prototype.hasOwnProperty.call(data, 'address') || Object.prototype.hasOwnProperty.call(data, 'city');
@@ -26,7 +23,7 @@ export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const { activityLogs, addLog, getCustomerLogs } = useActivityLogs();
   const [dataLoaded, setDataLoaded] = useState(false);
   const { icsCustomers, icsJobs, icsLoaded } = useICSImport();
   const { customers: dbBaseCustomers, loaded: baseCustomersLoaded } = useCustomers();
@@ -237,18 +234,6 @@ export function useJobs() {
       return [...prev, ...newJobs];
     });
   }, [icsLoaded, dataLoaded, icsCustomers.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const addLog = useCallback((customerId: string, action: string, details: string, jobId?: string) => {
-    const log: ActivityLog = {
-      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      customerId,
-      jobId,
-      action,
-      details,
-      timestamp: new Date().toISOString(),
-    };
-    setActivityLogs(prev => [log, ...prev]);
-  }, []);
 
   const updateJobStatus = (jobId: string, status: JobStatus) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status } : j));
@@ -550,23 +535,6 @@ export function useJobs() {
   const getJobsByTechnician = (techId: string) => {
     return jobs.filter(j => j.technicianId === techId);
   };
-
-  // Group logs by customer once per change instead of filtering the full list
-  // per card on every render (was O(customers × logs)).
-  const logsByCustomer = useMemo(() => {
-    const map = new Map<string, ActivityLog[]>();
-    for (const log of activityLogs) {
-      const existing = map.get(log.customerId);
-      if (existing) existing.push(log);
-      else map.set(log.customerId, [log]);
-    }
-    return map;
-  }, [activityLogs]);
-
-  const getCustomerLogs = useCallback(
-    (customerId: string) => logsByCustomer.get(customerId) ?? EMPTY_LOGS,
-    [logsByCustomer],
-  );
 
   return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }
