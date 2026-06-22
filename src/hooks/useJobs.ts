@@ -51,6 +51,13 @@ export function useJobs() {
     loaded: dbLoaded,
   });
 
+  // Single "everything the board needs is in" flag so the UI can reveal all job
+  // types at once instead of painting synthetic filter jobs first and letting
+  // the fetched malfunctions/installations pop in a beat later. It is flipped in
+  // an effect (below) — after the merge effects have folded the fetched data into
+  // `jobs` — not computed during render, which would go true a frame too early.
+  const [boardReady, setBoardReady] = useState(false);
+
   const persistDbJob = useCallback((jobId: string, data: JobSyncPatch) => {
     const ref = getDbJobRef(jobId);
     if (!ref) return;
@@ -168,6 +175,14 @@ export function useJobs() {
       return [...withoutLoaded, ...scheduledFilterJobs];
     });
   }, [scheduledFilterLoaded, scheduledFilterJobs]);
+
+  // Reveal the board only once all three sources are loaded. Declared after the
+  // merge effects above so, on the commit where the last source resolves, their
+  // setJobs and this setBoardReady batch into one render — the skeleton hides on
+  // the same frame the merged data becomes visible, never a frame early.
+  useEffect(() => {
+    if (dataLoaded && dbLoaded && scheduledFilterLoaded) setBoardReady(true);
+  }, [dataLoaded, dbLoaded, scheduledFilterLoaded]);
 
 
   // Merge ICS calendar data: update existing customers' filterReplacementMonth & serviceTrack, add ICS-only customers, and add service jobs
@@ -553,5 +568,5 @@ export function useJobs() {
     [logsByCustomer],
   );
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }
