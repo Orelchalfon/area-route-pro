@@ -73,161 +73,13 @@ import { toast } from "sonner";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { CustomerInfoPopover } from "./CustomerInfoPopover";
 import { DayRouteMap } from "./DayRouteMap";
-
-const REGIONS = [
-  "דרום רחוק",
-  "מרכז דרום",
-  "תל אביב",
-  "ירושלים",
-  "גוש דן",
-  "השרון",
-  "נתניה",
-  "צפון קרוב",
-  "צפון רחוק",
-  "שומרון",
-];
-
-// Map specific cities to their parent region
-const CITY_TO_REGION: Record<string, string> = {
-  // השרון
-  רעננה: "השרון",
-  הרצליה: "השרון",
-  "הרצליה פיתוח": "השרון",
-  "הוד השרון": "השרון",
-  "רמת השרון": "השרון",
-  "כפר סבא": "השרון",
-  "צפון תל אביב": "השרון",
-  "רמת החייל": "השרון",
-  ארסוף: "השרון",
-  // תל אביב
-  "תל אביב יפו": "תל אביב",
-  יפו: "תל אביב",
-  "רמת גן": "תל אביב",
-  גבעתיים: "תל אביב",
-  "בני ברק": "תל אביב",
-  חולון: "תל אביב",
-  אזור: "תל אביב",
-  // גוש דן
-  "פתח תקוה": "גוש דן",
-  "פתח תקווה": "גוש דן",
-  "ראש העין": "גוש דן",
-  "קריית אונו": "גוש דן",
-  יהוד: "גוש דן",
-  "גבעת שמואל": "גוש דן",
-  "אור יהודה": "גוש דן",
-  // מרכז דרום
-  "בת ים": "מרכז דרום",
-  "ראשון לציון": "מרכז דרום",
-  ראשלצ: "מרכז דרום",
-  רחובות: "מרכז דרום",
-  "נס ציונה": "מרכז דרום",
-  יבנה: "מרכז דרום",
-  גדרה: "מרכז דרום",
-  לוד: "מרכז דרום",
-  רמלה: "מרכז דרום",
-  "באר יעקב": "מרכז דרום",
-  "גן יבנה": "מרכז דרום",
-  // ירושלים
-  מודיעין: "ירושלים",
-  "מודיעין מכבים רעות": "ירושלים",
-  שוהם: "ירושלים",
-  "גוש עציון": "ירושלים",
-  "מעלה אדומים": "ירושלים",
-  "בית שמש": "ירושלים",
-  "ביתר עילית": "ירושלים",
-  "מבשרת ציון": "ירושלים",
-  // דרום רחוק
-  "באר שבע": "דרום רחוק",
-  אילת: "דרום רחוק",
-  דימונה: "דרום רחוק",
-  אשדוד: "דרום רחוק",
-  אשקלון: "דרום רחוק",
-  "קריית גת": "דרום רחוק",
-  "קרית גת": "דרום רחוק",
-  "קריית מלאכי": "דרום רחוק",
-  "קרית מלאכי": "דרום רחוק",
-  נתיבות: "דרום רחוק",
-  // נתניה
-  "עמק חפר": "נתניה",
-  "קדימה צורן": "נתניה",
-  "אבן יהודה": "נתניה",
-  נתניה: "נתניה",
-  "כפר הס": "נתניה",
-  עולש: "נתניה",
-  "עין ורד": "נתניה",
-  // צפון קרוב
-  חדרה: "צפון קרוב",
-  בנימינה: "צפון קרוב",
-  "פרדס חנה": "צפון קרוב",
-  קיסריה: "צפון קרוב",
-  חריש: "צפון קרוב",
-  "אור עקיבא": "צפון קרוב",
-  כרכור: "צפון קרוב",
-  עתלית: "צפון קרוב",
-  אליכין: "צפון קרוב",
-  // צפון רחוק
-  חיפה: "צפון רחוק",
-  נהריה: "צפון רחוק",
-  צפת: "צפון רחוק",
-  כרמיאל: "צפון רחוק",
-  "זיכרון יעקב": "צפון רחוק",
-  "בית רימון": "צפון רחוק",
-  "קריית שמונה": "צפון רחוק",
-  עכו: "צפון רחוק",
-  טבריה: "צפון רחוק",
-  נצרת: "צפון רחוק",
-  עפולה: "צפון רחוק",
-  "נווה ים": "צפון רחוק",
-  ערד: "צפון רחוק",
-  "מצפה רמון": "צפון רחוק",
-  יהל: "צפון רחוק",
-  "טירת כרמל": "צפון רחוק",
-  נשר: "צפון רחוק",
-  מגידו: "צפון רחוק",
-  יקנעם: "צפון רחוק",
-  "יקנעם עילית": "צפון רחוק",
-  // שומרון
-  אריאל: "שומרון",
-  ברקן: "שומרון",
-  "קרני שומרון": "שומרון",
-  אלקנה: "שומרון",
-  עמנואל: "שומרון",
-  קדומים: "שומרון",
-  רבבה: "שומרון",
-  יקיר: "שומרון",
-  "שערי תקווה": "שומרון",
-  "אבני חפץ": "שומרון",
-  "מעלה שומרון": "שומרון",
-  "גינות שומרון": "שומרון",
-  ברוכין: "שומרון",
-  "עץ אפרים": "שומרון",
-  "אלפי מנשה": "שומרון",
-  "כפר תפוח": "שומרון",
-  "שבי שומרון": "שומרון",
-  עלי: "שומרון",
-  "מעלה לבונה": "שומרון",
-  אופרה: "שומרון",
-  "בית אריה": "שומרון",
-  "בית אל": "שומרון",
-  'ניל"י': "שומרון",
-  חשמונאים: "שומרון",
-};
-
-/** Check if a job's city belongs to any of the selected regions */
-function jobMatchesAreas(job: Job, areas: string[]): boolean {
-  if (areas.length === 0) return true;
-  const city = (job.city || "").trim();
-  // Direct match (city IS a region name)
-  if (areas.includes(city)) return true;
-  // Map city to region
-  const region = CITY_TO_REGION[city];
-  if (region && areas.includes(region)) return true;
-  // Partial match: check if city contains or is contained by a region name
-  for (const area of areas) {
-    if (city.includes(area) || area.includes(city)) return true;
-  }
-  return false;
-}
+import {
+  DAY_HEADERS,
+  MONTH_NAMES,
+  typeColors,
+  typeIcons,
+} from "./monthly-schedule/constants";
+import { REGIONS, jobMatchesAreas } from "./monthly-schedule/regions";
 
 interface MonthlyScheduleBoardProps {
   jobs: Job[];
@@ -267,34 +119,6 @@ interface MonthlyScheduleBoardProps {
     notes: string;
   }) => void;
 }
-
-const DAY_HEADERS = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
-const MONTH_NAMES = [
-  "ינואר",
-  "פברואר",
-  "מרץ",
-  "אפריל",
-  "מאי",
-  "יוני",
-  "יולי",
-  "אוגוסט",
-  "ספטמבר",
-  "אוקטובר",
-  "נובמבר",
-  "דצמבר",
-];
-
-const typeIcons: Record<string, React.ReactNode> = {
-  filter_replacement: <Filter className='w-3 h-3' />,
-  malfunction: <AlertTriangle className='w-3 h-3' />,
-  installation: <Wrench className='w-3 h-3' />,
-};
-
-const typeColors: Record<string, string> = {
-  filter_replacement: "bg-info/15 text-info border-info/30",
-  malfunction: "bg-destructive/15 text-destructive border-destructive/30",
-  installation: "bg-secondary/15 text-secondary border-secondary/30",
-};
 
 // Generate filter replacement jobs for a given month based on customer data
 function generateFilterJobs(
