@@ -4,6 +4,7 @@ import { useJobsContext } from '@/contexts/JobsContext';
 import { Job, Customer, JOB_TYPE_CONFIG } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Filter, ChevronLeft, ChevronRight, RefreshCw, ArrowRight, List, CalendarDays, CheckCircle, Search, X, AlertTriangle, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek } from 'date-fns';
@@ -113,9 +114,40 @@ export default function ServiceCyclePage() {
 
   if (loading) {
     return (
-      <div dir="rtl" className="flex items-center justify-center h-64">
-        <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-        <span className="mr-2 text-muted-foreground">טוען נתונים...</span>
+      <div dir="rtl" className="space-y-6">
+        {/* Header row — title + year nav */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9 rounded-md" />
+            <Skeleton className="h-6 w-12" />
+            <Skeleton className="h-9 w-9 rounded-md" />
+          </div>
+        </div>
+
+        {/* Search bar */}
+        <Skeleton className="h-10 w-full sm:max-w-sm" />
+
+        {/* Month cards grid */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex flex-col items-center p-4 rounded-xl border-2 border-border bg-card"
+            >
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-8 w-10 my-2" />
+              <Skeleton className="h-3 w-12 mb-2" />
+              <div className="flex gap-1">
+                <Skeleton className="h-7 w-14" />
+                <Skeleton className="h-7 w-14" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
