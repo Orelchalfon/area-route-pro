@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Popover,
   PopoverContent,
@@ -1643,7 +1644,7 @@ export function MonthlyScheduleBoard({
   onReturnJob,
   onAddJob,
 }: MonthlyScheduleBoardProps) {
-  const { customersList } = useJobsContext();
+  const { customersList, boardReady } = useJobsContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(
     technicians[0].id,
@@ -1816,37 +1817,11 @@ export function MonthlyScheduleBoard({
     return [];
   };
 
-  // When areas are overridden, rebuild that day's filter list from the new areas
+  // Area selection is a non-destructive view filter: it only records which areas
+  // are shown for the day. Nothing is unassigned, so jobs survive a refresh and
+  // reappear when the day is returned to the general (no-area) view.
   const handleAreaOverride = (dateStr: string, newAreas: string[]) => {
     setDayAreaOverrides((prev) => new Map(prev).set(dateStr, newAreas));
-
-    // Clear extra filter assignments for this day
-    setExtraFilterAssignments((prev) => {
-      const next = new Map(prev);
-      next.delete(dateStr);
-      return next;
-    });
-
-    // Unassign manual jobs (malfunction/installation) from this day so the route resets
-    const manualDayJobs = getManualDayJobs(dateStr);
-    manualDayJobs.forEach((j) => onUnassignJob(j.id));
-
-    // Unassign any previously approved filter jobs for this day from global state
-    const approvedFilterJobsForDay = jobs.filter(
-      (j) =>
-        j.type === "filter_replacement" &&
-        j.scheduledDate === dateStr &&
-        (j.status === "confirmed" || j.status === "in_progress"),
-    );
-    approvedFilterJobsForDay.forEach((j) => onUnassignJob(j.id));
-
-    // Revoke day approval so the new set must be re-approved
-    setApprovedDays((prev) => {
-      const next = new Set(prev);
-      next.delete(dateStr);
-      return next;
-    });
-
     toast.success(`אזורים עודכנו: ${newAreas.join(", ")}`);
   };
 
@@ -2292,9 +2267,13 @@ export function MonthlyScheduleBoard({
             className='bg-card rounded-xl shadow-card p-4 flex items-center gap-4'>
             <div className={`w-4 h-4 rounded-full ${s.color}`} />
             <div>
-              <p className='text-2xl font-bold text-card-foreground'>
-                {s.count}
-              </p>
+              {boardReady ? (
+                <p className='text-2xl font-bold text-card-foreground'>
+                  {s.count}
+                </p>
+              ) : (
+                <Skeleton className='h-7 w-10 mb-1' />
+              )}
               <p className='text-sm text-muted-foreground'>{s.label}</p>
             </div>
           </div>
@@ -2315,9 +2294,37 @@ export function MonthlyScheduleBoard({
       </div>
 
       {/* Calendar grid */}
-      {(() => {
-        const isWeekView = viewMode === "week";
-        const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
+      {!boardReady ? (
+        <div className='bg-card rounded-xl shadow-card overflow-x-auto'>
+          {/* Day headers stay real; only the cells are placeholders so the whole
+              board reveals at once when every job source has loaded. */}
+          <div className='grid grid-cols-7 border-b border-border min-w-[700px]'>
+            {DAY_HEADERS.map((d, i) => (
+              <div
+                key={i}
+                className={`text-center py-2.5 text-sm font-semibold ${i === 5 || i === 6 ? "text-muted-foreground/50" : "text-card-foreground"}`}>
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className='grid grid-cols-7 min-w-[700px]'>
+            {Array.from({
+              length: viewMode === "week" ? 7 : startDow + allDays.length,
+            }).map((_, i) => (
+              <div
+                key={`sk-${i}`}
+                className={`${viewMode === "week" ? "min-h-[280px]" : "min-h-[130px]"} border-b border-r border-border p-1.5 space-y-1.5`}>
+                <Skeleton className='h-4 w-5' />
+                <Skeleton className='h-5 w-full' />
+                <Skeleton className='h-5 w-2/3' />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        (() => {
+          const isWeekView = viewMode === "week";
+          const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
         const displayDays = isWeekView
           ? eachDayOfInterval({ start: currentWeekStart, end: weekEnd })
           : allDays;
@@ -2353,14 +2360,21 @@ export function MonthlyScheduleBoard({
                 const inCurrentMonth = isWeekView
                   ? true
                   : isSameMonth(day, currentMonth);
-                const dayFilterJobs = getFilterDayJobs(dateStr);
-                const dayManualJobs = getManualDayJobs(dateStr);
+                const dayAreas =
+                  !isWeekend && inCurrentMonth ? getDayAreas(dateStr) : [];
+                // Area selection is a non-destructive view filter — hide jobs that
+                // don't match the selected areas (jobMatchesAreas returns true for
+                // all jobs when dayAreas is empty, i.e. the general view).
+                const dayFilterJobs = getFilterDayJobs(dateStr).filter((j) =>
+                  jobMatchesAreas(j, dayAreas),
+                );
+                const dayManualJobs = getManualDayJobs(dateStr).filter((j) =>
+                  jobMatchesAreas(j, dayAreas),
+                );
                 const totalMinutes =
                   dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) +
                   dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
                 const maxShow = isWeekView ? 20 : 2;
-                const dayAreas =
-                  !isWeekend && inCurrentMonth ? getDayAreas(dateStr) : [];
                 const isDayApproved = approvedDays.has(dateStr);
                 const hasJobs = dayFilterJobs.length + dayManualJobs.length > 0;
 
@@ -2548,7 +2562,8 @@ export function MonthlyScheduleBoard({
             </div>
           </div>
         );
-      })()}
+        })()
+      )}
 
       {/* Add button for days that already have jobs */}
       <div className='flex justify-center'>

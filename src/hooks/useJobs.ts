@@ -51,6 +51,11 @@ export function useJobs() {
     loaded: dbLoaded,
   });
 
+  // Single "everything the board needs is in" flag so the UI can reveal all job
+  // types at once instead of painting synthetic filter jobs first and letting
+  // the fetched malfunctions/installations pop in a beat later.
+  const boardReady = dataLoaded && dbLoaded && scheduledFilterLoaded;
+
   const persistDbJob = useCallback((jobId: string, data: JobSyncPatch) => {
     const ref = getDbJobRef(jobId);
     if (!ref) return;
@@ -553,5 +558,5 @@ export function useJobs() {
     [logsByCustomer],
   );
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }
