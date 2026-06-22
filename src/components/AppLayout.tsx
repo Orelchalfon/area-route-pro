@@ -1,4 +1,5 @@
 import logo from "@/assets/logo.png";
+import { InstallAppBanner } from "@/components/InstallAppBanner";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -132,6 +133,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      <InstallAppBanner />
       <main className='w-full px-4 sm:px-6 lg:px-10 py-5'>{children}</main>
     </div>
   );
