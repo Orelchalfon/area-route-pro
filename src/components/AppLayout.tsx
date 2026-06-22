@@ -1,5 +1,6 @@
 import logo from "@/assets/logo.png";
 import { InstallAppBanner } from "@/components/InstallAppBanner";
+import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -134,6 +135,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <InstallAppBanner />
+      <NotificationPermissionPrompt />
       <main className='w-full px-4 sm:px-6 lg:px-10 py-5'>{children}</main>
     </div>
   );
