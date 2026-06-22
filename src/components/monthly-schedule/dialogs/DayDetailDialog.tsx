@@ -7,20 +7,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
-import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
-import { geocodeAddress } from "@/lib/geocodeAddress";
 import { cn } from "@/lib/utils";
-import { Customer, Job, JOB_TYPE_CONFIG, JobType } from "@/types";
+import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { Archive, GripVertical, Navigation, Pencil, Save, Undo2, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "../../AddressAutocomplete";
 import { DayRouteMap } from "../../DayRouteMap";
 import { FollowUpTasksPopover } from "../FollowUpTasksPopover";
 import { typeColors, typeIcons } from "../constants";
 import { useDragReorder } from "../hooks/useDragReorder";
+import { useJobEditForm } from "../hooks/useJobEditForm";
 
 export function DayDetailDialog({
   open,
@@ -57,11 +56,7 @@ export function DayDetailDialog({
     [filterJobs, dayJobs],
   );
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
-  const {
-    customersList: customers,
-    updateJob,
-    updateCustomer,
-  } = useJobsContext();
+  const { customersList: customers } = useJobsContext();
   const {
     dragIdx,
     overIdx,
@@ -70,122 +65,20 @@ export function DayDetailDialog({
     handleDragEnd,
     handleDrop,
   } = useDragReorder(setOrderedJobs);
+  const {
+    editingJobId,
+    editForm,
+    setEditForm,
+    setPendingEditCoords,
+    isEditSaving,
+    startEditingJob,
+    closeEditingJob,
+    handleSaveEditedJob,
+  } = useJobEditForm(setOrderedJobs);
   const [showMap, setShowMap] = useState(false);
   const dayDate = new Date(dateStr + "T00:00:00");
   const dayLabel = format(dayDate, "EEEE d/M", { locale: he });
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
-  const [editingJobId, setEditingJobId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{
-    location: string;
-    city: string;
-    notes: string;
-    estimatedDuration: number;
-  }>({ location: "", city: "", notes: "", estimatedDuration: 0 });
-  const [pendingEditCoords, setPendingEditCoords] = useState<{
-    lat: number;
-    lng: number;
-    placeId?: string;
-  } | null>(null);
-  const [isEditSaving, setIsEditSaving] = useState(false);
-  const { fetchKey } = useGoogleMapsKey();
-
-  const startEditingJob = useCallback((job: Job) => {
-    setEditingJobId(job.id);
-    setEditForm({
-      location: job.location,
-      city: job.city,
-      notes: job.notes,
-      estimatedDuration: job.estimatedDuration,
-    });
-    setPendingEditCoords(null);
-  }, []);
-
-  const closeEditingJob = useCallback(() => {
-    setEditingJobId(null);
-    setPendingEditCoords(null);
-  }, []);
-
-  const handleSaveEditedJob = useCallback(
-    async (job: Job) => {
-      if (isEditSaving) return;
-
-      const nextLocation = editForm.location.trim();
-      const nextCity = editForm.city.trim();
-      const customer = customers.find((c) => c.id === job.customerId);
-      const hasLocationChange =
-        !!customer &&
-        (nextLocation !== (customer.address || "").trim() ||
-          nextCity !== (customer.city || "").trim());
-
-      const customerUpdate: Partial<Customer> | null = customer
-        ? { address: nextLocation, city: nextCity }
-        : null;
-
-      setIsEditSaving(true);
-
-      try {
-        if (customerUpdate && hasLocationChange && (nextLocation || nextCity)) {
-          const geocoded =
-            pendingEditCoords ??
-            (await geocodeAddress(
-              [nextLocation, nextCity].filter(Boolean).join(", "),
-              await fetchKey(),
-            ));
-
-          if (geocoded) {
-            customerUpdate.lat = geocoded.lat;
-            customerUpdate.lng = geocoded.lng;
-            customerUpdate.placeId = geocoded.placeId;
-          } else {
-            customerUpdate.lat = undefined;
-            customerUpdate.lng = undefined;
-            customerUpdate.placeId = undefined;
-          }
-        }
-
-        const nextJobData: Partial<
-          Pick<Job, "location" | "city" | "notes" | "estimatedDuration">
-        > & { lat?: number; lng?: number } = {
-          ...editForm,
-          location: nextLocation,
-          city: nextCity,
-        };
-
-        // Propagate geocoded coords into the job so the map moves immediately
-        if (
-          customerUpdate &&
-          (customerUpdate.lat != null || customerUpdate.lng != null)
-        ) {
-          nextJobData.lat = customerUpdate.lat;
-          nextJobData.lng = customerUpdate.lng;
-        }
-
-        updateJob(job.id, nextJobData);
-        setOrderedJobs((prev) =>
-          prev.map((j) => (j.id === job.id ? { ...j, ...nextJobData } : j)),
-        );
-
-        if (customer && customerUpdate) {
-          updateCustomer(customer.id, customerUpdate);
-        }
-
-        closeEditingJob();
-        toast.success("המשימה עודכנה בהצלחה");
-      } finally {
-        setIsEditSaving(false);
-      }
-    },
-    [
-      closeEditingJob,
-      customers,
-      editForm,
-      fetchKey,
-      isEditSaving,
-      pendingEditCoords,
-      updateCustomer,
-      updateJob,
-    ],
-  );
 
   // Sync when source data changes
   useMemo(() => {
