@@ -49,14 +49,12 @@ import { he } from "date-fns/locale";
 import {
   AlertTriangle,
   Archive,
-  ArrowLeft,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
   Clock,
   Filter,
   GripVertical,
-  ListPlus,
   MapPin,
   MessageCircle,
   Navigation,
@@ -74,161 +72,20 @@ import { toast } from "sonner";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { CustomerInfoPopover } from "./CustomerInfoPopover";
 import { DayRouteMap } from "./DayRouteMap";
-
-const REGIONS = [
-  "דרום רחוק",
-  "מרכז דרום",
-  "תל אביב",
-  "ירושלים",
-  "גוש דן",
-  "השרון",
-  "נתניה",
-  "צפון קרוב",
-  "צפון רחוק",
-  "שומרון",
-];
-
-// Map specific cities to their parent region
-const CITY_TO_REGION: Record<string, string> = {
-  // השרון
-  רעננה: "השרון",
-  הרצליה: "השרון",
-  "הרצליה פיתוח": "השרון",
-  "הוד השרון": "השרון",
-  "רמת השרון": "השרון",
-  "כפר סבא": "השרון",
-  "צפון תל אביב": "השרון",
-  "רמת החייל": "השרון",
-  ארסוף: "השרון",
-  // תל אביב
-  "תל אביב יפו": "תל אביב",
-  יפו: "תל אביב",
-  "רמת גן": "תל אביב",
-  גבעתיים: "תל אביב",
-  "בני ברק": "תל אביב",
-  חולון: "תל אביב",
-  אזור: "תל אביב",
-  // גוש דן
-  "פתח תקוה": "גוש דן",
-  "פתח תקווה": "גוש דן",
-  "ראש העין": "גוש דן",
-  "קריית אונו": "גוש דן",
-  יהוד: "גוש דן",
-  "גבעת שמואל": "גוש דן",
-  "אור יהודה": "גוש דן",
-  // מרכז דרום
-  "בת ים": "מרכז דרום",
-  "ראשון לציון": "מרכז דרום",
-  ראשלצ: "מרכז דרום",
-  רחובות: "מרכז דרום",
-  "נס ציונה": "מרכז דרום",
-  יבנה: "מרכז דרום",
-  גדרה: "מרכז דרום",
-  לוד: "מרכז דרום",
-  רמלה: "מרכז דרום",
-  "באר יעקב": "מרכז דרום",
-  "גן יבנה": "מרכז דרום",
-  // ירושלים
-  מודיעין: "ירושלים",
-  "מודיעין מכבים רעות": "ירושלים",
-  שוהם: "ירושלים",
-  "גוש עציון": "ירושלים",
-  "מעלה אדומים": "ירושלים",
-  "בית שמש": "ירושלים",
-  "ביתר עילית": "ירושלים",
-  "מבשרת ציון": "ירושלים",
-  // דרום רחוק
-  "באר שבע": "דרום רחוק",
-  אילת: "דרום רחוק",
-  דימונה: "דרום רחוק",
-  אשדוד: "דרום רחוק",
-  אשקלון: "דרום רחוק",
-  "קריית גת": "דרום רחוק",
-  "קרית גת": "דרום רחוק",
-  "קריית מלאכי": "דרום רחוק",
-  "קרית מלאכי": "דרום רחוק",
-  נתיבות: "דרום רחוק",
-  // נתניה
-  "עמק חפר": "נתניה",
-  "קדימה צורן": "נתניה",
-  "אבן יהודה": "נתניה",
-  נתניה: "נתניה",
-  "כפר הס": "נתניה",
-  עולש: "נתניה",
-  "עין ורד": "נתניה",
-  // צפון קרוב
-  חדרה: "צפון קרוב",
-  בנימינה: "צפון קרוב",
-  "פרדס חנה": "צפון קרוב",
-  קיסריה: "צפון קרוב",
-  חריש: "צפון קרוב",
-  "אור עקיבא": "צפון קרוב",
-  כרכור: "צפון קרוב",
-  עתלית: "צפון קרוב",
-  אליכין: "צפון קרוב",
-  // צפון רחוק
-  חיפה: "צפון רחוק",
-  נהריה: "צפון רחוק",
-  צפת: "צפון רחוק",
-  כרמיאל: "צפון רחוק",
-  "זיכרון יעקב": "צפון רחוק",
-  "בית רימון": "צפון רחוק",
-  "קריית שמונה": "צפון רחוק",
-  עכו: "צפון רחוק",
-  טבריה: "צפון רחוק",
-  נצרת: "צפון רחוק",
-  עפולה: "צפון רחוק",
-  "נווה ים": "צפון רחוק",
-  ערד: "צפון רחוק",
-  "מצפה רמון": "צפון רחוק",
-  יהל: "צפון רחוק",
-  "טירת כרמל": "צפון רחוק",
-  נשר: "צפון רחוק",
-  מגידו: "צפון רחוק",
-  יקנעם: "צפון רחוק",
-  "יקנעם עילית": "צפון רחוק",
-  // שומרון
-  אריאל: "שומרון",
-  ברקן: "שומרון",
-  "קרני שומרון": "שומרון",
-  אלקנה: "שומרון",
-  עמנואל: "שומרון",
-  קדומים: "שומרון",
-  רבבה: "שומרון",
-  יקיר: "שומרון",
-  "שערי תקווה": "שומרון",
-  "אבני חפץ": "שומרון",
-  "מעלה שומרון": "שומרון",
-  "גינות שומרון": "שומרון",
-  ברוכין: "שומרון",
-  "עץ אפרים": "שומרון",
-  "אלפי מנשה": "שומרון",
-  "כפר תפוח": "שומרון",
-  "שבי שומרון": "שומרון",
-  עלי: "שומרון",
-  "מעלה לבונה": "שומרון",
-  אופרה: "שומרון",
-  "בית אריה": "שומרון",
-  "בית אל": "שומרון",
-  'ניל"י': "שומרון",
-  חשמונאים: "שומרון",
-};
-
-/** Check if a job's city belongs to any of the selected regions */
-function jobMatchesAreas(job: Job, areas: string[]): boolean {
-  if (areas.length === 0) return true;
-  const city = (job.city || "").trim();
-  // Direct match (city IS a region name)
-  if (areas.includes(city)) return true;
-  // Map city to region
-  const region = CITY_TO_REGION[city];
-  if (region && areas.includes(region)) return true;
-  // Partial match: check if city contains or is contained by a region name
-  for (const area of areas) {
-    if (city.includes(area) || area.includes(city)) return true;
-  }
-  return false;
-}
+import {
+  DAY_HEADERS,
+  MONTH_NAMES,
+  typeColors,
+  typeIcons,
+} from "./monthly-schedule/constants";
+import { FollowUpTasksPopover } from "./monthly-schedule/FollowUpTasksPopover";
+import { MiniJobChip } from "./monthly-schedule/MiniJobChip";
+import { REGIONS, jobMatchesAreas } from "./monthly-schedule/regions";
+import {
+  calculateTimeRanges,
+  distributeFilterJobs,
+  generateFilterJobs,
+} from "./monthly-schedule/utils";
 
 interface MonthlyScheduleBoardProps {
   jobs: Job[];
@@ -267,175 +124,6 @@ interface MonthlyScheduleBoardProps {
     scheduledTime: string;
     notes: string;
   }) => void;
-}
-
-const DAY_HEADERS = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
-const MONTH_NAMES = [
-  "ינואר",
-  "פברואר",
-  "מרץ",
-  "אפריל",
-  "מאי",
-  "יוני",
-  "יולי",
-  "אוגוסט",
-  "ספטמבר",
-  "אוקטובר",
-  "נובמבר",
-  "דצמבר",
-];
-
-const typeIcons: Record<string, React.ReactNode> = {
-  filter_replacement: <Filter className='w-3 h-3' />,
-  malfunction: <AlertTriangle className='w-3 h-3' />,
-  installation: <Wrench className='w-3 h-3' />,
-};
-
-const typeColors: Record<string, string> = {
-  filter_replacement: "bg-info/15 text-info border-info/30",
-  malfunction: "bg-destructive/15 text-destructive border-destructive/30",
-  installation: "bg-secondary/15 text-secondary border-secondary/30",
-};
-
-// Generate filter replacement jobs for a given month based on customer data
-function generateFilterJobs(
-  month: number,
-  year: number,
-  allCustomers: Customer[],
-): Job[] {
-  const monthCustomers = allCustomers.filter(
-    (c) => c.filterReplacementMonth === month,
-  );
-  return monthCustomers.map((customer, i) => ({
-    id: `filter-${year}-${month}-${customer.id}`,
-    type: "filter_replacement" as const,
-    status: "draft" as const,
-    priority: "low" as const,
-    customerId: customer.id,
-    estimatedDuration: 20,
-    location: customer.address,
-    city: customer.city,
-    notes: "החלפת פילטר שנתית",
-    createdAt: `${year}-${String(month).padStart(2, "0")}-01`,
-  }));
-}
-
-// Distribute filter jobs across working days — pack up to 15 per day, mixing areas when needed
-function distributeFilterJobs(
-  filterJobs: Job[],
-  workingDays: Date[],
-): Map<string, Job[]> {
-  const distribution = new Map<string, Job[]>();
-  workingDays.forEach((d) => distribution.set(format(d, "yyyy-MM-dd"), []));
-
-  // Group jobs by city/area
-  const jobsByCity: Record<string, Job[]> = {};
-  filterJobs.forEach((job) => {
-    if (!jobsByCity[job.city]) jobsByCity[job.city] = [];
-    jobsByCity[job.city].push(job);
-  });
-
-  const dayKeys = workingDays.map((d) => format(d, "yyyy-MM-dd"));
-  const perDay = 3;
-  let dayIdx = 0;
-
-  // Pack areas into days: fill each day up to perDay before moving to the next
-  for (const cityJobs of Object.values(jobsByCity)) {
-    const remaining = [...cityJobs];
-    while (remaining.length > 0 && dayIdx < dayKeys.length) {
-      const dateStr = dayKeys[dayIdx];
-      const existing = distribution.get(dateStr) || [];
-      const available = perDay - existing.length;
-      if (available <= 0) {
-        dayIdx++;
-        continue;
-      }
-      const chunk = remaining.splice(0, available);
-      distribution.set(dateStr, [...existing, ...chunk]);
-      // Only advance day if this day is now full
-      if (existing.length + chunk.length >= perDay) {
-        dayIdx++;
-      }
-    }
-  }
-
-  return distribution;
-}
-
-function MiniJobChip({
-  job,
-  onRemove,
-  onMoveNext,
-  isAutoScheduled,
-}: {
-  job: Job;
-  onRemove?: () => void;
-  onMoveNext?: () => void;
-  isAutoScheduled?: boolean;
-}) {
-  const { customersList } = useJobsContext();
-  const customer = customersList.find((c) => c.id === job.customerId);
-
-  // Only color chips that have a completion status from technician
-  const completionColorMap: Record<string, string> = {
-    done: "bg-success/20 text-success border-success/40",
-    not_done: "bg-destructive/20 text-destructive border-destructive/40",
-    need_return: "bg-warning/20 text-warning border-warning/40",
-  };
-  // Neutral default for jobs not yet reported by technician
-  const chipColor = job.completionStatus
-    ? completionColorMap[job.completionStatus]
-    : "bg-muted/30 text-muted-foreground border-border";
-
-  return (
-    <div
-      className={`flex items-center justify-between gap-1.5 px-2 py-1 rounded text-xs border ${chipColor} group relative`}>
-      <div className='flex items-center gap-1.5 min-w-0'>
-        {typeIcons[job.type]}
-        {customer ? (
-          <CustomerInfoPopover customer={customer}>
-            <span className='truncate max-w-[90px]'>{customer.name}</span>
-          </CustomerInfoPopover>
-        ) : (
-          <span className='truncate max-w-[90px]'>—</span>
-        )}
-        {isAutoScheduled && !job.completionStatus && (
-          <span className='text-[9px] opacity-60'>●</span>
-        )}
-      </div>
-      {job.completionStatus === "done" && <span className='text-[9px]'>✓</span>}
-      {job.completionStatus === "not_done" && (
-        <span className='text-[9px]'>✗</span>
-      )}
-      {job.completionStatus === "need_return" && (
-        <span className='text-[9px]'>↻</span>
-      )}
-      <div className='absolute top-0 left-2 h-full flex items-center gap-1 pr-1'>
-        {onRemove && !job.completionStatus && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            className='opacity-0 group-hover:opacity-100 transition-opacity hover:*:text-destructive'
-            title='הסר מהלו״ז'>
-            <X className='w-3 h-3' />
-          </button>
-        )}
-        {onMoveNext && !job.completionStatus && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMoveNext();
-            }}
-            className='opacity-0 group-hover:opacity-100 transition-opacity  hover:*:text-primary'
-            title='העבר ליום הבא'>
-            <ArrowLeft className='w-3 h-3' />
-          </button>
-        )}
-      </div>
-    </div>
-  );
 }
 
 // Unified picker dialog for adding any job type to a day
@@ -648,23 +336,6 @@ function UnifiedJobPickerDialog({
 }
 
 // Calculate time ranges for jobs in a day, starting from 10:00
-function calculateTimeRanges(
-  allJobs: Job[],
-): { job: Job; startTime: string; endTime: string }[] {
-  let currentMinutes = 10 * 60; // Start at 10:00
-  return allJobs.map((job) => {
-    const startHour = Math.floor(currentMinutes / 60);
-    const startMin = currentMinutes % 60;
-    const endMinutes = currentMinutes + job.estimatedDuration;
-    const endHour = Math.floor(endMinutes / 60);
-    const endMin = endMinutes % 60;
-    const startTime = `${String(startHour).padStart(2, "0")}:${String(startMin).padStart(2, "0")}`;
-    const endTime = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
-    currentMinutes = endMinutes;
-    return { job, startTime, endTime };
-  });
-}
-
 // Day approval dialog with drag-and-drop reordering
 function DayApprovalDialog({
   open,
@@ -897,139 +568,6 @@ function DayApprovalDialog({
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-// Follow-up tasks popover for installation jobs
-function FollowUpTasksPopover({
-  job,
-  customers,
-  onAddJob,
-}: {
-  job: Job;
-  customers: Customer[];
-  onAddJob: (data: {
-    type: JobType;
-    customerId: string;
-    technicianId: string;
-    scheduledDate: string;
-    scheduledTime: string;
-    notes: string;
-  }) => void;
-}) {
-  const [selected, setSelected] = useState<string[]>([]);
-  const [popoverOpen, setPopoverOpen] = useState(false);
-
-  const customer = customers.find((c) => c.id === job.customerId);
-
-  const FOLLOW_UP_OPTIONS = [
-    { id: "annual_filter", label: "החלפת פילטר שנתי", monthsFromNow: 12 },
-    { id: "external_filter", label: "החלפת פילטר חוץ", monthsFromNow: 6 },
-    { id: "siliphos", label: "החלפת סיליפוס", monthsFromNow: 6 },
-  ];
-
-  const toggleOption = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
-  };
-
-  const handleConfirm = async () => {
-    const now = new Date();
-    const inserts: {
-      service_date: string;
-      task_description: string;
-      location: string;
-    }[] = [];
-    selected.forEach((optionId) => {
-      const option = FOLLOW_UP_OPTIONS.find((o) => o.id === optionId)!;
-      const futureDate = new Date(now);
-      futureDate.setMonth(futureDate.getMonth() + option.monthsFromNow);
-      // Skip Friday (5) and Saturday (6) — move to next Sunday
-      while (futureDate.getDay() === 5 || futureDate.getDay() === 6) {
-        futureDate.setDate(futureDate.getDate() + 1);
-      }
-      const scheduledDate = format(futureDate, "yyyy-MM-dd");
-      const taskDesc = `${option.label} — ${customer?.name || ""}`;
-      onAddJob({
-        type: "filter_replacement",
-        customerId: job.customerId,
-        technicianId: "",
-        scheduledDate,
-        scheduledTime: "",
-        notes: `${taskDesc} — המשך התקנה`,
-      });
-      inserts.push({
-        service_date: scheduledDate,
-        task_description: taskDesc,
-        location: customer?.city || job.city || "",
-      });
-    });
-
-    // Also insert into ongoing_services so they appear in the service cycle
-    try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { error } = await supabase.from("ongoing_services").insert(inserts);
-      if (error)
-        console.error("Failed to insert follow-up to ongoing_services:", error);
-    } catch (e) {
-      console.error("Error inserting follow-up services:", e);
-    }
-
-    toast.success(`${selected.length} משימות המשך נוצרו בהצלחה`);
-    setSelected([]);
-    setPopoverOpen(false);
-  };
-
-  return (
-    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          size='sm'
-          variant='outline'
-          className='flex-1 text-xs border-secondary text-secondary hover:bg-secondary/10'>
-          <ListPlus className='w-3 h-3 ml-1' />
-          משימות להמשך
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className='w-64 p-3' align='start' dir='rtl'>
-        <p className='text-xs font-semibold text-foreground mb-2'>
-          בחר משימות המשך:
-        </p>
-        <div className='space-y-2'>
-          {FOLLOW_UP_OPTIONS.map((option) => (
-            <label
-              key={option.id}
-              className={cn(
-                "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors text-xs",
-                selected.includes(option.id)
-                  ? "bg-secondary/10 border-secondary/40 text-secondary"
-                  : "bg-card border-border text-foreground hover:bg-muted/50",
-              )}>
-              <Checkbox
-                checked={selected.includes(option.id)}
-                onCheckedChange={() => toggleOption(option.id)}
-              />
-              <div>
-                <span className='font-medium'>{option.label}</span>
-                <span className='text-muted-foreground mr-1'>
-                  ({option.monthsFromNow === 12 ? "שנה" : "חצי שנה"} מהיום)
-                </span>
-              </div>
-            </label>
-          ))}
-        </div>
-        {selected.length > 0 && (
-          <Button
-            size='sm'
-            className='w-full mt-3 text-xs gap-1.5'
-            onClick={handleConfirm}>
-            <CheckCircle className='w-3 h-3' />
-            צור {selected.length} משימות
-          </Button>
-        )}
-      </PopoverContent>
-    </Popover>
   );
 }
 
