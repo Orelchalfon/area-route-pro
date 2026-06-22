@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -1647,6 +1657,11 @@ export function MonthlyScheduleBoard({
     dateStr: string;
     dayLabel: string;
   } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{
+    jobId: string;
+    fromDateStr: string;
+    isFilter: boolean;
+  } | null>(null);
   const [detailState, setDetailState] = useState<{
     open: boolean;
     dateStr: string;
@@ -2109,6 +2124,17 @@ export function MonthlyScheduleBoard({
     [manualJobs, jobs, findNearestAreaDay, onAssignJob, selectedTechId],
   );
 
+  // Run the actual delete once confirmed in the popup
+  const confirmDelete = useCallback(() => {
+    if (!pendingDelete) return;
+    if (pendingDelete.isFilter) {
+      handleDeleteFilter(pendingDelete.jobId, pendingDelete.fromDateStr);
+    } else {
+      handleDeleteManual(pendingDelete.jobId);
+    }
+    setPendingDelete(null);
+  }, [pendingDelete, handleDeleteFilter, handleDeleteManual]);
+
   // Stats
   const stats = useMemo(() => {
     const filterCount = filterJobs.length;
@@ -2461,7 +2487,13 @@ export function MonthlyScheduleBoard({
                             key={job.id}
                             job={job}
                             isAutoScheduled
-                            onRemove={() => handleDeleteFilter(job.id, dateStr)}
+                            onRemove={() =>
+                              setPendingDelete({
+                                jobId: job.id,
+                                fromDateStr: dateStr,
+                                isFilter: true,
+                              })
+                            }
                             onMoveNext={() =>
                               handleRemoveAndRescheduleFilter(job.id, dateStr)
                             }
@@ -2476,7 +2508,13 @@ export function MonthlyScheduleBoard({
                           <MiniJobChip
                             key={job.id}
                             job={job}
-                            onRemove={() => handleDeleteManual(job.id)}
+                            onRemove={() =>
+                              setPendingDelete({
+                                jobId: job.id,
+                                fromDateStr: dateStr,
+                                isFilter: false,
+                              })
+                            }
                             onMoveNext={() => handleMoveManual(job.id, dateStr)}
                           />
                         ))}
@@ -2596,11 +2634,11 @@ export function MonthlyScheduleBoard({
           filterJobs={getFilterDayJobs(detailState.dateStr)}
           onRemoveJob={(jobId) => {
             const isFilter = filterJobs.some((j) => j.id === jobId);
-            if (isFilter) {
-              handleDeleteFilter(jobId, detailState.dateStr);
-            } else {
-              handleDeleteManual(jobId);
-            }
+            setPendingDelete({
+              jobId,
+              fromDateStr: detailState.dateStr,
+              isFilter,
+            });
           }}
           onMoveJob={(jobId) => {
             const isFilter = filterJobs.some((j) => j.id === jobId);
@@ -2628,6 +2666,42 @@ export function MonthlyScheduleBoard({
           approvedDays={approvedDays}
         />
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => {
+          if (!o) setPendingDelete(null);
+        }}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader  >
+            <AlertDialogTitle className='text-right'>הסרת משימה מהלו״ז</AlertDialogTitle>
+            <AlertDialogDescription className='text-right' >
+              {(() => {
+                if (!pendingDelete) return "האם להסיר את המשימה מהלו״ז?";
+                const job =
+                  [...filterJobs, ...manualJobs].find(
+                    (j) => j.id === pendingDelete.jobId,
+                  ) || jobs.find((j) => j.id === pendingDelete.jobId);
+                const name = job
+                  ? customersList.find((c) => c.id === job.customerId)?.name
+                  : undefined;
+                return name
+                  ? `האם להסיר את המשימה של ${name} מהלו״ז?`
+                  : "האם להסיר את המשימה מהלו״ז?";
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+              הסר
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
