@@ -561,6 +561,8 @@ export function useJobs() {
       city,
       notes: data.notes,
       createdAt: new Date().toISOString().split('T')[0],
+      // date stamp — when the request is opened (Hebrew display, date only)
+      openedDate: new Date().toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' }),
     };
     addLog(newJob.customerId, 'פתיחת קריאה', `${config.label} — ${data.notes}`, newJob.id);
     setJobs(prev => [...prev, newJob]);

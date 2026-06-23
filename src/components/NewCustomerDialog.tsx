@@ -31,7 +31,8 @@ export function NewCustomerDialog({ onAdd }: NewCustomerDialogProps) {
   }, []);
 
   const handleSubmit = () => {
-    if (!name || !phone || !address || !city) return;
+    // Email is the only required field; all other fields are optional.
+    if (!email) return;
     onAdd({ name, phone, address, city, email, product, lat, lng, placeId });
     setOpen(false);
     setName(''); setPhone(''); setAddress(''); setCity(''); setEmail(''); setProduct('');
@@ -77,14 +78,14 @@ export function NewCustomerDialog({ onAdd }: NewCustomerDialogProps) {
             <Input value={city} onChange={e => setCity(e.target.value)} placeholder="עיר" />
           </div>
           <div className="space-y-2">
-            <Label>מייל</Label>
+            <Label>מייל *</Label>
             <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" />
           </div>
           <div className="space-y-2">
             <Label>מוצר</Label>
             <Input value={product} onChange={e => setProduct(e.target.value)} placeholder="סוג המוצר" />
           </div>
-          <Button onClick={handleSubmit} className="w-full" disabled={!name || !phone || !address || !city}>
+          <Button onClick={handleSubmit} className="w-full" disabled={!email}>
             הוסף לקוח
           </Button>
         </div>

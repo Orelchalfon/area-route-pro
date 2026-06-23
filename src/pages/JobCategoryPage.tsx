@@ -1,3 +1,4 @@
+import { OpenJobDialog } from "@/components/OpenJobDialog";
 import { Button } from "@/components/ui/button";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { JobType } from "@/types";
@@ -16,9 +17,12 @@ export default function JobCategoryPage({
 }: {
   category: "malfunctions" | "installations" | "service";
 }) {
-  const { jobs, dbSyncStatus, dbSyncError, dbLastSyncedAt, refreshDbJobs } =
+  const { jobs, customersList, addJob, dbSyncStatus, dbSyncError, dbLastSyncedAt, refreshDbJobs } =
     useJobsContext();
   const config = categoryConfig[category];
+  // Malfunctions/installations get a dedicated "open request" button; the
+  // service page is a read-only summary, so it has none.
+  const canOpenRequest = category !== "service";
   const allOfType = jobs.filter((j) => j.type === config.type);
   const showLiveSyncStatus = category !== "service";
   const isRefreshing = dbSyncStatus === "loading" || dbSyncStatus === "syncing";
@@ -35,6 +39,13 @@ export default function JobCategoryPage({
       <div className='flex items-center justify-between mb-4'>
         <h2 className='text-2xl font-bold text-foreground'>{config.title}</h2>
         <div className='flex items-center gap-3 text-sm'>
+          {canOpenRequest && (
+            <OpenJobDialog
+              type={config.type as "malfunction" | "installation"}
+              customers={customersList}
+              onAdd={addJob}
+            />
+          )}
           {showLiveSyncStatus && (
             <>
               <LiveSyncStatus
