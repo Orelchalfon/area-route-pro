@@ -232,37 +232,88 @@ export type Database = {
       }
       ongoing_services: {
         Row: {
+          address: string | null
           category: string | null
+          city: string | null
+          completed_at: string | null
+          completion_notes: string | null
+          completion_status: string | null
           created_at: string
+          customer_id: string | null
+          customer_name: string | null
+          estimated_duration: number | null
           id: string
           is_done: boolean | null
           location: string | null
+          notes: string | null
+          phone: string | null
+          priority: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
           service_date: string
+          source: string | null
+          status: string | null
           status_label: string | null
           status_synced_at: string | null
           task_description: string
+          technician_id: string | null
+          updated_at: string
         }
         Insert: {
+          address?: string | null
           category?: string | null
+          city?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          estimated_duration?: number | null
           id?: string
           is_done?: boolean | null
           location?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
           service_date: string
+          source?: string | null
+          status?: string | null
           status_label?: string | null
           status_synced_at?: string | null
           task_description: string
+          technician_id?: string | null
+          updated_at?: string
         }
         Update: {
+          address?: string | null
           category?: string | null
+          city?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
           created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          estimated_duration?: number | null
           id?: string
           is_done?: boolean | null
           location?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
           service_date?: string
+          source?: string | null
+          status?: string | null
           status_label?: string | null
           status_synced_at?: string | null
           task_description?: string
+          technician_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

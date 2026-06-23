@@ -129,6 +129,10 @@ function JobFormFields({
           placeholder='הערות נוספות...'
         />
       </div>
+
+      <p className='text-xs text-muted-foreground'>
+        השארת טכנאי/תאריך ריקים תשמור את הפנייה ב"ממתינים לשיבוץ" — היא לא תיכנס ללוח עד שתשובץ.
+      </p>
     </>
   );
 }
@@ -192,8 +196,9 @@ export function NewJobDialog({
   );
 
   const handleSubmit = (type: JobType) => {
-    if (!customerId || !technicianId || !scheduledDate || !scheduledTime)
-      return;
+    // Only the customer is required — leaving technician/date empty creates the
+    // request unscheduled (it lands in "ממתינים לשיבוץ", off the board).
+    if (!customerId) return;
     onAdd({
       type,
       customerId,
@@ -207,8 +212,7 @@ export function NewJobDialog({
   };
 
   const handleNonCustomerSubmit = () => {
-    if (!ncName || !ncPhone || !ncAddress || !scheduledDate || !scheduledTime)
-      return;
+    if (!ncName || !ncPhone || !ncAddress) return;
     const cust = onAddCustomer({
       name: ncName,
       phone: ncPhone,
@@ -234,10 +238,8 @@ export function NewJobDialog({
     resetForm();
   };
 
-  const isDisabled =
-    !customerId || !technicianId || !scheduledDate || !scheduledTime;
-  const isNonCustomerDisabled =
-    !ncName || !ncPhone || !ncAddress || !scheduledDate || !scheduledTime;
+  const isDisabled = !customerId;
+  const isNonCustomerDisabled = !ncName || !ncPhone || !ncAddress;
 
   const formProps = {
     customers,

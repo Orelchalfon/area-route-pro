@@ -37,16 +37,31 @@ A job's ID prefix determines how/where it persists. This is the contract the syn
 
 - `db-malf-{uuid}` → a row in the Supabase `malfunctions` table
 - `db-inst-{uuid}` → a row in the Supabase `installations` table
-- `filter-{year}-{month}-{customerId}` → **synthetic** filter-replacement job (no malfunctions/installations row). Deterministic ID prevents duplicates. Scheduling persists to the `scheduled_filter_services` table keyed by `job_key` (= the synthetic ID).
+- `db-ongoing-{uuid}` → a row in the Supabase `ongoing_services` table created as a `שירות שוטף` request (it carries a `customer_id`; calendar-derived/follow-up `ongoing_services` rows have none and are NOT turned into jobs).
+- `filter-{year}-{month}-{customerId}` → **synthetic** filter-replacement job (no DB row). Deterministic ID prevents duplicates. Scheduling persists to the `scheduled_filter_services` table keyed by `job_key` (= the synthetic ID).
 - `db-*-cust-{id}` / `db-cust-{id}` → customer records derived from DB rows
 
-`src/lib/dbJobSync.ts` (`getDbJobRef`, `buildDbJobUpdatePatch`) maps an ID back to its table and builds the update patch. When editing scheduling/persistence, respect these prefixes — `persistDbJob` no-ops for synthetic jobs, which instead go through `persistFilterServiceRow`.
+`src/lib/dbJobSync.ts` (`getDbJobRef`, `buildDbJobUpdatePatch`, `buildMalfunctionInsert`/`buildInstallationInsert`/`buildOngoingServiceInsert`) maps an ID back to its table and builds the update/insert patch. When editing scheduling/persistence, respect these prefixes — `persistDbJob` no-ops for synthetic jobs, which instead go through `persistFilterServiceRow`.
+
+**Creating a request ("פניה חדשה"):** `addJob` (`useJobs.ts`) INSERTs into the matching table (malfunction→`malfunctions`, installation→`installations`, filter_replacement→`ongoing_services`) with `status:'draft'` and **no technician/date by default**, so it lands in the "ממתינים לשיבוץ" pool (`JobCategoryPage`) and stays OFF the monthly board until the manager schedules it. Customers are persisted too: `addCustomer`/`updateCustomer` write through to the `customers` table (helpers `insertCustomer`/`updateCustomerRow`/`upsertCustomerByImportKey` in `useCustomers.ts`, idempotent on `import_key`). One-time CSV/ICS backfill: `scripts/backfill_customers.mjs`.
 
 ### Routing & access control (`src/App.tsx`)
 Two-layer provider nesting: `AuthProvider` wraps everything; `JobsProvider` sits **inside** auth (only authenticated users load jobs). Public routes with no app shell: `/login` and `/confirm` (the customer confirmation page — does **not** touch the database). Everything else is behind `RequireAuth` + `AppLayout`; admin-only pages (`/malfunctions`, `/installations`, `/service`, `/work-schedule`, `/customers`, `/users`) are additionally wrapped in `RequireAdmin`. Heavy routes (maps, drag-drop, calendars, charts) are `lazy()`-loaded to keep the mobile bundle small — keep new heavy pages lazy.
 
-### Make.com ↔ Supabase sync & the `source` field
-Field data (installations, malfunctions, ongoing services) originates in Google Sheets and syncs into Supabase via **Make.com** scenarios and three edge functions in `supabase/functions/`: `receive-from-make` (Sheets→Supabase), `send-to-make` (Supabase→Sheets), `get-google-maps-key`. Rows carry a `source` field (`app` / `make` / `sheets`) used to avoid sync loops — app writes set `source: 'app'`. See `HANDOFF_make_supabase_sync.md` for current sync status/blockers and `tal_hermon_make_blueprints/` for the scenario blueprints.
+### Source of truth: Supabase (Make.com is being retired)
+**Supabase is the canonical store and the only backup.** Customers, malfunctions, installations, and
+ongoing-service requests are created/edited in the app and persisted directly to Supabase (see the request
+flow above and the customer write-through in `useCustomers.ts`/`useJobs.ts`). Seed customers can be loaded
+from the bundled `public/contacts.csv` / `public/calendar_1.ics` via `scripts/backfill_customers.mjs`
+(`--emit-csv` produces a table-shaped CSV for the Supabase dashboard importer; no service-role key needed).
+
+**Legacy Make.com sync (do not extend):** historically, field data originated in Google Sheets and synced
+into Supabase via **Make.com** scenarios and edge functions in `supabase/functions/` (`receive-from-make`,
+`send-to-make`; `get-google-maps-key` is still used for the Maps key). Rows carry a `source` field
+(`app` / `make` / `sheets`) and a `notify_make_on_change` trigger fires a webhook on non-`sheets` writes to
+avoid loops. This pipeline is being decommissioned — treat the `source` field, the trigger, and the
+make edge functions as vestigial. Keep setting `source: 'app'` on writes for now (harmless), but don't build
+new behavior on the Make sync. `HANDOFF_make_supabase_sync.md` / `tal_hermon_make_blueprints/` are historical.
 
 ### Areas are derived from city, not from sheet columns
 `src/lib/areas.ts` maps each city to an area (`CITY_AREA`) by real Israeli geography. The source sheets' hand-entered region columns are unreliable, so **never trust a row's region column — derive the area from the city name**. Add new cities to `CITY_AREA` as they appear.
