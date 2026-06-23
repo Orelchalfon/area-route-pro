@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Customer, ServiceTrack } from '@/types';
+import type { TablesInsert } from '@/integrations/supabase/types';
 
 type CustomerRow = {
   id: string;
@@ -44,49 +45,132 @@ function rowToCustomer(row: CustomerRow): Customer {
   };
 }
 
+// A stable natural key derived from the customer name, used so one-time imports and
+// app-side upserts of CSV/ICS customers stay idempotent (the customers table has a
+// UNIQUE import_key).
+export function customerImportKey(name: string): string {
+  return `name:${name.trim().toLowerCase().replace(/\s+/g, ' ')}`;
+}
+
+// Map the app Customer shape onto the DB column names. Only defined fields are
+// included so partial updates don't clobber existing columns with nulls.
+function customerToRow(data: Partial<Customer>): Partial<TablesInsert<'customers'>> {
+  const row: Partial<TablesInsert<'customers'>> = {};
+  if (data.name !== undefined) row.name = data.name;
+  if (data.phone !== undefined) row.phone = data.phone;
+  if (data.address !== undefined) row.address = data.address;
+  if (data.city !== undefined) row.city = data.city;
+  if (data.email !== undefined) row.email = data.email;
+  if (data.product !== undefined) row.product = data.product;
+  if (data.filterReplacementMonth !== undefined) row.filter_replacement_month = data.filterReplacementMonth;
+  if (data.serviceTrack !== undefined) row.service_track = data.serviceTrack ?? null;
+  if (data.nextServiceDate !== undefined) row.next_service_date = data.nextServiceDate ?? null;
+  if (data.notes !== undefined) row.notes = data.notes ?? null;
+  if (data.lat !== undefined) row.lat = data.lat ?? null;
+  if (data.lng !== undefined) row.lng = data.lng ?? null;
+  if (data.placeId !== undefined) row.place_id = data.placeId ?? null;
+  return row;
+}
+
+// Strip the db-cust- prefix back to the raw UUID used as the customers PK.
+export function customerDbId(customerId: string): string | null {
+  return customerId.startsWith('db-cust-') ? customerId.replace('db-cust-', '') : null;
+}
+
+// Insert a brand-new customer (source 'app'); returns the saved Customer with its db-cust- id.
+export async function insertCustomer(data: Partial<Customer> & { name: string }): Promise<Customer> {
+  const { data: row, error } = await supabase
+    .from('customers')
+    .insert({ ...customerToRow(data), name: data.name, source: 'app' })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return rowToCustomer(row as CustomerRow);
+}
+
+// Update an existing customer row by its UUID.
+export async function updateCustomerRow(uuid: string, patch: Partial<Customer>): Promise<void> {
+  const { error } = await supabase
+    .from('customers')
+    .update({ ...customerToRow(patch), source: 'app' })
+    .eq('id', uuid);
+  if (error) throw error;
+}
+
+// Upsert a customer keyed on import_key (used for in-memory CSV/ICS customers that
+// don't yet have a DB row). Returns the saved Customer with its db-cust- id.
+export async function upsertCustomerByImportKey(
+  data: Partial<Customer> & { name: string },
+): Promise<Customer> {
+  const importKey = customerImportKey(data.name);
+  const { data: row, error } = await supabase
+    .from('customers')
+    .upsert(
+      { ...customerToRow(data), name: data.name, import_key: importKey, source: 'app' },
+      { onConflict: 'import_key' },
+    )
+    .select('*')
+    .single();
+  if (error) throw error;
+  return rowToCustomer(row as CustomerRow);
+}
+
 export function useCustomers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchAll = useCallback(async () => {
+    const all: Customer[] = [];
+    const PAGE_SIZE = 1000;
+    let from = 0;
+    let hasMore = true;
 
-    async function fetchAll() {
-      const all: Customer[] = [];
-      const PAGE_SIZE = 1000;
-      let from = 0;
-      let hasMore = true;
+    while (hasMore) {
+      const { data, error: queryError } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
 
-      while (hasMore) {
-        const { data, error: queryError } = await supabase
-          .from('customers')
-          .select('*')
-          .order('name', { ascending: true })
-          .range(from, from + PAGE_SIZE - 1);
-
-        if (queryError) {
-          if (!cancelled) setError(queryError.message);
-          break;
-        }
-
-        const rows = (data as CustomerRow[] | null) ?? [];
-        all.push(...rows.map(rowToCustomer));
-        from += PAGE_SIZE;
-        hasMore = rows.length === PAGE_SIZE;
+      if (queryError) {
+        setError(queryError.message);
+        break;
       }
 
-      if (!cancelled) {
-        setCustomers(all);
-        setLoaded(true);
-      }
+      const rows = (data as CustomerRow[] | null) ?? [];
+      all.push(...rows.map(rowToCustomer));
+      from += PAGE_SIZE;
+      hasMore = rows.length === PAGE_SIZE;
     }
 
-    fetchAll();
-    return () => {
-      cancelled = true;
-    };
+    setCustomers(all);
+    setLoaded(true);
   }, []);
 
-  return { customers, loaded, error };
+  useEffect(() => {
+    void fetchAll();
+
+    // Debounced refresh so a burst of changes triggers a single re-fetch.
+    const scheduleRefresh = () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => {
+        refreshTimerRef.current = null;
+        void fetchAll();
+      }, 300);
+    };
+
+    const channel = supabase
+      .channel('customers-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAll]);
+
+  return { customers, loaded, error, refresh: fetchAll };
 }
