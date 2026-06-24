@@ -29,3 +29,19 @@ dist-ssr
 supabase/.temp/
 *.stackdump
 current-blueprint.json
+
+# One-off data-import & populate tooling (never deployed)
+scripts/_pop/
+scripts/_populate.mjs
+scripts/import/out/
+
+# Customer PII — source data for one-time import only
+sheets/
+customers_import.csv
+.backfill_*.json
+
+./backfill_customers.mjs
+
+
+*.xlsx
+*.bin

@@ -1,7 +1,7 @@
 import type { Job } from '@/types';
-import type { TablesUpdate } from '@/integrations/supabase/types';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
-export type DbJobTable = 'malfunctions' | 'installations';
+export type DbJobTable = 'malfunctions' | 'installations' | 'ongoing_services';
 
 export type DbJobRef = {
   table: DbJobTable;
@@ -41,7 +41,88 @@ export function getDbJobRef(jobId: string): DbJobRef | null {
     return { table: 'installations', dbId: jobId.replace('db-inst-', '') };
   }
 
+  if (jobId.startsWith('db-ongoing-')) {
+    return { table: 'ongoing_services', dbId: jobId.replace('db-ongoing-', '') };
+  }
+
   return null;
+}
+
+// Shared shape for creating a new request ("פניה חדשה") in any of the source tables.
+// Scheduling fields are optional: a request created without a technician/date stays in
+// the "ממתינים לשיבוץ" pool and off the monthly board until the manager schedules it.
+export type NewJobInsertInput = {
+  customerId?: string;
+  customerName: string;
+  phone?: string;
+  city?: string;
+  address?: string;
+  notes?: string;
+  productType?: string;
+  priority?: string;
+  technicianId?: string | null;
+  scheduledDate?: string | null;
+  scheduledTime?: string | null;
+  estimatedDuration?: number;
+};
+
+export function buildMalfunctionInsert(input: NewJobInsertInput): TablesInsert<'malfunctions'> {
+  return {
+    customer_name: input.customerName,
+    phone: input.phone ?? null,
+    city: input.city ?? null,
+    address: input.address ?? null,
+    description: input.notes ?? null,
+    status: 'draft',
+    priority: input.priority ?? 'medium',
+    source: 'app',
+    technician_id: input.technicianId ?? null,
+    scheduled_date: input.scheduledDate ?? null,
+    scheduled_time: input.scheduledTime ?? null,
+    estimated_duration: input.estimatedDuration ?? null,
+  };
+}
+
+export function buildInstallationInsert(input: NewJobInsertInput): TablesInsert<'installations'> {
+  return {
+    customer_name: input.customerName,
+    phone: input.phone ?? null,
+    city: input.city ?? null,
+    address: input.address ?? null,
+    product_type: input.productType ?? null,
+    notes: input.notes ?? null,
+    status: 'draft',
+    priority: input.priority ?? 'medium',
+    source: 'app',
+    technician_id: input.technicianId ?? null,
+    scheduled_date: input.scheduledDate ?? null,
+    scheduled_time: input.scheduledTime ?? null,
+    estimated_duration: input.estimatedDuration ?? null,
+  };
+}
+
+export function buildOngoingServiceInsert(
+  input: NewJobInsertInput,
+  serviceDate: string,
+): TablesInsert<'ongoing_services'> {
+  return {
+    service_date: serviceDate,
+    task_description: input.notes || input.productType || 'שירות שוטף',
+    customer_id: input.customerId ?? null,
+    customer_name: input.customerName,
+    phone: input.phone ?? null,
+    city: input.city ?? null,
+    address: input.address ?? null,
+    location: input.address ?? '',
+    notes: input.notes ?? null,
+    status: 'draft',
+    priority: input.priority ?? 'low',
+    source: 'app',
+    technician_id: input.technicianId ?? null,
+    scheduled_date: input.scheduledDate ?? null,
+    scheduled_time: input.scheduledTime ?? null,
+    estimated_duration: input.estimatedDuration ?? null,
+  };
 }
 
 export function buildDbJobUpdatePatch(data: JobSyncPatch): DbJobUpdate {

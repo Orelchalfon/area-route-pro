@@ -232,25 +232,169 @@ export type Database = {
       }
       ongoing_services: {
         Row: {
+          address: string | null
+          category: string | null
+          city: string | null
+          completed_at: string | null
+          completion_notes: string | null
+          completion_status: string | null
           created_at: string
+          customer_id: string | null
+          customer_name: string | null
+          estimated_duration: number | null
           id: string
+          is_done: boolean | null
           location: string | null
+          notes: string | null
+          phone: string | null
+          priority: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
           service_date: string
+          source: string | null
+          status: string | null
+          status_label: string | null
+          status_synced_at: string | null
           task_description: string
+          technician_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          estimated_duration?: number | null
+          id?: string
+          is_done?: boolean | null
+          location?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          service_date: string
+          source?: string | null
+          status?: string | null
+          status_label?: string | null
+          status_synced_at?: string | null
+          task_description: string
+          technician_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          category?: string | null
+          city?: string | null
+          completed_at?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          estimated_duration?: number | null
+          id?: string
+          is_done?: boolean | null
+          location?: string | null
+          notes?: string | null
+          phone?: string | null
+          priority?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          service_date?: string
+          source?: string | null
+          status?: string | null
+          status_label?: string | null
+          status_synced_at?: string | null
+          task_description?: string
+          technician_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          technician_id: string | null
+          updated_at: string
         }
         Insert: {
           created_at?: string
-          id?: string
-          location?: string | null
-          service_date: string
-          task_description: string
+          full_name?: string | null
+          id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          technician_id?: string | null
+          updated_at?: string
         }
         Update: {
           created_at?: string
+          full_name?: string | null
           id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          technician_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      scheduled_filter_services: {
+        Row: {
+          city: string | null
+          completion_notes: string | null
+          completion_status: string | null
+          created_at: string
+          customer_id: string
+          estimated_duration: number | null
+          id: string
+          job_key: string
+          location: string | null
+          notes: string | null
+          scheduled_date: string
+          scheduled_time: string | null
+          status: string | null
+          technician_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
+          created_at?: string
+          customer_id: string
+          estimated_duration?: number | null
+          id?: string
+          job_key: string
           location?: string | null
-          service_date?: string
-          task_description?: string
+          notes?: string | null
+          scheduled_date: string
+          scheduled_time?: string | null
+          status?: string | null
+          technician_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          completion_notes?: string | null
+          completion_status?: string | null
+          created_at?: string
+          customer_id?: string
+          estimated_duration?: number | null
+          id?: string
+          job_key?: string
+          location?: string | null
+          notes?: string | null
+          scheduled_date?: string
+          scheduled_time?: string | null
+          status?: string | null
+          technician_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -259,10 +403,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      current_technician_id: { Args: never; Returns: string }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "employee"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -389,6 +534,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "employee"],
+    },
   },
 } as const
