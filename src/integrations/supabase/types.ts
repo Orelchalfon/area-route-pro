@@ -344,6 +344,27 @@ export type Database = {
         }
         Relationships: []
       }
+      approved_schedule_days: {
+        Row: {
+          approved_at: string
+          id: string
+          service_date: string
+          technician_id: string
+        }
+        Insert: {
+          approved_at?: string
+          id?: string
+          service_date: string
+          technician_id: string
+        }
+        Update: {
+          approved_at?: string
+          id?: string
+          service_date?: string
+          technician_id?: string
+        }
+        Relationships: []
+      }
       scheduled_filter_services: {
         Row: {
           city: string | null

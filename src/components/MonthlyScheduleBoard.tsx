@@ -112,7 +112,8 @@ export function MonthlyScheduleBoard({
   onReturnJob,
   onAddJob,
 }: MonthlyScheduleBoardProps) {
-  const { customersList, boardReady } = useJobsContext();
+  const { customersList, boardReady, approvedDayKeys, approveDay } =
+    useJobsContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(
     technicians[0].id,
@@ -139,7 +140,17 @@ export function MonthlyScheduleBoard({
     open: boolean;
     dateStr: string;
   } | null>(null);
-  const [approvedDays, setApprovedDays] = useState<Set<string>>(new Set());
+  // Approved days for the selected technician, derived from the persisted
+  // approved_schedule_days keys (`${technicianId}|${date}`) so the green-check /
+  // "messages sent" state survives a refresh and stays in sync across managers.
+  const approvedDays = useMemo(() => {
+    const prefix = `${selectedTechId}|`;
+    const set = new Set<string>();
+    approvedDayKeys.forEach((k) => {
+      if (k.startsWith(prefix)) set.add(k.slice(prefix.length));
+    });
+    return set;
+  }, [approvedDayKeys, selectedTechId]);
 
   const handleApproveDay = (jobIds: string[], dateStr: string) => {
     // Calculate time ranges for assignments
@@ -168,7 +179,7 @@ export function MonthlyScheduleBoard({
     });
 
     onApproveDaySchedule(assignments, allJobs);
-    setApprovedDays((prev) => new Set(prev).add(dateStr));
+    approveDay(selectedTechId, dateStr);
   };
 
   const month = currentMonth.getMonth() + 1; // 1-12

@@ -12,7 +12,7 @@ import { Job, JOB_TYPE_CONFIG } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { CheckCircle, Clock, GripVertical, MessageCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CustomerInfoPopover } from "../../CustomerInfoPopover";
 import { DayRouteMap } from "../../DayRouteMap";
@@ -57,10 +57,14 @@ export function DayApprovalDialog({
   const dayDateText = format(dayDate, "d/M/yyyy");
   const isApproved = approvedDays.has(dateStr);
 
-  // Sync when source data changes
-  useMemo(() => {
+  // Resync the ordered list only when the day's actual job set changes (by id),
+  // so a background board refresh while the dialog is open never wipes the manual
+  // drag order. (Was a useMemo-as-side-effect keyed on lengths, which reset on every refresh.)
+  const jobIdsKey = [...filterJobs, ...dayJobs].map((j) => j.id).join(",");
+  useEffect(() => {
     setOrderedJobs([...filterJobs, ...dayJobs]);
-  }, [filterJobs.length, dayJobs.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobIdsKey]);
 
   const timeRanges = useMemo(
     () => calculateTimeRanges(orderedJobs),

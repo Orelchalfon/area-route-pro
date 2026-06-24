@@ -13,6 +13,7 @@ import {
 } from '@/hooks/useCustomers';
 import { useMalfunctionsInstallations } from '@/hooks/useMalfunctionsInstallations';
 import { useScheduledFilterServices } from '@/hooks/useScheduledFilterServices';
+import { useApprovedDays } from '@/hooks/useApprovedDays';
 import { useOngoingServices } from '@/hooks/useOngoingServices';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -57,6 +58,7 @@ export function useJobs() {
     jobs: scheduledFilterJobs,
     loaded: scheduledFilterLoaded,
   } = useScheduledFilterServices();
+  const { approvedDayKeys, approveDay, unapproveDay } = useApprovedDays();
   const {
     jobs: ongoingJobs,
     customers: ongoingCustomers,
@@ -109,6 +111,26 @@ export function useJobs() {
         if (error) console.error(`Failed to persist scheduled filter service ${job.id}:`, error);
       });
   }, []);
+
+  // Persist a technician's completion report for a synthetic filter job (filter-…),
+  // which has no malfunctions/installations row (persistDbJob no-ops for it). Its row
+  // lives in scheduled_filter_services keyed by job_key (= the synthetic id); updating
+  // it there lets the change reach the manager board via that table's realtime channel.
+  const persistFilterServiceCompletion = useCallback(
+    (jobId: string, completionStatus: CompletionStatus, notes: string) => {
+      supabase
+        .from('scheduled_filter_services')
+        .update({
+          status: 'completed',
+          completion_status: completionStatus,
+          completion_notes: notes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('job_key', jobId)
+        .then(({ error }) => {
+          if (error) console.error(`Failed to persist filter completion ${jobId}:`, error);
+        });
+    }, []);
 
   // Schedule a filter job to a day: persist to DB and reflect it in global jobs so it
   // renders immediately and survives refresh.
@@ -362,7 +384,15 @@ export function useJobs() {
     setJobs(prev => {
       const job = prev.find(j => j.id === jobId);
       if (job) addLog(job.customerId, `דיווח טכנאי: ${statusLabels[completionStatus]}`, notes || 'ללא הערות', jobId);
-      if (job) persistDbJob(jobId, { status: 'completed', completionStatus, completionNotes: notes });
+      if (job) {
+        // Route by id: db-malf/inst/ongoing rows persist via persistDbJob; synthetic
+        // filter-… jobs have no such row, so their completion goes to scheduled_filter_services.
+        if (getDbJobRef(jobId)) {
+          persistDbJob(jobId, { status: 'completed', completionStatus, completionNotes: notes });
+        } else if (jobId.startsWith('filter-')) {
+          persistFilterServiceCompletion(jobId, completionStatus, notes);
+        }
+      }
       return prev.map(j =>
         j.id === jobId ? { ...j, status: 'completed' as JobStatus, completionStatus, completionNotes: notes } : j
       );
@@ -649,5 +679,5 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, approvedDayKeys, approveDay, unapproveDay, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }

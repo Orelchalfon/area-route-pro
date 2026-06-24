@@ -11,8 +11,8 @@ describe('db job sync mapping', () => {
     expect(getDbJobRef('filter-2026-1-c1')).toBeNull();
   });
 
-  it('builds an app-sourced scheduling patch', () => {
-    expect(buildDbJobUpdatePatch({
+  it('builds a scheduling patch without touching the vestigial source column', () => {
+    const patch = buildDbJobUpdatePatch({
       status: 'confirmed',
       technicianId: 'tech-1',
       scheduledDate: '2026-05-21',
@@ -22,8 +22,8 @@ describe('db job sync mapping', () => {
       notes: 'Bring filters',
       priority: 'high',
       estimatedDuration: 45,
-    })).toMatchObject({
-      source: 'app',
+    });
+    expect(patch).toMatchObject({
       status: 'confirmed',
       technician_id: 'tech-1',
       scheduled_date: '2026-05-21',
@@ -34,6 +34,9 @@ describe('db job sync mapping', () => {
       priority: 'high',
       estimated_duration: 45,
     });
+    // `source` must NOT be set: the employee RLS trigger rejects any UPDATE that
+    // changes it, which previously blocked technician completions on legacy rows.
+    expect(patch).not.toHaveProperty('source');
   });
 
   it('clears assignment fields when returning a job', () => {

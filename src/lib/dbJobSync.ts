@@ -126,7 +126,11 @@ export function buildOngoingServiceInsert(
 }
 
 export function buildDbJobUpdatePatch(data: JobSyncPatch): DbJobUpdate {
-  const patch: DbJobUpdate = { source: 'app' };
+  // Note: do NOT set `source` here. The employee RLS trigger
+  // (enforce_employee_job_update) rejects any UPDATE that changes `source`, which
+  // silently blocked technician completions on legacy (non-'app') rows. `source`
+  // is vestigial (Make sync is being retired), so updates leave it untouched.
+  const patch: DbJobUpdate = {};
 
   if (data.status !== undefined) patch.status = data.status;
   if (data.technicianId !== undefined) patch.technician_id = data.technicianId ?? null;
