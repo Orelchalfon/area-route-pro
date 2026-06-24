@@ -7,25 +7,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { technicians } from "@/data/mockData";
+import { formatHebrewDateTime } from "@/lib/dates";
 import { Customer, JobType } from "@/types";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CustomerSearchField } from "./CustomerSearchField";
 
-// Per-page request modal. Replaces the old shared tabbed NewJobDialog: each page
+// Per-page request modal. Replaces the old shared tabbed dialog: each page
 // (malfunctions / installations) renders its own OpenJobDialog for a single type,
 // and the customer is always selected from the existing customer database.
+//
+// Opening a request only picks a customer (+ optional notes) — it never schedules.
+// The job is created unscheduled, so it lands in the "ממתינים לשיבוץ" pool and
+// stays OFF the monthly board until the manager adds it there manually.
 type OpenJobType = Extract<JobType, "malfunction" | "installation">;
 
 const TYPE_LABELS: Record<OpenJobType, { trigger: string; title: string; submit: string }> = {
@@ -49,33 +45,29 @@ interface OpenJobDialogProps {
 export function OpenJobDialog({ type, customers, onAdd }: OpenJobDialogProps) {
   const [open, setOpen] = useState(false);
   const [customerId, setCustomerId] = useState("");
-  const [technicianId, setTechnicianId] = useState("");
-  const [scheduledDate, setScheduledDate] = useState("");
-  const [scheduledTime, setScheduledTime] = useState("");
   const [notes, setNotes] = useState("");
 
   const labels = TYPE_LABELS[type];
 
-  // date stamp — when the request is opened (Hebrew display, date only)
-  const openedDate = useMemo(
-    () => new Date().toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem" }),
-    // Recompute each time the dialog opens so a stale stamp isn't shown.
+  // date stamp — when the request is opened (Hebrew display, date + time).
+  // Recomputed each time the dialog opens so a stale stamp isn't shown; matches
+  // the value addJob stores on the new job.
+  const openedAt = useMemo(
+    () => formatHebrewDateTime(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [open],
   );
 
   const resetForm = () => {
     setCustomerId("");
-    setTechnicianId("");
-    setScheduledDate("");
-    setScheduledTime("");
     setNotes("");
   };
 
   const handleSubmit = () => {
-    // Only the customer is required — leaving technician/date empty creates the
-    // request unscheduled (it lands in "ממתינים לשיבוץ", off the board).
+    // Only the customer is required. Scheduling fields are always empty here, so
+    // the request is created unscheduled (lands in "ממתינים לשיבוץ", off the board).
     if (!customerId) return;
-    onAdd({ type, customerId, technicianId, scheduledDate, scheduledTime, notes });
+    onAdd({ type, customerId, technicianId: "", scheduledDate: "", scheduledTime: "", notes });
     setOpen(false);
     resetForm();
   };
@@ -107,41 +99,6 @@ export function OpenJobDialog({ type, customers, onAdd }: OpenJobDialogProps) {
           />
 
           <div className='space-y-2'>
-            <Label>טכנאי</Label>
-            <Select value={technicianId} onValueChange={setTechnicianId}>
-              <SelectTrigger>
-                <SelectValue placeholder='בחר טכנאי' />
-              </SelectTrigger>
-              <SelectContent>
-                {technicians.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name} - {t.region}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className='grid grid-cols-2 gap-3'>
-            <div className='space-y-2'>
-              <Label>תאריך</Label>
-              <Input
-                type='date'
-                value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.target.value)}
-              />
-            </div>
-            <div className='space-y-2'>
-              <Label>שעה</Label>
-              <Input
-                type='time'
-                value={scheduledTime}
-                onChange={(e) => setScheduledTime(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className='space-y-2'>
             <Label>הערות</Label>
             <Textarea
               value={notes}
@@ -150,11 +107,11 @@ export function OpenJobDialog({ type, customers, onAdd }: OpenJobDialogProps) {
             />
           </div>
 
-          {/* date stamp — informs the user which date the request is recorded under */}
-          <p className='text-xs text-muted-foreground'>נפתח בתאריך: {openedDate}</p>
+          {/* date stamp — informs the user when the request is recorded */}
+          <p className='text-xs text-muted-foreground'>נפתח: {openedAt}</p>
 
           <p className='text-xs text-muted-foreground'>
-            השארת טכנאי/תאריך ריקים תשמור את הפנייה ב"ממתינים לשיבוץ" — היא לא תיכנס ללוח עד שתשובץ.
+            הפנייה תישמר ב"ממתינים לשיבוץ" — שבץ אותה ללוח כשתרצה.
           </p>
 
           <Button onClick={handleSubmit} className='w-full' disabled={!customerId}>

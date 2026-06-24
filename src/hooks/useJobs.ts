@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
+import { formatHebrewDateTime } from '@/lib/dates';
 import { useActivityLogs } from '@/hooks/useActivityLogs';
 import { useICSImport } from '@/hooks/useICSImport';
 import {
@@ -561,8 +562,8 @@ export function useJobs() {
       city,
       notes: data.notes,
       createdAt: new Date().toISOString().split('T')[0],
-      // date stamp — when the request is opened (Hebrew display, date only)
-      openedDate: new Date().toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' }),
+      // date stamp — when the request is opened (Hebrew display, date + time)
+      openedDate: formatHebrewDateTime(),
     };
     addLog(newJob.customerId, 'פתיחת קריאה', `${config.label} — ${data.notes}`, newJob.id);
     setJobs(prev => [...prev, newJob]);

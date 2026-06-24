@@ -12,3 +12,19 @@ export function formatHebrewDate(iso?: string): string {
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
 }
+
+/**
+ * Format a moment as a Hebrew date + time string (date and HH:mm, no seconds) in
+ * the Asia/Jerusalem timezone. Used to stamp when a request is opened. Defaults
+ * to "now" so call sites can use formatHebrewDateTime() directly.
+ */
+export function formatHebrewDateTime(date: Date = new Date()): string {
+  return date.toLocaleString('he-IL', {
+    timeZone: 'Asia/Jerusalem',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}

@@ -42,17 +42,22 @@ export function UnifiedJobPickerDialog({
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("malfunction");
 
-  // Filter jobs to only those in the selected day areas
-  const areaFilteredManualJobs = useMemo(
-    () =>
-      dayAreas.length > 0
-        ? unassignedManualJobs.filter((j) => jobMatchesAreas(j, dayAreas))
-        : unassignedManualJobs,
-    [dayAreas, unassignedManualJobs],
-  );
+  // Don't offer jobs that are already finished — only schedule open work.
+  const isCompleted = (j: Job) =>
+    j.status === "completed" || j.completionStatus === "done";
+
+  // Filter jobs to those not yet completed and within the selected day areas
+  const areaFilteredManualJobs = useMemo(() => {
+    const open = unassignedManualJobs.filter((j) => !isCompleted(j));
+    return dayAreas.length > 0
+      ? open.filter((j) => jobMatchesAreas(j, dayAreas))
+      : open;
+  }, [dayAreas, unassignedManualJobs]);
 
   const areaFilteredFilterJobs = useMemo(() => {
-    const all = [...unassignedFilterJobs, ...filterJobsFromOtherDays];
+    const all = [...unassignedFilterJobs, ...filterJobsFromOtherDays].filter(
+      (j) => !isCompleted(j),
+    );
     return dayAreas.length > 0
       ? all.filter((j) => jobMatchesAreas(j, dayAreas))
       : all;

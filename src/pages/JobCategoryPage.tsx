@@ -1,8 +1,10 @@
 import { OpenJobDialog } from "@/components/OpenJobDialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { JobType } from "@/types";
-import { CheckCircle2, Clock, RefreshCw } from "lucide-react";
+import { CheckCircle2, Clock, RefreshCw, Search, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { JobsByArea } from "./job-category/JobsByArea";
 import { LiveSyncStatus } from "./job-category/LiveSyncStatus";
 
@@ -25,12 +27,41 @@ export default function JobCategoryPage({
   const canOpenRequest = category !== "service";
   const allOfType = jobs.filter((j) => j.type === config.type);
   const showLiveSyncStatus = category !== "service";
+  const showSearch = category !== "service";
   const isRefreshing = dbSyncStatus === "loading" || dbSyncStatus === "syncing";
 
-  const unassigned = allOfType.filter(
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter by customer (name/phone/address/city) and job (notes/city/location)
+  // before splitting into the unassigned/assigned pools, so both sections and
+  // their header counters reflect the query. Mirrors the match fields used in
+  // ServiceCyclePage's client search.
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allOfType;
+
+    const customersById = new Map(customersList.map((c) => [c.id, c]));
+    const matches = (...fields: (string | null | undefined)[]) =>
+      fields.some((f) => f && f.toLowerCase().includes(q));
+
+    return allOfType.filter((job) => {
+      const customer = customersById.get(job.customerId);
+      return matches(
+        customer?.name,
+        customer?.phone,
+        customer?.address,
+        customer?.city,
+        job.notes,
+        job.city,
+        job.location,
+      );
+    });
+  }, [allOfType, customersList, searchQuery]);
+
+  const unassigned = filtered.filter(
     (j) => !j.technicianId && !j.scheduledDate && j.status === "draft",
   );
-  const assigned = allOfType.filter(
+  const assigned = filtered.filter(
     (j) => j.technicianId || j.scheduledDate || j.status !== "draft",
   );
 
@@ -80,6 +111,27 @@ export default function JobCategoryPage({
           </span>
         </div>
       </div>
+
+      {showSearch && (
+        <div className='relative w-full sm:max-w-sm mb-6'>
+          <Search className='absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none' />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder='חיפוש לקוח (שם, טלפון, כתובת, עיר)...'
+            className='pr-9 pl-9'
+          />
+          {searchQuery && (
+            <button
+              type='button'
+              onClick={() => setSearchQuery("")}
+              className='absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
+              aria-label='נקה חיפוש'>
+              <X className='w-4 h-4' />
+            </button>
+          )}
+        </div>
+      )}
 
       <div className='mb-6'>
         <h3 className='text-lg font-semibold text-foreground mb-3 flex items-center gap-2'>
