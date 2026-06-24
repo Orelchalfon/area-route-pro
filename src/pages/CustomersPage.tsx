@@ -1,20 +1,46 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
+import { Customer } from '@/types';
 import { CustomerCard } from '@/components/CustomerCard';
+import { CustomerEditDialog } from '@/components/CustomerEditDialog';
+import { CustomerHistoryDialog } from '@/components/CustomerHistoryDialog';
 import { NewCustomerDialog } from '@/components/NewCustomerDialog';
 import { SmartDistributionDialog } from '@/components/SmartDistributionDialog';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
+import { useIncrementalRender } from '@/hooks/useIncrementalRender';
 
 export default function CustomersPage() {
   const { customersList, addCustomer, updateCustomer, getCustomerLogs, distributeServiceTracks } = useJobsContext();
   const [search, setSearch] = useState('');
 
-  const filtered = customersList.filter(c =>
-    c.name.includes(search) || c.phone.includes(search) || c.city.includes(search) || c.address.includes(search)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const filtered = useMemo(
+    () => customersList.filter(c =>
+      c.name.includes(search) || c.phone.includes(search) || c.city.includes(search) || c.address.includes(search)
+    ),
+    [customersList, search],
   );
 
-  const unassignedCount = customersList.filter(c => !c.serviceTrack).length;
+  const unassignedCount = useMemo(
+    () => customersList.filter(c => !c.serviceTrack).length,
+    [customersList],
+  );
+
+  const { visible, sentinelRef, hasMore } = useIncrementalRender(filtered);
+
+  const handleEdit = useCallback((customer: Customer) => {
+    setSelectedCustomer(customer);
+    setEditOpen(true);
+  }, []);
+
+  const handleShowHistory = useCallback((customer: Customer) => {
+    setSelectedCustomer(customer);
+    setHistoryOpen(true);
+  }, []);
 
   return (
     <div dir="rtl">
@@ -43,10 +69,31 @@ export default function CustomersPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map(customer => (
-          <CustomerCard key={customer.id} customer={customer} logs={getCustomerLogs(customer.id)} onUpdate={updateCustomer} />
+        {visible.map(customer => (
+          <CustomerCard
+            key={customer.id}
+            customer={customer}
+            logCount={getCustomerLogs(customer.id).length}
+            onEdit={handleEdit}
+            onShowHistory={handleShowHistory}
+          />
         ))}
       </div>
+
+      {hasMore && <div ref={sentinelRef} className="h-10" aria-hidden="true" />}
+
+      <CustomerEditDialog
+        customer={selectedCustomer}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onUpdate={updateCustomer}
+      />
+      <CustomerHistoryDialog
+        customer={selectedCustomer}
+        logs={selectedCustomer ? getCustomerLogs(selectedCustomer.id) : []}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+      />
     </div>
   );
 }

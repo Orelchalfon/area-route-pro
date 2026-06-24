@@ -63,6 +63,9 @@ export interface Job {
   completionNotes?: string;
   completionStatus?: CompletionStatus;
   createdAt: string;
+  // Hebrew display stamp for when the request was opened (date only). Kept
+  // separate from createdAt, which stays ISO (YYYY-MM-DD) for filter-cycle logic.
+  openedDate?: string;
 }
 
 export const JOB_TYPE_CONFIG: Record<JobType, { label: string; duration: number; priority: JobPriority; icon: string; color: string }> = {

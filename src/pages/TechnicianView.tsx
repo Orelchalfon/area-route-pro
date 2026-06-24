@@ -1,16 +1,19 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useJobsContext } from '@/contexts/JobsContext';
 import { technicians } from '@/data/mockData';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Calendar, CheckCircle2, ChevronRight, ChevronLeft, Clock, LayoutDashboard, XCircle, RotateCcw, Pencil } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, LayoutDashboard, XCircle, RotateCcw, Pencil, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, startOfWeek, addDays, isToday, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, addDays, isToday, addWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
+import { normalizeIsraeliPhone, whatsappUrl } from '@/lib/whatsapp';
+import { CompletionDialog } from './technician-view/CompletionDialog';
+import { EditReportDialog } from './technician-view/EditReportDialog';
+import { WeekDaySelector } from './technician-view/WeekDaySelector';
 
 const getTodayStr = () => format(new Date(), 'yyyy-MM-dd');
 
@@ -21,6 +24,7 @@ interface TechnicianViewProps {
 
 export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianViewProps) {
   const { isAdmin, technicianId } = useAuth();
+  const { customersList } = useJobsContext();
   const [selectedTech, setSelectedTech] = useState(technicians[0].id);
   // Admins may browse any technician; employees are locked to their own.
   const activeTechId = isAdmin ? selectedTech : technicianId;
@@ -165,46 +169,18 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
         </div>
 
         {/* Week Navigation + Day Selector */}
-        <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => { setWeekOffset(w => w + 1); }}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
-            {weekDays.map(day => {
-              const dayJobCount = jobs.filter(j => j.technicianId === activeTechId && j.scheduledDate === day.date && (j.status === 'confirmed' || j.status === 'completed')).length;
-              const isSelected = day.date === selectedDay;
-              return (
-                <button
-                  key={day.date}
-                  onClick={() => setSelectedDay(day.date)}
-                  className={`flex-1 min-w-[60px] rounded-lg p-2 text-center transition-colors border ${
-                    isSelected
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : day.isToday
-                      ? 'bg-primary/10 border-primary/30 text-foreground'
-                      : 'bg-card border-border text-muted-foreground hover:bg-muted/50'
-                  }`}
-                >
-                  <div className="text-[11px] font-medium">{day.shortLabel}</div>
-                  <div className="text-sm font-bold">{day.dayNum}</div>
-                  {dayJobCount > 0 && (
-                    <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                      {dayJobCount} משימות
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={() => { setWeekOffset(w => w - 1); }}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-        </div>
-        {weekOffset !== 0 && (
-          <Button size="sm" variant="link" className="text-xs text-muted-foreground p-0 h-auto" onClick={() => { setWeekOffset(0); setSelectedDay(todayStr); }}>
-            חזור להיום
-          </Button>
-        )}
+        <WeekDaySelector
+          weekDays={weekDays}
+          selectedDay={selectedDay}
+          weekOffset={weekOffset}
+          getDayJobCount={(date) =>
+            jobs.filter(j => j.technicianId === activeTechId && j.scheduledDate === date && (j.status === 'confirmed' || j.status === 'completed')).length
+          }
+          onSelectDay={setSelectedDay}
+          onPrevWeek={() => setWeekOffset(w => w - 1)}
+          onNextWeek={() => setWeekOffset(w => w + 1)}
+          onResetToToday={() => { setWeekOffset(0); setSelectedDay(todayStr); }}
+        />
 
         {/* Next Task Banner */}
         {nextJob && selectedDay === todayStr && (
@@ -221,13 +197,29 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse-soft" />
               משימות פעילות
             </h2>
-            {activeJobs.map((job, idx) => (
+            {activeJobs.map((job, idx) => {
+              const customer = customersList.find(c => c.id === job.customerId);
+              const waPhone = normalizeIsraeliPhone(customer?.phone);
+              return (
               <div key={job.id}>
                 <JobCard
                   job={job}
                   variant="technician"
                   isNext={idx === 0}
                 />
+                {/* WhatsApp — pre-filled ETA message to the customer */}
+                {customer && waPhone && (
+                  <div className="mt-2 px-1">
+                    <Button
+                      size="sm"
+                      className="w-full h-11 bg-[#25D366] hover:bg-[#1da851] text-white"
+                      onClick={() => window.open(whatsappUrl(waPhone, `היי ${customer.name} מדבר ${tech.name} אנחנו מגיעים אליך עוד חצי שעה`), '_blank')}
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 ml-1" />
+                      וואטסאפ — בדרך אליך
+                    </Button>
+                  </div>
+                )}
                 {/* 3 action buttons */}
                 <div className="flex gap-2 mt-2 px-1">
                   <Button
@@ -258,7 +250,8 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                   </Button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -304,79 +297,24 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
         )}
       </div>
 
-      {/* Complete Dialog */}
-      <Dialog open={!!completingJobId} onOpenChange={() => setCompletingJobId(null)}>
-        <DialogContent dir="rtl">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedStatus === 'done' ? 'סימון כבוצע' :
-               selectedStatus === 'not_done' ? 'סימון כלא בוצע' :
-               'סימון — צריך לחזור'}
-            </DialogTitle>
-          </DialogHeader>
-          <Textarea
-            placeholder="הוסף הערות..."
-            value={completionNotes}
-            onChange={(e) => setCompletionNotes(e.target.value)}
-            rows={4}
-          />
-          <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
-            <Button
-              onClick={handleComplete}
-              className={
-                selectedStatus === 'done' ? 'bg-success hover:bg-success/90 text-success-foreground' :
-                selectedStatus === 'not_done' ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground' :
-                'bg-warning hover:bg-warning/90 text-warning-foreground'
-              }
-            >
-              {selectedStatus === 'done' ? <CheckCircle2 className="w-4 h-4 ml-2" /> :
-               selectedStatus === 'not_done' ? <XCircle className="w-4 h-4 ml-2" /> :
-               <RotateCcw className="w-4 h-4 ml-2" />}
-              אישור
-            </Button>
-            <Button variant="outline" onClick={() => setCompletingJobId(null)}>ביטול</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CompletionDialog
+        open={!!completingJobId}
+        status={selectedStatus}
+        notes={completionNotes}
+        onNotesChange={setCompletionNotes}
+        onConfirm={handleComplete}
+        onClose={() => setCompletingJobId(null)}
+      />
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingJobId} onOpenChange={() => setEditingJobId(null)}>
-        <DialogContent dir="rtl">
-          <DialogHeader>
-            <DialogTitle>עריכת דיווח</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              {([
-                { key: 'done' as CompletionStatus, label: 'בוצע', icon: CheckCircle2, cls: 'border-success text-success' },
-                { key: 'not_done' as CompletionStatus, label: 'לא בוצע', icon: XCircle, cls: 'border-destructive text-destructive' },
-                { key: 'need_return' as CompletionStatus, label: 'צריך לחזור', icon: RotateCcw, cls: 'border-warning text-warning' },
-              ]).map(opt => (
-                <Button
-                  key={opt.key}
-                  size="sm"
-                  variant="outline"
-                  className={`flex-1 ${editStatus === opt.key ? opt.cls + ' bg-opacity-10' : ''}`}
-                  onClick={() => setEditStatus(opt.key)}
-                >
-                  <opt.icon className="w-3.5 h-3.5 ml-1" />
-                  {opt.label}
-                </Button>
-              ))}
-            </div>
-            <Textarea
-              placeholder="הערות..."
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              rows={4}
-            />
-          </div>
-          <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
-            <Button onClick={handleEditSave}>שמור</Button>
-            <Button variant="outline" onClick={() => setEditingJobId(null)}>ביטול</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditReportDialog
+        open={!!editingJobId}
+        status={editStatus}
+        notes={editNotes}
+        onStatusChange={setEditStatus}
+        onNotesChange={setEditNotes}
+        onSave={handleEditSave}
+        onClose={() => setEditingJobId(null)}
+      />
     </div>
   );
 }

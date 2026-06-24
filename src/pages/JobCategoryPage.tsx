@@ -1,44 +1,12 @@
+import { OpenJobDialog } from "@/components/OpenJobDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { useJobsContext } from "@/contexts/JobsContext";
-import { technicians } from "@/data/mockData";
-import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
-import { groupJobsByArea } from "@/lib/areas";
-import { geocodeAddress } from "@/lib/geocodeAddress";
-import { Customer, Job, JobType, STATUS_CONFIG } from "@/types";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ChevronDown,
-  Clock,
-  MapPin,
-  Pencil,
-  RefreshCw,
-  Save,
-  Wifi,
-  X,
-} from "lucide-react";
-import { useState } from "react";
+import { JobType } from "@/types";
+import { CheckCircle2, Clock, RefreshCw, Search, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { JobsByArea } from "./job-category/JobsByArea";
+import { LiveSyncStatus } from "./job-category/LiveSyncStatus";
 
 const categoryConfig: Record<string, { type: JobType; title: string }> = {
   malfunctions: { type: "malfunction", title: "מאגר תקלות" },
@@ -46,391 +14,54 @@ const categoryConfig: Record<string, { type: JobType; title: string }> = {
   service: { type: "filter_replacement", title: "סיכום שירות שוטף" },
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
-  const colorMap: Record<string, string> = {
-    muted: "bg-muted text-muted-foreground",
-    warning: "bg-warning/15 text-warning",
-    info: "bg-info/15 text-info",
-    secondary: "bg-secondary/15 text-secondary",
-    success: "bg-success/15 text-success",
-    accent: "bg-accent/15 text-accent-foreground",
-    destructive: "bg-destructive/15 text-destructive",
-  };
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${colorMap[config?.color] || colorMap.muted}`}>
-      {config?.label}
-    </span>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    high: { label: "גבוהה", cls: "bg-destructive/15 text-destructive" },
-    medium: { label: "בינונית", cls: "bg-warning/15 text-warning" },
-    low: { label: "נמוכה", cls: "bg-info/15 text-info" },
-  };
-  const p = map[priority] || map.low;
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${p.cls}`}>
-      {p.label}
-    </span>
-  );
-}
-
-interface EditForm {
-  location: string;
-  city: string;
-  notes: string;
-  priority: string;
-}
-
-function formatLastSyncedAt(value?: string) {
-  if (!value) return null;
-  return new Intl.DateTimeFormat("he-IL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function LiveSyncStatus({
-  status,
-  lastSyncedAt,
-  error,
-}: {
-  status: "loading" | "live" | "syncing" | "error";
-  lastSyncedAt?: string;
-  error?: string;
-}) {
-  const time = formatLastSyncedAt(lastSyncedAt);
-
-  if (status === "error") {
-    return (
-      <span
-        className='flex items-center gap-1.5 text-destructive'
-        title={error}>
-        <AlertTriangle className='w-3.5 h-3.5' />
-        שגיאת סנכרון
-      </span>
-    );
-  }
-
-  if (status === "loading" || status === "syncing") {
-    return (
-      <span className='flex items-center gap-1.5 text-muted-foreground'>
-        <RefreshCw className='w-3.5 h-3.5 animate-spin' />
-        מסנכרן...
-      </span>
-    );
-  }
-
-  return (
-    <span className='flex items-center gap-1.5 text-success'>
-      <Wifi className='w-3.5 h-3.5' />
-      מחובר לעדכונים חיים{time ? ` · עודכן לאחרונה ${time}` : ""}
-    </span>
-  );
-}
-
-function EditableJobRow({
-  job,
-  customer,
-  tech,
-  showAssignment,
-  editingId,
-  onStartEdit,
-  onCancelEdit,
-  onSave,
-}: {
-  job: Job;
-  customer: Customer | undefined;
-  tech: { name: string } | undefined;
-  showAssignment?: boolean;
-  editingId: string | null;
-  onStartEdit: (id: string) => void;
-  onCancelEdit: () => void;
-  onSave: (jobId: string, customerId: string, data: EditForm) => void;
-}) {
-  const isEditing = editingId === job.id;
-  const [form, setForm] = useState<EditForm>({
-    location: job.location || customer?.address || "",
-    city: job.city || customer?.city || "",
-    notes: job.notes || "",
-    priority: job.priority || "low",
-  });
-
-  const handleStartEdit = () => {
-    setForm({
-      location: job.location || customer?.address || "",
-      city: job.city || customer?.city || "",
-      notes: job.notes || "",
-      priority: job.priority || "low",
-    });
-    onStartEdit(job.id);
-  };
-
-  if (isEditing) {
-    return (
-      <TableRow className='bg-primary/5'>
-        <TableCell className='font-medium'>{customer?.name}</TableCell>
-        <TableCell>
-          <Input
-            value={form.location}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, location: e.target.value }))
-            }
-            className='h-7 text-xs'
-            placeholder='כתובת'
-          />
-          <Input
-            value={form.city}
-            onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-            className='h-7 text-xs mt-1'
-            placeholder='עיר'
-          />
-        </TableCell>
-        <TableCell>
-          <Select
-            value={form.priority}
-            onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
-            <SelectTrigger className='h-7 text-xs w-24'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='high'>גבוהה</SelectItem>
-              <SelectItem value='medium'>בינונית</SelectItem>
-              <SelectItem value='low'>נמוכה</SelectItem>
-            </SelectContent>
-          </Select>
-        </TableCell>
-        <TableCell>
-          <StatusBadge status={job.status} />
-        </TableCell>
-        {showAssignment && <TableCell>{tech?.name || "—"}</TableCell>}
-        {showAssignment && (
-          <TableCell className='whitespace-nowrap'>
-            {job.scheduledDate || "—"}
-          </TableCell>
-        )}
-        <TableCell>
-          <Input
-            value={form.notes}
-            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            className='h-7 text-xs'
-            placeholder='הערות'
-          />
-        </TableCell>
-        <TableCell>
-          <div className='flex gap-1'>
-            <Button
-              size='sm'
-              className='h-6 px-2 text-xs gap-1'
-              onClick={() => customer && onSave(job.id, customer.id, form)}>
-              <Save className='w-3 h-3' /> שמור
-            </Button>
-            <Button
-              size='sm'
-              variant='ghost'
-              className='h-6 px-2 text-xs'
-              onClick={onCancelEdit}>
-              <X className='w-3 h-3' />
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  return (
-    <TableRow>
-      <TableCell className='font-medium'>{customer?.name}</TableCell>
-      <TableCell>{job.location}</TableCell>
-      <TableCell>
-        <PriorityBadge priority={job.priority} />
-      </TableCell>
-      <TableCell>
-        <StatusBadge status={job.status} />
-      </TableCell>
-      {showAssignment && <TableCell>{tech?.name || "—"}</TableCell>}
-      {showAssignment && (
-        <TableCell className='whitespace-nowrap'>
-          {job.scheduledDate || "—"}
-        </TableCell>
-      )}
-      <TableCell className='max-w-50 truncate'>{job.notes}</TableCell>
-      <TableCell>
-        <button
-          onClick={handleStartEdit}
-          className='p-1 rounded hover:bg-muted/50 transition-colors'
-          title='ערוך'>
-          <Pencil className='w-3.5 h-3.5 text-muted-foreground' />
-        </button>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function JobsByArea({
-  jobs,
-  showAssignment,
-}: {
-  jobs: Job[];
-  showAssignment?: boolean;
-}) {
-  const {
-    customersList: customers,
-    updateJob,
-    updateCustomer,
-  } = useJobsContext();
-  const { fetchKey } = useGoogleMapsKey();
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const handleSave = async (
-    jobId: string,
-    customerId: string,
-    data: EditForm,
-  ) => {
-    updateJob(jobId, {
-      location: data.location,
-      city: data.city,
-      notes: data.notes,
-      priority: data.priority as Job["priority"],
-    });
-
-    const customerData: Partial<Customer> = {
-      address: data.location,
-      city: data.city,
-    };
-
-    const currentCustomer = customers.find(
-      (customer) => customer.id === customerId,
-    );
-    const hasLocationChange =
-      (data.location || "").trim() !==
-        (currentCustomer?.address || "").trim() ||
-      (data.city || "").trim() !== (currentCustomer?.city || "").trim();
-
-    const fullAddress = [data.location, data.city].filter(Boolean).join(", ");
-    if (hasLocationChange && fullAddress) {
-      const geocoded = await geocodeAddress(fullAddress, await fetchKey());
-
-      if (geocoded) {
-        customerData.lat = geocoded.lat;
-        customerData.lng = geocoded.lng;
-        customerData.placeId = geocoded.placeId;
-      } else {
-        customerData.lat = undefined;
-        customerData.lng = undefined;
-        customerData.placeId = undefined;
-      }
-    }
-
-    updateCustomer(customerId, customerData);
-    setEditingId(null);
-  };
-
-  if (jobs.length === 0) {
-    return (
-      <div className='text-center py-8 text-muted-foreground'>
-        <CheckCircle2 className='w-10 h-10 mx-auto mb-2 opacity-40' />
-        <p className='font-medium'>אין משימות</p>
-      </div>
-    );
-  }
-
-  const areaGroups = groupJobsByArea(jobs);
-
-  return (
-    <div className='space-y-6'>
-      {areaGroups.map(({ area, count, cities }) => (
-        <Collapsible key={area} defaultOpen className='space-y-3'>
-          <CollapsibleTrigger className='group flex w-full items-center gap-2 rounded-lg bg-primary/10 px-4 py-2.5 text-right transition-colors hover:bg-primary/15'>
-            <ChevronDown className='w-5 h-5 text-primary transition-transform group-data-[state=closed]:-rotate-90' />
-            <h3 className='text-lg font-bold text-primary'>{area}</h3>
-            <span className='text-sm font-medium text-primary/70'>({count})</span>
-          </CollapsibleTrigger>
-          <CollapsibleContent className='space-y-4 pr-2'>
-            {cities.map(({ city, jobs: cityJobs }) => (
-              <div
-                key={city}
-                className='bg-card rounded-xl shadow-card border border-border overflow-hidden'>
-                <div className='flex items-center gap-2 p-3 border-b border-border bg-muted/30'>
-                  <MapPin className='w-4 h-4 text-muted-foreground' />
-                  <h4 className='font-semibold text-card-foreground'>{city}</h4>
-                  <span className='text-xs text-muted-foreground'>
-                    ({cityJobs.length})
-                  </span>
-                </div>
-                <div className='overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0'>
-                  <Table className='min-w-[720px]'>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className='text-right'>לקוח</TableHead>
-                        <TableHead className='text-right'>כתובת</TableHead>
-                        <TableHead className='text-right'>עדיפות</TableHead>
-                        <TableHead className='text-right'>סטטוס</TableHead>
-                        {showAssignment && (
-                          <TableHead className='text-right'>טכנאי</TableHead>
-                        )}
-                        {showAssignment && (
-                          <TableHead className='text-right'>תאריך</TableHead>
-                        )}
-                        <TableHead className='text-right'>הערות</TableHead>
-                        <TableHead className='text-right w-12'></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {cityJobs.map((job) => {
-                        const customer = customers.find(
-                          (c) => c.id === job.customerId,
-                        );
-                        const tech = technicians.find(
-                          (t) => t.id === job.technicianId,
-                        );
-                        return (
-                          <EditableJobRow
-                            key={job.id}
-                            job={job}
-                            customer={customer}
-                            tech={tech}
-                            showAssignment={showAssignment}
-                            editingId={editingId}
-                            onStartEdit={setEditingId}
-                            onCancelEdit={() => setEditingId(null)}
-                            onSave={handleSave}
-                          />
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
-      ))}
-    </div>
-  );
-}
-
 export default function JobCategoryPage({
   category,
 }: {
   category: "malfunctions" | "installations" | "service";
 }) {
-  const { jobs, dbSyncStatus, dbSyncError, dbLastSyncedAt, refreshDbJobs } =
+  const { jobs, customersList, addJob, dbSyncStatus, dbSyncError, dbLastSyncedAt, refreshDbJobs } =
     useJobsContext();
   const config = categoryConfig[category];
+  // Malfunctions/installations get a dedicated "open request" button; the
+  // service page is a read-only summary, so it has none.
+  const canOpenRequest = category !== "service";
   const allOfType = jobs.filter((j) => j.type === config.type);
   const showLiveSyncStatus = category !== "service";
+  const showSearch = category !== "service";
   const isRefreshing = dbSyncStatus === "loading" || dbSyncStatus === "syncing";
 
-  const unassigned = allOfType.filter(
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter by customer (name/phone/address/city) and job (notes/city/location)
+  // before splitting into the unassigned/assigned pools, so both sections and
+  // their header counters reflect the query. Mirrors the match fields used in
+  // ServiceCyclePage's client search.
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allOfType;
+
+    const customersById = new Map(customersList.map((c) => [c.id, c]));
+    const matches = (...fields: (string | null | undefined)[]) =>
+      fields.some((f) => f && f.toLowerCase().includes(q));
+
+    return allOfType.filter((job) => {
+      const customer = customersById.get(job.customerId);
+      return matches(
+        customer?.name,
+        customer?.phone,
+        customer?.address,
+        customer?.city,
+        job.notes,
+        job.city,
+        job.location,
+      );
+    });
+  }, [allOfType, customersList, searchQuery]);
+
+  const unassigned = filtered.filter(
     (j) => !j.technicianId && !j.scheduledDate && j.status === "draft",
   );
-  const assigned = allOfType.filter(
+  const assigned = filtered.filter(
     (j) => j.technicianId || j.scheduledDate || j.status !== "draft",
   );
 
@@ -439,6 +70,13 @@ export default function JobCategoryPage({
       <div className='flex items-center justify-between mb-4'>
         <h2 className='text-2xl font-bold text-foreground'>{config.title}</h2>
         <div className='flex items-center gap-3 text-sm'>
+          {canOpenRequest && (
+            <OpenJobDialog
+              type={config.type as "malfunction" | "installation"}
+              customers={customersList}
+              onAdd={addJob}
+            />
+          )}
           {showLiveSyncStatus && (
             <>
               <LiveSyncStatus
@@ -473,6 +111,27 @@ export default function JobCategoryPage({
           </span>
         </div>
       </div>
+
+      {showSearch && (
+        <div className='relative w-full sm:max-w-sm mb-6'>
+          <Search className='absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none' />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder='חיפוש לקוח (שם, טלפון, כתובת, עיר)...'
+            className='pr-9 pl-9'
+          />
+          {searchQuery && (
+            <button
+              type='button'
+              onClick={() => setSearchQuery("")}
+              className='absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground'
+              aria-label='נקה חיפוש'>
+              <X className='w-4 h-4' />
+            </button>
+          )}
+        </div>
+      )}
 
       <div className='mb-6'>
         <h3 className='text-lg font-semibold text-foreground mb-3 flex items-center gap-2'>

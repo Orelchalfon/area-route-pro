@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,6 +34,22 @@ export default function LoginPage() {
       toast.error('ההתחברות נכשלה', { description: 'אימייל או סיסמה שגויים' });
       return;
     }
+
+    // Explicitly persist credentials so Chromium offers to save them even though
+    // this SPA unmounts the form on navigation (its heuristic save often misses that).
+    if ('PasswordCredential' in window) {
+      try {
+        const cred = new (window as unknown as { PasswordCredential: new (data: { id: string; password: string; name?: string }) => Credential }).PasswordCredential({
+          id: email.trim(),
+          password,
+          name: email.trim(),
+        });
+        await navigator.credentials.store(cred);
+      } catch {
+        /* unsupported or dismissed — fall back to the browser's own heuristic */
+      }
+    }
+
     navigate(from, { replace: true });
   };
 
@@ -49,8 +66,9 @@ export default function LoginPage() {
               <Label htmlFor="email">אימייל</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
-                autoComplete="email"
+                autoComplete="username"
                 dir="ltr"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -59,9 +77,9 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">סיסמה</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
+                name="password"
                 autoComplete="current-password"
                 dir="ltr"
                 value={password}
