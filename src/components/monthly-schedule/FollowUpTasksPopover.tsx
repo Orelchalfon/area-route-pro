@@ -46,13 +46,11 @@ export function FollowUpTasksPopover({
     );
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     const now = new Date();
-    const inserts: {
-      service_date: string;
-      task_description: string;
-      location: string;
-    }[] = [];
+    // Each follow-up becomes a filter_replacement request. onAddJob (→ addJob)
+    // persists it to ongoing_services, so it shows up in the service cycle and can be
+    // scheduled — no separate insert needed.
     selected.forEach((optionId) => {
       const option = FOLLOW_UP_OPTIONS.find((o) => o.id === optionId)!;
       const futureDate = new Date(now);
@@ -71,22 +69,7 @@ export function FollowUpTasksPopover({
         scheduledTime: "",
         notes: `${taskDesc} — המשך התקנה`,
       });
-      inserts.push({
-        service_date: scheduledDate,
-        task_description: taskDesc,
-        location: customer?.city || job.city || "",
-      });
     });
-
-    // Also insert into ongoing_services so they appear in the service cycle
-    try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { error } = await supabase.from("ongoing_services").insert(inserts);
-      if (error)
-        console.error("Failed to insert follow-up to ongoing_services:", error);
-    } catch (e) {
-      console.error("Error inserting follow-up services:", e);
-    }
 
     toast.success(`${selected.length} משימות המשך נוצרו בהצלחה`);
     setSelected([]);

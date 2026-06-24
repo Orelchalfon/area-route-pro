@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { formatHebrewDate } from "@/lib/dates";
 import { Customer, Job } from "@/types";
 import { Pencil, Save, X } from "lucide-react";
 import { useState } from "react";
@@ -129,9 +130,20 @@ export function EditableJobRow({
     );
   }
 
+  // "Opened on" stamp: prefer the stored Hebrew openedDate, fall back to
+  // formatting createdAt for jobs that predate the field (e.g. DB-loaded rows).
+  const openedLabel = job.openedDate ?? formatHebrewDate(job.createdAt);
+
   return (
     <TableRow>
-      <TableCell className='font-medium'>{customer?.name}</TableCell>
+      <TableCell className='font-medium'>
+        {customer?.name}
+        {openedLabel && (
+          <span className='block text-xs font-normal text-muted-foreground'>
+            נפתח: {openedLabel}
+          </span>
+        )}
+      </TableCell>
       <TableCell>{job.location}</TableCell>
       <TableCell>
         <PriorityBadge priority={job.priority} />
