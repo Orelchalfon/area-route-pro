@@ -112,7 +112,7 @@ export function MonthlyScheduleBoard({
   onReturnJob,
   onAddJob,
 }: MonthlyScheduleBoardProps) {
-  const { customersList, boardReady, approvedDayKeys, approveDay } =
+  const { customersList, boardReady, approvedDayKeys, approveDay, unapproveDay } =
     useJobsContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(
@@ -180,6 +180,11 @@ export function MonthlyScheduleBoard({
 
     onApproveDaySchedule(assignments, allJobs);
     approveDay(selectedTechId, dateStr);
+  };
+
+  const handleUnapproveDay = (dateStr: string) => {
+    unapproveDay(selectedTechId, dateStr);
+    toast.success("האישור בוטל — ניתן לערוך את היום");
   };
 
   const month = currentMonth.getMonth() + 1; // 1-12
@@ -874,9 +879,6 @@ export function MonthlyScheduleBoard({
                           className={`text-sm font-medium ${isToday ? "text-primary font-bold" : "text-card-foreground"}`}>
                           {isWeekView ? format(day, "d/M") : day.getDate()}
                         </span>
-                        {isDayApproved && (
-                          <CheckCircle className='w-2.5 h-2.5 text-success' />
-                        )}
                       </div>
                       <div className='flex items-center gap-1'>
                         {totalMinutes > 0 && !isWeekend && (
@@ -885,18 +887,21 @@ export function MonthlyScheduleBoard({
                             {String(totalMinutes % 60).padStart(2, "0")}
                           </span>
                         )}
+                        {/* Approve / manage-approval entry point. When approved the green check
+                            reopens the dialog so the day can be un-approved and edited. */}
                         {!isWeekend &&
                           inCurrentMonth &&
-                          hasJobs &&
-                          !isDayApproved && (
+                          hasJobs && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setApprovalState({ open: true, dateStr });
                               }}
                               className='p-0.5 rounded hover:bg-success/20 transition-colors'
-                              title='אשר יום'>
-                              <CheckCircle className='w-3 h-3 text-muted-foreground hover:text-success' />
+                              title={isDayApproved ? "היום אושר — לחץ לניהול/ביטול" : "אשר יום"}>
+                              <CheckCircle
+                                className={`w-3 h-3 ${isDayApproved ? "text-success" : "text-muted-foreground hover:text-success"}`}
+                              />
                             </button>
                           )}
                       </div>
@@ -1157,6 +1162,7 @@ export function MonthlyScheduleBoard({
           dayJobs={getManualDayJobs(approvalState.dateStr)}
           filterJobs={getFilterDayJobs(approvalState.dateStr)}
           onApprove={handleApproveDay}
+          onUnapprove={handleUnapproveDay}
           approvedDays={approvedDays}
         />
       )}

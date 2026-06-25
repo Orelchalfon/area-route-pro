@@ -11,7 +11,7 @@ import { normalizeIsraeliPhone, whatsappUrl } from "@/lib/whatsapp";
 import { Job, JOB_TYPE_CONFIG } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
-import { CheckCircle, Clock, GripVertical, MessageCircle } from "lucide-react";
+import { CheckCircle, Clock, GripVertical, MessageCircle, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CustomerInfoPopover } from "../../CustomerInfoPopover";
@@ -28,6 +28,7 @@ export function DayApprovalDialog({
   dayJobs,
   filterJobs,
   onApprove,
+  onUnapprove,
   approvedDays,
 }: {
   open: boolean;
@@ -36,6 +37,7 @@ export function DayApprovalDialog({
   dayJobs: Job[];
   filterJobs: Job[];
   onApprove: (jobIds: string[], dateStr: string) => void;
+  onUnapprove: (dateStr: string) => void;
   approvedDays: Set<string>;
 }) {
   const initialJobs = useMemo(
@@ -224,8 +226,21 @@ export function DayApprovalDialog({
                     אשר יום ושלח הודעות ללקוחות
                   </Button>
                 ) : (
-                  <div className='text-center p-3 bg-success/10 rounded-lg text-success text-sm font-medium'>
-                    ✓ יום זה אושר — הודעות נשלחו ללקוחות
+                  <div className='space-y-2'>
+                    <div className='text-center p-3 bg-success/10 rounded-lg text-success text-sm font-medium'>
+                      ✓ יום זה אושר — הודעות נשלחו ללקוחות
+                    </div>
+                    <Button
+                      variant='outline'
+                      className='w-full gap-2 border-destructive text-destructive hover:bg-destructive/10'
+                      onClick={() => {
+                        onUnapprove(dateStr);
+                        toast.success("האישור בוטל — ניתן לערוך את היום");
+                        onClose();
+                      }}>
+                      <RotateCcw className='w-4 h-4' />
+                      בטל אישור יום
+                    </Button>
                   </div>
                 )}
               </div>
