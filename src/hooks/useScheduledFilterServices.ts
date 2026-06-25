@@ -77,7 +77,13 @@ export function useScheduledFilterServices() {
       return;
     }
 
-    setJobs(((data as ScheduledFilterServiceRow[] | null) ?? []).map(rowToJob));
+    // Hide archived (closed/deleted) rows. Filtered client-side, not via
+    // `.neq('status','archived')`, because that SQL form also drops NULL-status rows.
+    setJobs(
+      ((data as ScheduledFilterServiceRow[] | null) ?? [])
+        .filter(row => row.status !== 'archived')
+        .map(rowToJob),
+    );
     setLoaded(true);
   }, []);
 

@@ -1,4 +1,15 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CustomerEditDialog } from "@/components/CustomerEditDialog";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -12,13 +23,12 @@ import {
 } from "@/components/ui/table";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { technicians } from "@/data/mockData";
-import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
 import { groupJobsByArea } from "@/lib/areas";
-import { geocodeAddress } from "@/lib/geocodeAddress";
 import { Customer, Job } from "@/types";
 import { CheckCircle2, ChevronDown, MapPin } from "lucide-react";
 import { useState } from "react";
-import { EditableJobRow, type EditForm } from "./EditableJobRow";
+import { toast } from "sonner";
+import { EditableJobRow } from "./EditableJobRow";
 
 export function JobsByArea({
   jobs,
@@ -27,56 +37,19 @@ export function JobsByArea({
   jobs: Job[];
   showAssignment?: boolean;
 }) {
-  const {
-    customersList: customers,
-    updateJob,
-    updateCustomer,
-  } = useJobsContext();
-  const { fetchKey } = useGoogleMapsKey();
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const { customersList: customers, updateCustomer, archiveJob } =
+    useJobsContext();
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{
+    job: Job;
+    customerName?: string;
+  } | null>(null);
 
-  const handleSave = async (
-    jobId: string,
-    customerId: string,
-    data: EditForm,
-  ) => {
-    updateJob(jobId, {
-      location: data.location,
-      city: data.city,
-      notes: data.notes,
-      priority: data.priority as Job["priority"],
-    });
-
-    const customerData: Partial<Customer> = {
-      address: data.location,
-      city: data.city,
-    };
-
-    const currentCustomer = customers.find(
-      (customer) => customer.id === customerId,
-    );
-    const hasLocationChange =
-      (data.location || "").trim() !==
-        (currentCustomer?.address || "").trim() ||
-      (data.city || "").trim() !== (currentCustomer?.city || "").trim();
-
-    const fullAddress = [data.location, data.city].filter(Boolean).join(", ");
-    if (hasLocationChange && fullAddress) {
-      const geocoded = await geocodeAddress(fullAddress, await fetchKey());
-
-      if (geocoded) {
-        customerData.lat = geocoded.lat;
-        customerData.lng = geocoded.lng;
-        customerData.placeId = geocoded.placeId;
-      } else {
-        customerData.lat = undefined;
-        customerData.lng = undefined;
-        customerData.placeId = undefined;
-      }
-    }
-
-    updateCustomer(customerId, customerData);
-    setEditingId(null);
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    archiveJob(pendingDelete.job.id);
+    toast.success("הרשומה נמחקה");
+    setPendingDelete(null);
   };
 
   if (jobs.length === 0) {
@@ -144,10 +117,10 @@ export function JobsByArea({
                             customer={customer}
                             tech={tech}
                             showAssignment={showAssignment}
-                            editingId={editingId}
-                            onStartEdit={setEditingId}
-                            onCancelEdit={() => setEditingId(null)}
-                            onSave={handleSave}
+                            onEditCustomer={setEditingCustomer}
+                            onDeleteJob={(j) =>
+                              setPendingDelete({ job: j, customerName: customer?.name })
+                            }
                           />
                         );
                       })}
@@ -159,6 +132,36 @@ export function JobsByArea({
           </CollapsibleContent>
         </Collapsible>
       ))}
+
+      <CustomerEditDialog
+        customer={editingCustomer}
+        open={!!editingCustomer}
+        onOpenChange={(open) => !open && setEditingCustomer(null)}
+        onUpdate={updateCustomer}
+      />
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent dir='rtl'>
+          <AlertDialogHeader>
+            <AlertDialogTitle className='text-right'>מחיקת רשומה</AlertDialogTitle>
+            <AlertDialogDescription className='text-right'>
+              {pendingDelete?.customerName
+                ? `האם למחוק את הרשומה של ${pendingDelete.customerName}? הרשומה תוסתר מהרשימה.`
+                : "האם למחוק את הרשומה? הרשומה תוסתר מהרשימה."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+              מחק
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

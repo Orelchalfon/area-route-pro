@@ -17,7 +17,7 @@ export interface ActivityLog {
   details: string;
   timestamp: string;
 }
-export type JobStatus = 'draft' | 'pending_customer' | 'confirmed' | 'in_progress' | 'completed' | 'rescheduled';
+export type JobStatus = 'draft' | 'pending_customer' | 'confirmed' | 'in_progress' | 'completed' | 'rescheduled' | 'archived';
 export type CompletionStatus = 'done' | 'not_done' | 'need_return';
 export type JobPriority = 'low' | 'medium' | 'high';
 
@@ -81,4 +81,5 @@ export const STATUS_CONFIG: Record<JobStatus, { label: string; color: string }> 
   in_progress: { label: 'בביצוע', color: 'secondary' },
   completed: { label: 'הושלם', color: 'success' },
   rescheduled: { label: 'נדחה', color: 'accent' },
+  archived: { label: 'נסגר', color: 'muted' },
 };

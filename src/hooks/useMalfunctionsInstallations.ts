@@ -176,12 +176,14 @@ export function useMalfunctionsInstallations() {
 
       const allJobs: Job[] = [];
       const allCustomers: Customer[] = [];
-      (malf as MalfRow[] | null)?.forEach(r => {
+      // Hide archived (closed/deleted) rows. Filtered client-side, not via
+      // `.neq('status','archived')`, because that SQL form also drops rows with a NULL status.
+      (malf as MalfRow[] | null)?.filter(r => r.status !== 'archived').forEach(r => {
         const { job, customer } = malfToJobAndCustomer(r);
         allJobs.push(job);
         allCustomers.push(customer);
       });
-      (inst as InstRow[] | null)?.forEach(r => {
+      (inst as InstRow[] | null)?.filter(r => r.status !== 'archived').forEach(r => {
         const { job, customer } = instToJobAndCustomer(r);
         allJobs.push(job);
         allCustomers.push(customer);

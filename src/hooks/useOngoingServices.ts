@@ -9,6 +9,8 @@ export interface OngoingService {
   location: string;
   is_done: boolean | null;
   status_label: string | null;
+  // App-created (שירות שוטף) rows carry a customer_id; calendar-derived rows don't.
+  customer_id: string | null;
 }
 
 // Full row shape including the scheduling/customer columns added in
@@ -122,7 +124,10 @@ export function useOngoingServices() {
       }
 
       const rows = (data as OngoingServiceRow[] | null) ?? [];
-      allRows.push(...rows);
+      // Hide archived (deleted) rows. Filtered client-side, not via
+      // `.neq('status','archived')`, because that SQL form also drops NULL-status rows.
+      // Page size check still uses the raw count so paging isn't cut short by the filter.
+      allRows.push(...rows.filter(r => r.status !== 'archived'));
       from += PAGE_SIZE;
       hasMore = rows.length === PAGE_SIZE;
     }
@@ -135,6 +140,7 @@ export function useOngoingServices() {
         location: r.location || '',
         is_done: r.is_done,
         status_label: r.status_label,
+        customer_id: r.customer_id,
       })),
     );
 
@@ -178,5 +184,41 @@ export function useOngoingServices() {
     };
   }, [fetchAll]);
 
-  return { services, jobs, customers, loading, loaded, refresh: fetchAll };
+  // Edit a service line (the manager's "current service" table). Optimistically updates
+  // local state, then persists; a failed write is rolled back via a refresh.
+  const updateOngoingService = useCallback(
+    async (
+      id: string,
+      patch: { task_description?: string; location?: string; service_date?: string },
+    ) => {
+      setServices(prev =>
+        prev.map(s => (s.id === id ? { ...s, ...patch } : s)),
+      );
+      const { error } = await supabase
+        .from('ongoing_services')
+        .update({ ...patch, source: 'app' })
+        .eq('id', id);
+      if (error) {
+        console.error(`Failed to update ongoing service ${id}:`, error);
+        void fetchAll();
+      }
+    },
+    [fetchAll],
+  );
+
+  // Delete a service line: mark it 'archived' (kept in the DB, hidden on next load) and
+  // drop it from local state immediately.
+  const archiveOngoingService = useCallback(async (id: string) => {
+    setServices(prev => prev.filter(s => s.id !== id));
+    const { error } = await supabase
+      .from('ongoing_services')
+      .update({ status: 'archived' })
+      .eq('id', id);
+    if (error) {
+      console.error(`Failed to archive ongoing service ${id}:`, error);
+      void fetchAll();
+    }
+  }, [fetchAll]);
+
+  return { services, jobs, customers, loading, loaded, refresh: fetchAll, updateOngoingService, archiveOngoingService };
 }

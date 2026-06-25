@@ -399,13 +399,31 @@ export function useJobs() {
     });
   };
 
+  // Archive a synthetic filter job's scheduled_filter_services row (persistDbJob no-ops for
+  // filter-… ids). Used by closeJob/archiveJob so closed/deleted filter jobs don't reload
+  // onto the board or the service list.
+  const archiveFilterServiceRow = useCallback((jobId: string) => {
+    supabase
+      .from('scheduled_filter_services')
+      .update({ status: 'archived', updated_at: new Date().toISOString() })
+      .eq('job_key', jobId)
+      .then(({ error }) => {
+        if (error) console.error(`Failed to archive scheduled filter service ${jobId}:`, error);
+      });
+  }, []);
+
   const closeJob = (jobId: string) => {
     setJobs(prev => {
       const job = prev.find(j => j.id === jobId);
       if (!job) return prev;
 
       addLog(job.customerId, 'סגירת קריאה', `קריאה ${JOB_TYPE_CONFIG[job.type].label} נסגרה`, jobId);
-      persistDbJob(jobId, { status: 'completed' });
+      // Mark closed (archived) so the row is hidden everywhere on next load but kept in the DB.
+      if (jobId.startsWith('filter-')) {
+        archiveFilterServiceRow(jobId);
+      } else {
+        persistDbJob(jobId, { status: 'archived' });
+      }
       setClosedJobs(old => [...old, job]);
 
       if (job.type === 'filter_replacement') {
@@ -441,6 +459,22 @@ export function useJobs() {
       const job = prev.find(j => j.id === jobId);
       if (!job) return prev;
       addLog(job.customerId, 'החזרת קריאה', `קריאה ${JOB_TYPE_CONFIG[job.type].label} הוחזרה למאגר`, jobId);
+
+      // Synthetic filter (שירות שוטף) jobs have no malfunctions/installations row, so
+      // persistDbJob no-ops for them and they'd stay on the board. Delete their
+      // scheduled_filter_services row instead: the job drops back into the auto-generated
+      // unassigned pool and no longer renders on any day.
+      if (jobId.startsWith('filter-')) {
+        supabase
+          .from('scheduled_filter_services')
+          .delete()
+          .eq('job_key', jobId)
+          .then(({ error }) => {
+            if (error) console.error(`Failed to return filter service ${jobId}:`, error);
+          });
+        return prev.filter(j => j.id !== jobId);
+      }
+
       persistDbJob(jobId, {
         status: 'draft',
         technicianId: null,
@@ -455,9 +489,23 @@ export function useJobs() {
         technicianId: undefined,
         scheduledDate: undefined,
         scheduledTime: undefined,
+        completionStatus: undefined,
+        completionNotes: undefined,
       } : j);
     });
   };
+
+  // Hide a job from the active pages/board without deleting it: mark its row 'archived'
+  // (kept in the DB) and drop it from local state. Synthetic filter jobs archive their
+  // scheduled_filter_services row; db-malf/inst/ongoing go through persistDbJob.
+  const archiveJob = useCallback((jobId: string) => {
+    if (jobId.startsWith('filter-')) {
+      archiveFilterServiceRow(jobId);
+    } else {
+      persistDbJob(jobId, { status: 'archived' });
+    }
+    setJobs(prev => prev.filter(j => j.id !== jobId));
+  }, [archiveFilterServiceRow, persistDbJob]);
 
   const completeFilterJob = (jobId: string) => {
     setJobs(prev => {
@@ -679,5 +727,5 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, approvedDayKeys, approveDay, unapproveDay, completeJob, markJobCompletion, closeJob, returnJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, approvedDayKeys, approveDay, unapproveDay, completeJob, markJobCompletion, closeJob, returnJob, archiveJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }

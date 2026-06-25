@@ -37,8 +37,19 @@ const MONTH_NAMES = [
 type ViewMode = "annual" | "month-calendar" | "month-list";
 
 export default function ServiceCyclePage() {
-  const { services, loading } = useOngoingServices();
-  const { jobs, customersList } = useJobsContext();
+  const { services, loading, updateOngoingService, archiveOngoingService } =
+    useOngoingServices();
+  const { jobs, customersList, updateCustomer } = useJobsContext();
+
+  // Linked-customer lookup by the raw customers UUID stored on ongoing_services rows
+  // (customersList ids carry a db-cust- prefix).
+  const customersByRawId = useMemo(() => {
+    const map = new Map<string, (typeof customersList)[number]>();
+    customersList.forEach((c) => {
+      if (c.id.startsWith("db-cust-")) map.set(c.id.replace("db-cust-", ""), c);
+    });
+    return map;
+  }, [customersList]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("annual");
@@ -225,7 +236,13 @@ export default function ServiceCyclePage() {
         </div>
 
         {viewMode === "month-list" ? (
-          <MonthListView services={stat.services} />
+          <MonthListView
+            services={stat.services}
+            onUpdateService={updateOngoingService}
+            onArchiveService={archiveOngoingService}
+            customersById={customersByRawId}
+            onUpdateCustomer={updateCustomer}
+          />
         ) : (
           <MonthCalendarView
             services={stat.services}

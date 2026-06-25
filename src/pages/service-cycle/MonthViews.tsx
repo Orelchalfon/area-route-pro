@@ -1,5 +1,21 @@
-import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { CustomerEditDialog } from '@/components/CustomerEditDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { OngoingService } from '@/hooks/useOngoingServices';
+import { cn } from '@/lib/utils';
+import { Customer } from '@/types';
 import {
   eachDayOfInterval,
   endOfMonth,
@@ -9,12 +25,36 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import { CalendarDays, CheckCircle, Filter } from 'lucide-react';
+import { CalendarDays, CheckCircle, Filter, Pencil, Trash2, UserCog } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { statusClass, statusText } from './status';
 
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
-export function MonthListView({ services }: { services: OngoingService[] }) {
+interface MonthListViewProps {
+  services: OngoingService[];
+  onUpdateService?: (
+    id: string,
+    patch: { task_description?: string; location?: string; service_date?: string },
+  ) => void;
+  onArchiveService?: (id: string) => void;
+  customersById?: Map<string, Customer>;
+  onUpdateCustomer?: (customerId: string, data: Partial<Customer>) => void;
+}
+
+export function MonthListView({
+  services,
+  onUpdateService,
+  onArchiveService,
+  customersById,
+  onUpdateCustomer,
+}: MonthListViewProps) {
+  const [editing, setEditing] = useState<OngoingService | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<OngoingService | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const canManage = !!(onUpdateService || onArchiveService);
+
   const sorted = [...services].sort((a, b) => a.service_date.localeCompare(b.service_date));
   if (sorted.length === 0) {
     return <p className="text-muted-foreground text-center py-8">אין משימות בחודש זה.</p>;
@@ -27,6 +67,13 @@ export function MonthListView({ services }: { services: OngoingService[] }) {
     if (!byDate[key]) byDate[key] = [];
     byDate[key].push(s);
   });
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    onArchiveService?.(pendingDelete.id);
+    toast.success('הרשומה נמחקה');
+    setPendingDelete(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -51,12 +98,157 @@ export function MonthListView({ services }: { services: OngoingService[] }) {
                   {s.is_done && <CheckCircle className="w-3 h-3" />}
                   {statusText(s)}
                 </span>
+                {canManage && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {onUpdateService && (
+                      <button
+                        onClick={() => setEditing(s)}
+                        className="p-1 rounded hover:bg-muted/50 transition-colors"
+                        title="ערוך">
+                        <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                    )}
+                    {onArchiveService && (
+                      <button
+                        onClick={() => setPendingDelete(s)}
+                        className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                        title="מחק">
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
       ))}
+
+      <ServiceLineEditDialog
+        service={editing}
+        open={!!editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+        onSave={(patch) => {
+          if (editing) onUpdateService?.(editing.id, patch);
+          setEditing(null);
+        }}
+        linkedCustomer={
+          editing?.customer_id ? customersById?.get(editing.customer_id) : undefined
+        }
+        onEditCustomer={(customer) => {
+          setEditing(null);
+          setEditingCustomer(customer);
+        }}
+      />
+
+      <CustomerEditDialog
+        customer={editingCustomer}
+        open={!!editingCustomer}
+        onOpenChange={(open) => !open && setEditingCustomer(null)}
+        onUpdate={onUpdateCustomer}
+      />
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-right">מחיקת רשומה</AlertDialogTitle>
+            <AlertDialogDescription className="text-right">
+              האם למחוק את "{pendingDelete?.task_description}"? הרשומה תוסתר מהרשימה.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              מחק
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+function ServiceLineEditDialog({
+  service,
+  open,
+  onOpenChange,
+  onSave,
+  linkedCustomer,
+  onEditCustomer,
+}: {
+  service: OngoingService | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (patch: { task_description: string; location: string; service_date: string }) => void;
+  linkedCustomer?: Customer;
+  onEditCustomer: (customer: Customer) => void;
+}) {
+  const [form, setForm] = useState({ task_description: '', location: '', service_date: '' });
+
+  useEffect(() => {
+    if (service) {
+      setForm({
+        task_description: service.task_description || '',
+        location: service.location || '',
+        service_date: service.service_date?.slice(0, 10) || '',
+      });
+    }
+  }, [service]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent dir="rtl" className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="w-5 h-5" />
+            עריכת שירות
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div className="space-y-2">
+            <Label>תיאור</Label>
+            <Input
+              value={form.task_description}
+              onChange={e => setForm(f => ({ ...f, task_description: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>מיקום</Label>
+            <Input
+              value={form.location}
+              onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>תאריך</Label>
+            <Input
+              type="date"
+              value={form.service_date}
+              onChange={e => setForm(f => ({ ...f, service_date: e.target.value }))}
+            />
+          </div>
+          {linkedCustomer && (
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => onEditCustomer(linkedCustomer)}>
+              <UserCog className="w-4 h-4" />
+              ערוך לקוח — {linkedCustomer.name}
+            </Button>
+          )}
+          <Button
+            className="w-full"
+            disabled={!form.task_description}
+            onClick={() => onSave(form)}>
+            שמור שינויים
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

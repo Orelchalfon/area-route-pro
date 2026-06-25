@@ -400,7 +400,7 @@ export function DayDetailDialog({
                                 onReturnJob(job.id);
                                 toast.success(
                                   job.type === "filter_replacement"
-                                    ? "המשימה שובצה מחדש"
+                                    ? "המשימה הוחזרה לשיבוץ"
                                     : "הקריאה הוחזרה לטבלה",
                                 );
                               }}>
