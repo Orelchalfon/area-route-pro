@@ -105,13 +105,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <h1 className='font-bold text-lg text-foreground'>טל חרמון</h1>
             </div>
 
-            {/* Desktop nav */}
-            <nav className='hidden md:flex  items-center gap-1'>
+            {/* Desktop nav — shown only above 1340px (≥1341px) */}
+            <nav className='hidden min-[1341px]:flex  items-center gap-1'>
               <NavLinks />
             </nav>
 
-            {/* Mobile drawer */}
-            <div className='md:hidden'>
+            {/* Mobile drawer — shown for 1340px and less */}
+            <div className='min-[1341px]:hidden'>
               <Sheet open={open} onOpenChange={setOpen}>
                 <SheetTrigger asChild>
                   <Button
