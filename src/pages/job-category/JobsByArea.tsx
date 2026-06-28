@@ -1,15 +1,4 @@
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { CustomerEditDialog } from "@/components/CustomerEditDialog";
-import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -26,31 +15,20 @@ import { technicians } from "@/data/mockData";
 import { groupJobsByArea } from "@/lib/areas";
 import { Customer, Job } from "@/types";
 import { CheckCircle2, ChevronDown, MapPin } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 import { EditableJobRow } from "./EditableJobRow";
 
 export function JobsByArea({
   jobs,
   showAssignment,
+  onEditCustomer,
+  onDeleteJob,
 }: {
   jobs: Job[];
   showAssignment?: boolean;
+  onEditCustomer: (customer: Customer) => void;
+  onDeleteJob: (job: Job) => void;
 }) {
-  const { customersList: customers, updateCustomer, archiveJob } =
-    useJobsContext();
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<{
-    job: Job;
-    customerName?: string;
-  } | null>(null);
-
-  const confirmDelete = () => {
-    if (!pendingDelete) return;
-    archiveJob(pendingDelete.job.id);
-    toast.success("הרשומה נמחקה");
-    setPendingDelete(null);
-  };
+  const { customersList: customers } = useJobsContext();
 
   if (jobs.length === 0) {
     return (
@@ -117,10 +95,8 @@ export function JobsByArea({
                             customer={customer}
                             tech={tech}
                             showAssignment={showAssignment}
-                            onEditCustomer={setEditingCustomer}
-                            onDeleteJob={(j) =>
-                              setPendingDelete({ job: j, customerName: customer?.name })
-                            }
+                            onEditCustomer={onEditCustomer}
+                            onDeleteJob={onDeleteJob}
                           />
                         );
                       })}
@@ -132,36 +108,6 @@ export function JobsByArea({
           </CollapsibleContent>
         </Collapsible>
       ))}
-
-      <CustomerEditDialog
-        customer={editingCustomer}
-        open={!!editingCustomer}
-        onOpenChange={(open) => !open && setEditingCustomer(null)}
-        onUpdate={updateCustomer}
-      />
-
-      <AlertDialog
-        open={!!pendingDelete}
-        onOpenChange={(open) => !open && setPendingDelete(null)}>
-        <AlertDialogContent dir='rtl'>
-          <AlertDialogHeader>
-            <AlertDialogTitle className='text-right'>מחיקת רשומה</AlertDialogTitle>
-            <AlertDialogDescription className='text-right'>
-              {pendingDelete?.customerName
-                ? `האם למחוק את הרשומה של ${pendingDelete.customerName}? הרשומה תוסתר מהרשימה.`
-                : "האם למחוק את הרשומה? הרשומה תוסתר מהרשימה."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>ביטול</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
-              מחק
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
