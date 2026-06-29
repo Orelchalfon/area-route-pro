@@ -38,6 +38,8 @@ scripts/import/out/
 # Customer PII — source data for one-time import only
 sheets/
 customers_import.csv
+public/*.csv
+public/*.ics
 .backfill_*.json
 
 ./backfill_customers.mjs
