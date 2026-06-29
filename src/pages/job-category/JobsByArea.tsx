@@ -44,7 +44,7 @@ export function JobsByArea({
   return (
     <div className='space-y-6'>
       {areaGroups.map(({ area, count, cities }) => (
-        <Collapsible key={area} defaultOpen className='space-y-3'>
+        <Collapsible key={area} className='space-y-3'>
           <CollapsibleTrigger className='group flex w-full items-center gap-2 rounded-lg bg-primary/10 px-4 py-2.5 text-right transition-colors hover:bg-primary/15'>
             <ChevronDown className='w-5 h-5 text-primary transition-transform group-data-[state=closed]:-rotate-90' />
             <h3 className='text-lg font-bold text-primary'>{area}</h3>
