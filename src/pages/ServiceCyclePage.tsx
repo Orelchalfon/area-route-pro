@@ -286,6 +286,7 @@ export default function ServiceCyclePage() {
             <Button
               variant='outline'
               size='icon'
+              aria-label='השנה הקודמת'
               onClick={() => setSelectedYear((y) => y - 1)}>
               <ChevronRight className='w-4 h-4' />
             </Button>
@@ -295,6 +296,7 @@ export default function ServiceCyclePage() {
             <Button
               variant='outline'
               size='icon'
+              aria-label='השנה הבאה'
               onClick={() => setSelectedYear((y) => y + 1)}>
               <ChevronLeft className='w-4 h-4' />
             </Button>

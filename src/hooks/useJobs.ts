@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
 import { technicians, initialJobs } from '@/data/mockData';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
 import { formatHebrewDateTime } from '@/lib/dates';
 import { useActivityLogs } from '@/hooks/useActivityLogs';
-import { useICSImport } from '@/hooks/useICSImport';
+import { buildCalendarServiceData } from '@/lib/ongoingServiceCalendar';
 import {
   useCustomers,
   upsertCustomerByImportKey,
@@ -42,7 +42,6 @@ export function useJobs() {
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const { activityLogs, addLog, getCustomerLogs } = useActivityLogs();
   const [dataLoaded, setDataLoaded] = useState(false);
-  const { icsCustomers, icsJobs, icsLoaded } = useICSImport();
   const { customers: dbBaseCustomers, loaded: baseCustomersLoaded } = useCustomers();
   const {
     jobs: dbJobs,
@@ -62,8 +61,19 @@ export function useJobs() {
   const {
     jobs: ongoingJobs,
     customers: ongoingCustomers,
+    services: ongoingServices,
     loaded: ongoingLoaded,
   } = useOngoingServices();
+
+  // Calendar-derived service enrichment (filterReplacementMonth / serviceTrack / service
+  // jobs) is rebuilt from the ongoing_services rows already fetched above, instead of
+  // re-fetching and parsing the 3 MB /calendar_1.ics on every load. Same data, no extra
+  // network. Kept under the `ics*` names so the existing merge effect is unchanged.
+  const { customers: icsCustomers, jobs: icsJobs } = useMemo(
+    () => buildCalendarServiceData(ongoingServices),
+    [ongoingServices],
+  );
+  const icsLoaded = ongoingLoaded;
   const dbSyncStatus = getDbSyncStatus({
     loading: dbLoading,
     error: dbSyncError,
@@ -82,10 +92,35 @@ export function useJobs() {
     const ref = getDbJobRef(jobId);
     if (!ref) return;
 
-    const patch = buildDbJobUpdatePatch(data);
-    supabase.from(ref.table).update(patch).eq('id', ref.dbId).then(({ error }) => {
-      if (error) console.error(`Failed to persist ${ref.table} job ${jobId}:`, error);
-    });
+    switch (ref.table) {
+      case 'malfunctions':
+        supabase
+          .from('malfunctions')
+          .update(buildDbJobUpdatePatch(ref.table, data))
+          .eq('id', ref.dbId)
+          .then(({ error }) => {
+            if (error) console.error(`Failed to persist ${ref.table} job ${jobId}:`, error);
+          });
+        break;
+      case 'installations':
+        supabase
+          .from('installations')
+          .update(buildDbJobUpdatePatch(ref.table, data))
+          .eq('id', ref.dbId)
+          .then(({ error }) => {
+            if (error) console.error(`Failed to persist ${ref.table} job ${jobId}:`, error);
+          });
+        break;
+      case 'ongoing_services':
+        supabase
+          .from('ongoing_services')
+          .update(buildDbJobUpdatePatch(ref.table, data))
+          .eq('id', ref.dbId)
+          .then(({ error }) => {
+            if (error) console.error(`Failed to persist ${ref.table} job ${jobId}:`, error);
+          });
+        break;
+    }
   }, []);
 
   // Filter (ongoing-service) jobs are synthetic and have no malfunctions/installations
@@ -242,56 +277,77 @@ export function useJobs() {
   }, [dataLoaded, dbLoaded, scheduledFilterLoaded, ongoingLoaded]);
 
 
-  // Merge ICS calendar data: update existing customers' filterReplacementMonth & serviceTrack, add ICS-only customers, and add service jobs
+  // Merge calendar service data (derived from ongoing_services): update existing customers'
+  // filterReplacementMonth & serviceTrack, add calendar-only customers, and add service jobs.
   useEffect(() => {
     if (!icsLoaded || !dataLoaded || icsCustomers.length === 0) return;
 
-    // Update existing customers with ICS data (match by name)
+    // Precompute each calendar customer's normalized name forms once so the nested
+    // name-matching below doesn't re-run .trim()/.toLowerCase() on every comparison.
+    // `trimmed` is case-sensitive and `lower` is case-insensitive, matching the exact
+    // semantics of the original conditions (exact = lowercased; substring = trim-only).
+    const icsNorm = icsCustomers.map(ic => {
+      const trimmed = ic.name.trim();
+      return { ic, trimmed, lower: trimmed.toLowerCase() };
+    });
+
+    // Update existing customers with calendar data (match by name). Drop any
+    // previously-added calendar-only customers first so a realtime refresh re-syncs
+    // instead of accumulating stale ics-c entries.
     setCustomersList(prev => {
-      const updated = prev.map(c => {
-        const icsMatch = icsCustomers.find(ic => 
-          ic.name.trim().toLowerCase() === c.name.trim().toLowerCase() ||
-          c.name.trim().includes(ic.name.trim()) ||
-          ic.name.trim().includes(c.name.trim())
+      const updated = prev.filter(c => !c.id.startsWith('ics-c')).map(c => {
+        const ct = c.name.trim();
+        const cl = ct.toLowerCase();
+        const match = icsNorm.find(n =>
+          n.lower === cl || ct.includes(n.trimmed) || n.trimmed.includes(ct)
         );
-        if (icsMatch) {
+        if (match) {
           return {
             ...c,
-            filterReplacementMonth: icsMatch.filterReplacementMonth,
-            serviceTrack: c.serviceTrack || icsMatch.serviceTrack,
-            city: c.city || icsMatch.city,
+            filterReplacementMonth: match.ic.filterReplacementMonth,
+            serviceTrack: c.serviceTrack || match.ic.serviceTrack,
+            city: c.city || match.ic.city,
           };
         }
         return c;
       });
 
-      // Add ICS customers that don't exist in CSV
-      const existingNames = new Set(updated.map(c => c.name.trim().toLowerCase()));
-      const newCustomers = icsCustomers.filter(ic => {
-        const icName = ic.name.trim().toLowerCase();
-        return !Array.from(existingNames).some(en => en.includes(icName) || icName.includes(en));
-      });
+      // Add calendar customers that don't already exist (by name). Build the existing
+      // lowercased names once instead of per-candidate.
+      const existingLower = updated.map(c => c.name.trim().toLowerCase());
+      const newCustomers = icsNorm
+        .filter(n => !existingLower.some(en => en.includes(n.lower) || n.lower.includes(en)))
+        .map(n => n.ic);
 
       return [...updated, ...newCustomers];
     });
 
-    // Add ICS service jobs, remapping customerIds to match existing customers
+    // Add calendar service jobs, remapping customerIds to match existing customers.
+    // Drop any previously-merged ics- jobs first so a realtime refresh of the
+    // underlying ongoing_services rows re-syncs instead of appending duplicates.
     setJobs(prev => {
+      const withoutIcs = prev.filter(j => !j.id.startsWith('ics-'));
+      // Precompute lookups once: calendar customer by id, and existing customers'
+      // normalized names (same case-sensitivity split as above).
+      const icsById = new Map(icsCustomers.map(ic => [ic.id, ic]));
+      const custNorm = customersList.map(c => {
+        const trimmed = c.name.trim();
+        return { c, trimmed, lower: trimmed.toLowerCase() };
+      });
       const newJobs = icsJobs.map(job => {
-        const icsCustomer = icsCustomers.find(c => c.id === job.customerId);
+        const icsCustomer = icsById.get(job.customerId);
         if (!icsCustomer) return job;
 
-        // Try to find matching CSV customer
-        const csvMatch = customersList.find(c =>
-          c.name.trim().toLowerCase() === icsCustomer.name.trim().toLowerCase() ||
-          c.name.trim().includes(icsCustomer.name.trim()) ||
-          icsCustomer.name.trim().includes(c.name.trim())
+        const it = icsCustomer.name.trim();
+        const il = it.toLowerCase();
+        const match = custNorm.find(n =>
+          n.lower === il || n.trimmed.includes(it) || it.includes(n.trimmed)
         );
-        
-        return csvMatch ? { ...job, customerId: csvMatch.id } : job;
+
+        return match ? { ...job, customerId: match.c.id } : job;
       });
 
-      return [...prev, ...newJobs];
+      return [...withoutIcs, ...newJobs];
     });
   }, [icsLoaded, dataLoaded, icsCustomers.length]); // eslint-disable-line react-hooks/exhaustive-deps
 

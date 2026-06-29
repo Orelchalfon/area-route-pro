@@ -31,7 +31,7 @@ export function WeekDaySelector({
   return (
     <>
       <div className="flex items-center gap-1">
-        <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={onNextWeek}>
+        <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" aria-label="השבוע הבא" onClick={onNextWeek}>
           <ChevronRight className="w-4 h-4" />
         </Button>
         <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
@@ -61,7 +61,7 @@ export function WeekDaySelector({
             );
           })}
         </div>
-        <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" onClick={onPrevWeek}>
+        <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" aria-label="השבוע הקודם" onClick={onPrevWeek}>
           <ChevronLeft className="w-4 h-4" />
         </Button>
       </div>

@@ -100,6 +100,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <img
                 src={logo}
                 alt='טל חרמון'
+                width={32}
+                height={32}
+                decoding='async'
                 className='w-8 h-8 rounded-lg object-cover'
               />
               <h1 className='font-bold text-lg text-foreground'>טל חרמון</h1>

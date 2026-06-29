@@ -120,7 +120,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
             {confirmed ? 'דו״ח פעילות יומי' : 'סיכום יום עבודה'}
           </DialogTitle>
           <div className="flex items-center gap-2 mt-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="היום הקודם" onClick={() => setSelectedDate(d => subDays(d, 1))}>
               <ChevronRight className="w-4 h-4" />
             </Button>
             <Popover>
@@ -139,7 +139,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
                 />
               </PopoverContent>
             </Popover>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="היום הבא" onClick={() => setSelectedDate(d => addDays(d, 1))}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
           </div>

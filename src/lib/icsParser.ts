@@ -19,12 +19,12 @@ function parseICSDate(dateStr: string): { date: string; time: string } {
 }
 
 /** Detect if this is an installation (should be excluded from service cycle) */
-function isInstallation(summary: string): boolean {
+export function isInstallation(summary: string): boolean {
   return /הת['׳]|התק/i.test(summary) && !/ביקור/.test(summary);
 }
 
 /** Detect the service track from the summary text */
-function detectServiceTrack(summary: string): ServiceTrack {
+export function detectServiceTrack(summary: string): ServiceTrack {
   const s = summary;
   if (/ביקור שירות|אספקת מלח/i.test(s)) return 'service_visit';
   if (/בייפס|סיליפוס|ח\+ס/i.test(s)) return 'bypass_siliphos';
@@ -34,7 +34,7 @@ function detectServiceTrack(summary: string): ServiceTrack {
 }
 
 /** Extract customer name from summary */
-function extractCustomerName(summary: string): string {
+export function extractCustomerName(summary: string): string {
   const original = summary.trim();
   
   // Try splitting at dash first
@@ -56,7 +56,7 @@ function extractCustomerName(summary: string): string {
 }
 
 /** Detect the product type from summary */
-function detectProduct(summary: string): string {
+export function detectProduct(summary: string): string {
   if (/RO/i.test(summary)) return 'מערכת אוסמוזה';
   if (/מיני בר/i.test(summary)) return 'מיני בר';
   if (/תלת/i.test(summary)) return 'פילטר תלת';

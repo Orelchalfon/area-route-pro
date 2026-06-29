@@ -20,7 +20,15 @@ type SchedulingColumns = {
 
 export type MalfunctionJobUpdate = TablesUpdate<'malfunctions'> & SchedulingColumns;
 export type InstallationJobUpdate = TablesUpdate<'installations'> & SchedulingColumns;
-export type DbJobUpdate = MalfunctionJobUpdate | InstallationJobUpdate;
+export type OngoingServiceJobUpdate = TablesUpdate<'ongoing_services'> & SchedulingColumns;
+
+export type DbJobUpdateByTable = {
+  malfunctions: MalfunctionJobUpdate;
+  installations: InstallationJobUpdate;
+  ongoing_services: OngoingServiceJobUpdate;
+};
+
+export type DbJobUpdate = DbJobUpdateByTable[DbJobTable];
 
 export type JobSyncPatch = Partial<
   Pick<Job, 'status' | 'location' | 'city' | 'notes' | 'priority' | 'estimatedDuration'>
@@ -125,7 +133,10 @@ export function buildOngoingServiceInsert(
   };
 }
 
-export function buildDbJobUpdatePatch(data: JobSyncPatch): DbJobUpdate {
+export function buildDbJobUpdatePatch<TTable extends DbJobTable>(
+  table: TTable,
+  data: JobSyncPatch,
+): DbJobUpdateByTable[TTable] {
   // Note: do NOT set `source` here. The employee RLS trigger
   // (enforce_employee_job_update) rejects any UPDATE that changes `source`, which
   // silently blocked technician completions on legacy (non-'app') rows. `source`
@@ -148,5 +159,5 @@ export function buildDbJobUpdatePatch(data: JobSyncPatch): DbJobUpdate {
     patch.completed_at = new Date().toISOString();
   }
 
-  return patch;
+  return patch as DbJobUpdateByTable[TTable];
 }

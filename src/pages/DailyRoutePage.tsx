@@ -146,13 +146,13 @@ export default function DailyRoutePage() {
         <div>
           <h2 className="text-2xl font-bold text-foreground">מפת מסלול יומי</h2>
           <div className="flex items-center gap-2 mt-1">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedDate(d => subDays(d, 1))}>
+            <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="היום הקודם" onClick={() => setSelectedDate(d => subDays(d, 1))}>
               <ChevronRight className="w-4 h-4" />
             </Button>
             <p className="text-sm text-muted-foreground">
               {format(selectedDate, 'EEEE, d בMMMM yyyy', { locale: he })} · {todayJobs.length} עצירות · {completedCount} הושלמו
             </p>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+            <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="היום הבא" onClick={() => setSelectedDate(d => addDays(d, 1))}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedDate(new Date())}>

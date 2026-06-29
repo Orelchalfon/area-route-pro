@@ -12,7 +12,7 @@ describe('db job sync mapping', () => {
   });
 
   it('builds a scheduling patch without touching the vestigial source column', () => {
-    const patch = buildDbJobUpdatePatch({
+    const patch = buildDbJobUpdatePatch('malfunctions', {
       status: 'confirmed',
       technicianId: 'tech-1',
       scheduledDate: '2026-05-21',
@@ -40,7 +40,7 @@ describe('db job sync mapping', () => {
   });
 
   it('clears assignment fields when returning a job', () => {
-    expect(buildDbJobUpdatePatch({
+    expect(buildDbJobUpdatePatch('malfunctions', {
       status: 'draft',
       technicianId: null,
       scheduledDate: null,

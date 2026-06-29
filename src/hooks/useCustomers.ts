@@ -122,27 +122,49 @@ export function useCustomers() {
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchAll = useCallback(async () => {
-    const all: Customer[] = [];
     const PAGE_SIZE = 1000;
-    let from = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const { data, error: queryError } = await supabase
+    const page = (i: number) =>
+      supabase
         .from('customers')
         .select('*')
         .order('name', { ascending: true })
-        .range(from, from + PAGE_SIZE - 1);
+        .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1);
 
-      if (queryError) {
-        setError(queryError.message);
-        break;
+    // One cheap count, then fetch every page in parallel instead of awaiting each
+    // 1,000-row page before requesting the next (~6 serial round-trips → ~2 deep).
+    const { count, error: countError } = await supabase
+      .from('customers')
+      .select('id', { count: 'exact', head: true });
+
+    const all: Customer[] = [];
+
+    if (countError || count == null) {
+      // Fallback: paginate sequentially if the count is unavailable.
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error: queryError } = await page(from / PAGE_SIZE);
+        if (queryError) {
+          setError(queryError.message);
+          break;
+        }
+        const rows = (data as CustomerRow[] | null) ?? [];
+        all.push(...rows.map(rowToCustomer));
+        from += PAGE_SIZE;
+        hasMore = rows.length === PAGE_SIZE;
       }
-
-      const rows = (data as CustomerRow[] | null) ?? [];
-      all.push(...rows.map(rowToCustomer));
-      from += PAGE_SIZE;
-      hasMore = rows.length === PAGE_SIZE;
+    } else {
+      const pageCount = Math.max(1, Math.ceil(count / PAGE_SIZE));
+      const results = await Promise.all(
+        Array.from({ length: pageCount }, (_, i) => page(i)),
+      );
+      for (const { data, error: queryError } of results) {
+        if (queryError) {
+          setError(queryError.message);
+          continue;
+        }
+        all.push(...((data as CustomerRow[] | null) ?? []).map(rowToCustomer));
+      }
     }
 
     setCustomers(all);

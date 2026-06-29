@@ -1,0 +1,9 @@
+# Netlify response headers (served from the publish dir).
+# Baseline security headers — no CSP yet (a strict CSP risks breaking the Supabase,
+# Google Maps JS, and Google Fonts requests; add it report-only first as a follow-up).
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(self)

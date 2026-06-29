@@ -57,7 +57,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4" dir="rtl">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center space-y-3">
-          <img src={logo} alt="טל חרמון" className="w-12 h-12 rounded-lg object-cover mx-auto" />
+          <img src={logo} alt="טל חרמון" width={48} height={48} decoding="async" className="w-12 h-12 rounded-lg object-cover mx-auto" />
           <CardTitle className="text-xl">התחברות למערכת</CardTitle>
         </CardHeader>
         <CardContent>

@@ -106,30 +106,55 @@ export function useOngoingServices() {
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchAll = useCallback(async () => {
-    const allRows: OngoingServiceRow[] = [];
     const PAGE_SIZE = 1000;
-    let from = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const { data, error } = await supabase
+    const page = (i: number) =>
+      supabase
         .from('ongoing_services')
         .select('*')
         .order('service_date', { ascending: true })
-        .range(from, from + PAGE_SIZE - 1);
+        .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1);
 
-      if (error) {
-        console.error('Error fetching ongoing services:', error);
-        break;
+    // Hide archived (deleted) rows. Filtered client-side, not via
+    // `.neq('status','archived')`, because that SQL form also drops NULL-status rows.
+    const keep = (rows: OngoingServiceRow[] | null) =>
+      (rows ?? []).filter(r => r.status !== 'archived');
+
+    // One cheap count, then fetch every page in parallel instead of awaiting each
+    // 1,000-row page before requesting the next (~6 serial round-trips → ~2 deep).
+    const { count, error: countError } = await supabase
+      .from('ongoing_services')
+      .select('id', { count: 'exact', head: true });
+
+    const allRows: OngoingServiceRow[] = [];
+
+    if (countError || count == null) {
+      // Fallback: paginate sequentially if the count is unavailable. Page-size check
+      // uses the raw row count so paging isn't cut short by the archived filter.
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await page(from / PAGE_SIZE);
+        if (error) {
+          console.error('Error fetching ongoing services:', error);
+          break;
+        }
+        const rows = (data as OngoingServiceRow[] | null) ?? [];
+        allRows.push(...keep(rows));
+        from += PAGE_SIZE;
+        hasMore = rows.length === PAGE_SIZE;
       }
-
-      const rows = (data as OngoingServiceRow[] | null) ?? [];
-      // Hide archived (deleted) rows. Filtered client-side, not via
-      // `.neq('status','archived')`, because that SQL form also drops NULL-status rows.
-      // Page size check still uses the raw count so paging isn't cut short by the filter.
-      allRows.push(...rows.filter(r => r.status !== 'archived'));
-      from += PAGE_SIZE;
-      hasMore = rows.length === PAGE_SIZE;
+    } else {
+      const pageCount = Math.max(1, Math.ceil(count / PAGE_SIZE));
+      const results = await Promise.all(
+        Array.from({ length: pageCount }, (_, i) => page(i)),
+      );
+      for (const { data, error } of results) {
+        if (error) {
+          console.error('Error fetching ongoing services:', error);
+          continue;
+        }
+        allRows.push(...keep(data as OngoingServiceRow[] | null));
+      }
     }
 
     setServices(
