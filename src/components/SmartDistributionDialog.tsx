@@ -1,14 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Customer, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
-import { Shuffle, CheckCircle } from 'lucide-react';
+import { Shuffle, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ServiceTrackBadge } from './ServiceTrackBadge';
 
 interface SmartDistributionDialogProps {
-  customers: Customer[];
-  onDistribute: (assignments: { customerId: string; track: ServiceTrack; nextServiceDate: string }[]) => void;
+  /** Loads the full set of customers without a service track (the whole DB, not a page). */
+  loadEligible: () => Promise<Customer[]>;
+  onDistribute: (assignments: { customerId: string; track: ServiceTrack; nextServiceDate: string }[]) => Promise<void> | void;
 }
 
 function addMonths(date: Date, months: number): string {
@@ -17,14 +18,35 @@ function addMonths(date: Date, months: number): string {
   return d.toISOString().split('T')[0];
 }
 
-export function SmartDistributionDialog({ customers, onDistribute }: SmartDistributionDialogProps) {
+export function SmartDistributionDialog({ loadEligible, onDistribute }: SmartDistributionDialogProps) {
   const [open, setOpen] = useState(false);
+  const [eligibleCustomers, setEligibleCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [distributing, setDistributing] = useState(false);
 
-  // Only show customers without a service track (onboarding/testing)
-  const eligibleCustomers = useMemo(
-    () => customers.filter(c => !c.serviceTrack),
-    [customers]
-  );
+  // Fetch all unassigned customers from the DB each time the dialog opens.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    loadEligible()
+      .then(rows => {
+        if (!cancelled) setEligibleCustomers(rows);
+      })
+      .catch(err => {
+        console.error('Failed to load eligible customers:', err);
+        if (!cancelled) {
+          setEligibleCustomers([]);
+          toast.error('טעינת הלקוחות נכשלה — נסה שוב');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loadEligible]);
 
   const preview = useMemo(() => {
     const shuffled = [...eligibleCustomers].sort(() => Math.random() - 0.5);
@@ -43,7 +65,7 @@ export function SmartDistributionDialog({ customers, onDistribute }: SmartDistri
     return { total, counts, shuffled };
   }, [eligibleCustomers]);
 
-  const handleDistribute = () => {
+  const handleDistribute = async () => {
     const today = new Date();
     const assignments: { customerId: string; track: ServiceTrack; nextServiceDate: string }[] = [];
     let idx = 0;
@@ -64,17 +86,24 @@ export function SmartDistributionDialog({ customers, onDistribute }: SmartDistri
       }
     }
 
-    onDistribute(assignments);
-    setOpen(false);
-
-    const labels = tracks.map(t => `${preview.counts[t]} ${SERVICE_TRACK_CONFIG[t].label}`);
-    toast.success(`חלוקה הושלמה: ${labels.join(', ')}`);
+    setDistributing(true);
+    try {
+      await onDistribute(assignments);
+      const labels = tracks.map(t => `${preview.counts[t]} ${SERVICE_TRACK_CONFIG[t].label}`);
+      toast.success(`חלוקה הושלמה: ${labels.join(', ')}`);
+      setOpen(false);
+    } catch (e) {
+      console.error('Distribution failed:', e);
+      toast.error('החלוקה נכשלה — נסה שוב');
+    } finally {
+      setDistributing(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-1.5" disabled={eligibleCustomers.length === 0}>
+        <Button variant="outline" className="gap-1.5">
           <Shuffle className="w-4 h-4" />
           חלוקה חכמה
         </Button>
@@ -86,11 +115,16 @@ export function SmartDistributionDialog({ customers, onDistribute }: SmartDistri
             חלוקה חכמה למסלולי שירות
           </DialogTitle>
           <DialogDescription>
-            חלוקה אוטומטית של {eligibleCustomers.length} לקוחות ללא מסלול למסלולי שירות
+            חלוקה אוטומטית של {loading ? '...' : eligibleCustomers.length} לקוחות ללא מסלול למסלולי שירות
           </DialogDescription>
         </DialogHeader>
 
-        {eligibleCustomers.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground" aria-live="polite">
+            <Loader2 className="w-8 h-8 animate-spin mb-3" />
+            <p className="text-sm">טוען לקוחות...</p>
+          </div>
+        ) : eligibleCustomers.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CheckCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">כל הלקוחות כבר משויכים למסלול שירות</p>
@@ -113,9 +147,9 @@ export function SmartDistributionDialog({ customers, onDistribute }: SmartDistri
               ))}
             </div>
 
-            <Button onClick={handleDistribute} className="w-full gap-2" size="lg">
-              <Shuffle className="w-4 h-4" />
-              בצע חלוקה ({eligibleCustomers.length} לקוחות)
+            <Button onClick={handleDistribute} className="w-full gap-2" size="lg" disabled={distributing}>
+              {distributing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />}
+              {distributing ? 'מחלק...' : `בצע חלוקה (${eligibleCustomers.length} לקוחות)`}
             </Button>
           </div>
         )}
