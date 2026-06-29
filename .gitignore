@@ -45,3 +45,4 @@ customers_import.csv
 
 *.xlsx
 *.bin
+*.mcp*
