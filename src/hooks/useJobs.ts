@@ -727,5 +727,5 @@ export function useJobs() {
     return jobs.filter(j => j.technicianId === techId);
   };
 
-  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, approvedDayKeys, approveDay, unapproveDay, completeJob, markJobCompletion, closeJob, returnJob, archiveJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
+  return { jobs, customersList, closedJobs, activityLogs, dataLoaded, boardReady, dbSyncStatus, dbSyncError: dbSyncError || undefined, dbLastSyncedAt: dbLastSyncedAt || undefined, refreshDbJobs, updateJobStatus, approveSchedule, approveDaySchedule, approvedDayKeys, approveDay, unapproveDay, completeJob, markJobCompletion, closeJob, returnJob, archiveJob, completeFilterJob, addJob, addCustomer, updateCustomer, updateJob, assignJob, unassignJob, assignFilterService, unassignFilterService, getUnassignedJobs, getJobsByArea, getJobsByTechnician, getCustomerLogs, addLog, distributeServiceTracks, recalcNextServiceDate, resetServiceCycle };
 }

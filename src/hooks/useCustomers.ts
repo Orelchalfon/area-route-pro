@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Customer, ServiceTrack } from '@/types';
 import type { TablesInsert } from '@/integrations/supabase/types';
 
-type CustomerRow = {
+export type CustomerRow = {
   id: string;
   name: string | null;
   phone: string | null;
@@ -26,7 +26,7 @@ function mapServiceTrack(value: string | null): ServiceTrack | undefined {
   return value && (SERVICE_TRACKS as string[]).includes(value) ? (value as ServiceTrack) : undefined;
 }
 
-function rowToCustomer(row: CustomerRow): Customer {
+export function rowToCustomer(row: CustomerRow): Customer {
   return {
     id: `db-cust-${row.id}`,
     name: row.name || 'ללא שם',
