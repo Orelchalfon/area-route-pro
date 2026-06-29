@@ -48,3 +48,6 @@ public/*.ics
 *.xlsx
 *.bin
 *.mcp*
+
+# Make.com exported scenarios / local integration blueprints
+tal_hermon_make_blueprints/
