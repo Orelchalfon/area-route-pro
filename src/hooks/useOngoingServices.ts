@@ -11,6 +11,11 @@ export interface OngoingService {
   status_label: string | null;
   // App-created (שירות שוטף) rows carry a customer_id; calendar-derived rows don't.
   customer_id: string | null;
+  // Set once the manager schedules the service onto a day (via the monthly board).
+  // Used to keep already-scheduled rows out of the picker's "to schedule" pool.
+  scheduled_date: string | null;
+  // Customer phone — mostly empty on calendar rows; backfilled/edited on the service page.
+  phone: string | null;
 }
 
 // Full row shape including the scheduling/customer columns added in
@@ -67,12 +72,21 @@ function mapCompletionStatus(status: string | null): CompletionStatus | undefine
 // Only rows created through the app's "פניה חדשה" flow (they carry a customer_id)
 // become schedulable jobs. Calendar/follow-up rows stay out of the board.
 function ongoingToJobAndCustomer(row: OngoingServiceRow): { job: Job; customer: Customer } {
+  // Rows that reference a real customer resolve to the canonical `db-cust-{uuid}` id
+  // used across `customersList` (so `customers.find(c => c.id === job.customerId)`
+  // matches and the name renders); calendar/fallback rows keep a `db-ongoing-cust-`
+  // id, which `useJobs` folds into `customersList` as a derived customer.
+  const customerId = row.customer_id
+    ? `db-cust-${row.customer_id}`
+    : `db-ongoing-cust-${row.id}`;
   const customer: Customer = {
-    id: row.customer_id || `db-ongoing-cust-${row.id}`,
-    name: row.customer_name || 'ללא שם',
+    id: customerId,
+    // Calendar-derived rows have no customer_name — their task_description embeds the
+    // client (e.g. "יאיר כהן -ביקור שירות"), so fall back to it to keep board cards readable.
+    name: row.customer_name || row.task_description || 'ללא שם',
     phone: row.phone || '',
     address: row.address || '',
-    city: row.city || '',
+    city: row.city || row.location || '',
     email: '',
     product: '',
     filterReplacementMonth: 1,
@@ -82,13 +96,14 @@ function ongoingToJobAndCustomer(row: OngoingServiceRow): { job: Job; customer: 
     type: 'filter_replacement',
     status: mapStatus(row.status),
     priority: mapPriority(row.priority),
-    customerId: customer.id,
+    customerId,
     technicianId: row.technician_id || undefined,
     scheduledDate: row.scheduled_date || undefined,
     scheduledTime: row.scheduled_time || undefined,
     estimatedDuration: row.estimated_duration || JOB_TYPE_CONFIG.filter_replacement.duration,
+    phone: row.phone || undefined,
     location: row.address || row.location || '',
-    city: row.city || '',
+    city: row.city || row.location || '',
     notes: [row.task_description, row.notes].filter(Boolean).join(' | '),
     completionStatus: mapCompletionStatus(row.completion_status),
     completionNotes: row.completion_notes || undefined,
@@ -166,13 +181,19 @@ export function useOngoingServices() {
         is_done: r.is_done,
         status_label: r.status_label,
         customer_id: r.customer_id,
+        scheduled_date: r.scheduled_date,
+        phone: r.phone,
       })),
     );
 
+    // Rows become schedulable board jobs when they either originate from the app
+    // (customer_id) OR have been scheduled onto a day (scheduled_date/technician_id).
+    // Unscheduled calendar rows stay OUT of `jobs` — they surface in the monthly
+    // picker's 'שירות' pool (built from `services`) and only become jobs once scheduled.
     const reqJobs: Job[] = [];
     const reqCustomers: Customer[] = [];
     allRows
-      .filter(r => r.customer_id)
+      .filter(r => r.customer_id || r.scheduled_date || r.technician_id)
       .forEach(r => {
         const { job, customer } = ongoingToJobAndCustomer(r);
         reqJobs.push(job);
@@ -214,7 +235,7 @@ export function useOngoingServices() {
   const updateOngoingService = useCallback(
     async (
       id: string,
-      patch: { task_description?: string; location?: string; service_date?: string },
+      patch: { task_description?: string; location?: string; service_date?: string; phone?: string },
     ) => {
       setServices(prev =>
         prev.map(s => (s.id === id ? { ...s, ...patch } : s)),

@@ -59,6 +59,9 @@ export interface Job {
   estimatedDuration: number;
   location: string;
   city: string;
+  // Optional contact phone carried on ongoing-service picker items whose customer is
+  // not in customersList (calendar rows). Otherwise resolved from the customer record.
+  phone?: string;
   notes: string;
   completionNotes?: string;
   completionStatus?: CompletionStatus;

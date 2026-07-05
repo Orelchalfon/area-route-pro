@@ -6,11 +6,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { cn } from "@/lib/utils";
 import { Job } from "@/types";
-import { AlertTriangle, Clock, Filter, Plus, Wrench } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Clock,
+  Filter,
+  Phone,
+  Plus,
+  Search,
+  Wrench,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { jobMatchesAreas } from "../regions";
 
@@ -20,10 +30,12 @@ export function UnifiedJobPickerDialog({
   onClose,
   unassignedManualJobs,
   unassignedFilterJobs,
+  unassignedOngoingJobs,
   filterJobsFromOtherDays,
   otherDayIds,
   onSelectManualJobs,
   onSelectFilterJobs,
+  onSelectOngoingJobs,
   dayLabel,
   dayAreas,
 }: {
@@ -31,16 +43,21 @@ export function UnifiedJobPickerDialog({
   onClose: () => void;
   unassignedManualJobs: Job[];
   unassignedFilterJobs: Job[];
+  unassignedOngoingJobs: Job[];
   filterJobsFromOtherDays: Job[];
   otherDayIds: Set<string>;
   onSelectManualJobs: (jobIds: string[]) => void;
   onSelectFilterJobs: (jobIds: string[], otherDayIds: Set<string>) => void;
+  onSelectOngoingJobs: (jobIds: string[]) => void;
   dayLabel: string;
   dayAreas: string[];
 }) {
   const { customersList: customers } = useJobsContext();
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("malfunction");
+  // The 'שירות' pool can be large (hundreds of open ongoing services); a text filter
+  // keeps it usable on top of the per-day area filter.
+  const [serviceSearch, setServiceSearch] = useState("");
 
   // Don't offer jobs that are already finished — only schedule open work.
   const isCompleted = (j: Job) =>
@@ -63,6 +80,15 @@ export function UnifiedJobPickerDialog({
       : all;
   }, [dayAreas, unassignedFilterJobs, filterJobsFromOtherDays]);
 
+  // Real ongoing-service ("שירות שוטף") jobs — shown in the same 'שירות' tab with
+  // their true task description / date / status (see renderJobList).
+  const areaFilteredOngoingJobs = useMemo(() => {
+    const open = unassignedOngoingJobs.filter((j) => !isCompleted(j));
+    return dayAreas.length > 0
+      ? open.filter((j) => jobMatchesAreas(j, dayAreas))
+      : open;
+  }, [dayAreas, unassignedOngoingJobs]);
+
   const jobsByType = useMemo(
     () => ({
       malfunction: areaFilteredManualJobs.filter(
@@ -71,10 +97,26 @@ export function UnifiedJobPickerDialog({
       installation: areaFilteredManualJobs.filter(
         (j) => j.type === "installation",
       ),
-      filter_replacement: areaFilteredFilterJobs,
+      // The 'שירות' tab merges synthetic annual-filter reminders with the real
+      // ongoing-service jobs so both appear together.
+      filter_replacement: [
+        ...areaFilteredOngoingJobs,
+        ...areaFilteredFilterJobs,
+      ],
     }),
-    [areaFilteredManualJobs, areaFilteredFilterJobs],
+    [areaFilteredManualJobs, areaFilteredFilterJobs, areaFilteredOngoingJobs],
   );
+
+  // Text search over the 'שירות' tab (customer name / task description / city).
+  const filteredServiceJobs = useMemo(() => {
+    const q = serviceSearch.trim().toLowerCase();
+    if (!q) return jobsByType.filter_replacement;
+    return jobsByType.filter_replacement.filter((job) => {
+      const name = customers.find((c) => c.id === job.customerId)?.name || "";
+      return [name, job.notes, job.city, job.location]
+        .some((f) => f && f.toLowerCase().includes(q));
+    });
+  }, [serviceSearch, jobsByType.filter_replacement, customers]);
 
   const toggleJob = (jobId: string) => {
     setSelectedJobIds((prev) => {
@@ -89,6 +131,9 @@ export function UnifiedJobPickerDialog({
     const manualIds = Array.from(selectedJobIds).filter((id) =>
       unassignedManualJobs.some((j) => j.id === id),
     );
+    const ongoingIds = Array.from(selectedJobIds).filter((id) =>
+      unassignedOngoingJobs.some((j) => j.id === id),
+    );
     const filterIds = Array.from(selectedJobIds).filter((id) =>
       [...unassignedFilterJobs, ...filterJobsFromOtherDays].some(
         (j) => j.id === id,
@@ -96,6 +141,7 @@ export function UnifiedJobPickerDialog({
     );
 
     if (manualIds.length > 0) onSelectManualJobs(manualIds);
+    if (ongoingIds.length > 0) onSelectOngoingJobs(ongoingIds);
     if (filterIds.length > 0) onSelectFilterJobs(filterIds, otherDayIds);
 
     setSelectedJobIds(new Set());
@@ -103,6 +149,7 @@ export function UnifiedJobPickerDialog({
 
   const handleClose = () => {
     setSelectedJobIds(new Set());
+    setServiceSearch("");
     onClose();
   };
 
@@ -118,6 +165,17 @@ export function UnifiedJobPickerDialog({
         {items.map((job) => {
           const customer = customers.find((c) => c.id === job.customerId);
           const isFromOther = otherDayIds.has(job.id);
+          // Real ongoing-service jobs carry their true task description in notes
+          // ("task_description | notes"); show that data instead of the generic
+          // synthetic-filter text, matching ServiceCyclePage.
+          const isOngoing = job.id.startsWith("db-ongoing-");
+          const taskDescription = isOngoing
+            ? (job.notes || "").split(" | ")[0]
+            : undefined;
+          const serviceDate = isOngoing
+            ? job.scheduledDate || job.createdAt
+            : undefined;
+          const phone = job.phone || customer?.phone;
           return (
             <label
               key={job.id}
@@ -133,31 +191,61 @@ export function UnifiedJobPickerDialog({
               <div className='flex-1 min-w-0'>
                 <div className='flex items-center gap-2'>
                   <span className='font-medium text-sm'>{customer?.name}</span>
-                  <span
-                    className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
-                      job.priority === "high"
-                        ? "bg-destructive/15 text-destructive"
+                  {isOngoing ? (
+                    <span className='inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-warning/15 text-warning'>
+                      לא בוצע
+                    </span>
+                  ) : (
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
+                        job.priority === "high"
+                          ? "bg-destructive/15 text-destructive"
+                          : job.priority === "medium"
+                            ? "bg-warning/15 text-warning"
+                            : "bg-info/15 text-info"
+                      }`}>
+                      {job.priority === "high"
+                        ? "גבוהה"
                         : job.priority === "medium"
-                          ? "bg-warning/15 text-warning"
-                          : "bg-info/15 text-info"
-                    }`}>
-                    {job.priority === "high"
-                      ? "גבוהה"
-                      : job.priority === "medium"
-                        ? "בינונית"
-                        : "נמוכה"}
-                  </span>
+                          ? "בינונית"
+                          : "נמוכה"}
+                    </span>
+                  )}
                 </div>
+                {isOngoing && taskDescription && (
+                  <p className='text-xs font-medium text-foreground mt-0.5'>
+                    {taskDescription}
+                  </p>
+                )}
                 <p className='text-xs text-muted-foreground mt-0.5'>
                   {job.location}
                   {job.city ? `, ${job.city}` : ""}
                 </p>
+                {phone && (
+                  <p className='flex items-center gap-1 text-xs text-muted-foreground mt-0.5'>
+                    <Phone className='w-3 h-3' />
+                    <span dir='ltr'>{phone}</span>
+                  </p>
+                )}
                 <div className='flex items-center gap-3 text-xs text-muted-foreground mt-0.5'>
-                  <span className='flex items-center gap-1'>
-                    <Clock className='w-3 h-3' />
-                    {job.estimatedDuration} דק׳
-                  </span>
-                  <span>{job.notes}</span>
+                  {isOngoing ? (
+                    serviceDate && (
+                      <span className='flex items-center gap-1'>
+                        <CalendarDays className='w-3 h-3' />
+                        {new Date(
+                          serviceDate.slice(0, 10) + "T00:00:00",
+                        ).toLocaleDateString("he-IL")}
+                      </span>
+                    )
+                  ) : (
+                    <>
+                      <span className='flex items-center gap-1'>
+                        <Clock className='w-3 h-3' />
+                        {job.estimatedDuration} דק׳
+                      </span>
+                      <span>{job.notes}</span>
+                    </>
+                  )}
                 </div>
                 {isFromOther && (
                   <p className='text-xs text-accent-foreground mt-0.5'>
@@ -208,7 +296,16 @@ export function UnifiedJobPickerDialog({
             {renderJobList(jobsByType.installation)}
           </TabsContent>
           <TabsContent value='filter_replacement'>
-            {renderJobList(jobsByType.filter_replacement, true)}
+            <div className='relative mb-2'>
+              <Search className='absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none' />
+              <Input
+                value={serviceSearch}
+                onChange={(e) => setServiceSearch(e.target.value)}
+                placeholder='חיפוש לפי שם / תיאור / עיר...'
+                className='pr-9'
+              />
+            </div>
+            {renderJobList(filteredServiceJobs, true)}
           </TabsContent>
         </Tabs>
 

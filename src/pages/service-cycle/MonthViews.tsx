@@ -25,7 +25,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import { CalendarDays, CheckCircle, Filter, Pencil, Trash2, UserCog } from 'lucide-react';
+import { CalendarDays, CheckCircle, Filter, Pencil, Phone, Trash2, UserCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { statusClass, statusText } from './status';
@@ -36,7 +36,7 @@ interface MonthListViewProps {
   services: OngoingService[];
   onUpdateService?: (
     id: string,
-    patch: { task_description?: string; location?: string; service_date?: string },
+    patch: { task_description?: string; location?: string; service_date?: string; phone?: string },
   ) => void;
   onArchiveService?: (id: string) => void;
   customersById?: Map<string, Customer>;
@@ -91,6 +91,18 @@ export function MonthListView({
               <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
                 <Filter className="w-4 h-4 text-primary flex-shrink-0" />
                 <span className="text-sm font-medium text-foreground flex-1">{s.task_description}</span>
+                {(() => {
+                  const phone = s.phone || (s.customer_id ? customersById?.get(s.customer_id)?.phone : undefined);
+                  return phone ? (
+                    <a
+                      href={`tel:${phone}`}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                      title="התקשר">
+                      <Phone className="w-3 h-3" />
+                      <span dir="ltr">{phone}</span>
+                    </a>
+                  ) : null;
+                })()}
                 {s.location && (
                   <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
                 )}
@@ -183,11 +195,11 @@ function ServiceLineEditDialog({
   service: OngoingService | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (patch: { task_description: string; location: string; service_date: string }) => void;
+  onSave: (patch: { task_description: string; location: string; service_date: string; phone: string }) => void;
   linkedCustomer?: Customer;
   onEditCustomer: (customer: Customer) => void;
 }) {
-  const [form, setForm] = useState({ task_description: '', location: '', service_date: '' });
+  const [form, setForm] = useState({ task_description: '', location: '', service_date: '', phone: '' });
 
   useEffect(() => {
     if (service) {
@@ -195,6 +207,7 @@ function ServiceLineEditDialog({
         task_description: service.task_description || '',
         location: service.location || '',
         service_date: service.service_date?.slice(0, 10) || '',
+        phone: service.phone || '',
       });
     }
   }, [service]);
@@ -221,6 +234,16 @@ function ServiceLineEditDialog({
             <Input
               value={form.location}
               onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>טלפון</Label>
+            <Input
+              type="tel"
+              dir="ltr"
+              value={form.phone}
+              onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+              placeholder="מספר טלפון"
             />
           </div>
           <div className="space-y-2">
@@ -305,7 +328,7 @@ export function MonthCalendarView({ services, selectedMonth, selectedYear }: { s
                     <div
                       key={s.id}
                       className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border truncate', statusClass(s.is_done))}
-                      title={`${s.task_description} — ${s.location} — ${statusText(s)}`}
+                      title={`${s.task_description} — ${s.location}${s.phone ? ` — ${s.phone}` : ''} — ${statusText(s)}`}
                     >
                       {s.is_done ? <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" /> : <Filter className="w-2.5 h-2.5 flex-shrink-0" />}
                       <span className="truncate">{s.task_description}</span>

@@ -25,6 +25,7 @@ import {
   addWeeks,
   eachDayOfInterval,
   endOfMonth,
+  addDays,
   endOfWeek,
   format,
   getDay,
@@ -112,8 +113,14 @@ export function MonthlyScheduleBoard({
   onReturnJob,
   onAddJob,
 }: MonthlyScheduleBoardProps) {
-  const { customersList, boardReady, approvedDayKeys, approveDay, unapproveDay } =
-    useJobsContext();
+  const {
+    customersList,
+    ongoingServices,
+    boardReady,
+    approvedDayKeys,
+    approveDay,
+    unapproveDay,
+  } = useJobsContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(
     technicians[0].id,
@@ -343,6 +350,40 @@ export function MonthlyScheduleBoard({
       j.type !== "filter_replacement" && (!j.technicianId || !j.scheduledDate),
   );
 
+  // Real ongoing-service ("שירות שוטף") backlog surfaced in the picker's 'שירות' tab.
+  // Sourced from `ongoingServices` (same data as ServiceCyclePage) — NOT from `jobs` —
+  // so all not-done calendar rows appear, not just the few app-created ones. Kept to a
+  // window of the last 6 months + next 2 weeks, not done, and not yet scheduled (a
+  // scheduled row becomes a real board job and drops out of this pool).
+  const unassignedOngoingJobs = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const windowStart = subMonths(today, 6);
+    const windowEnd = addDays(today, 14);
+    return ongoingServices
+      .filter((s) => {
+        if (s.is_done === true) return false;
+        if (s.scheduled_date) return false;
+        const d = new Date(s.service_date.slice(0, 10) + "T00:00:00");
+        return d >= windowStart && d <= windowEnd;
+      })
+      .map<Job>((s) => ({
+        id: `db-ongoing-${s.id}`,
+        type: "filter_replacement",
+        status: "draft",
+        priority: "low",
+        customerId: s.customer_id
+          ? `db-cust-${s.customer_id}`
+          : `db-ongoing-cust-${s.id}`,
+        estimatedDuration: 20,
+        phone: s.phone || undefined,
+        location: s.location,
+        city: s.location,
+        notes: s.task_description,
+        createdAt: s.service_date.slice(0, 10),
+      }));
+  }, [ongoingServices]);
+
   const getManualDayJobs = (dateStr: string) =>
     manualJobs.filter((j) => j.scheduledDate === dateStr);
   const getFilterDayJobs = (dateStr: string) => {
@@ -483,6 +524,23 @@ export function MonthlyScheduleBoard({
   // Remove a filter job from its current day and reschedule to nearest same-area day
   const handleRemoveAndRescheduleFilter = useCallback(
     (jobId: string, fromDateStr: string) => {
+      // db-ongoing-* are real DB rows scheduled via assignJob — move/unschedule them
+      // through the DB-job path (persists to ongoing_services), not the synthetic
+      // scheduled_filter_services path.
+      if (jobId.startsWith("db-ongoing-")) {
+        const dbJob = jobs.find((j) => j.id === jobId);
+        if (!dbJob) return;
+        const targetDate = findNearestAreaDay(fromDateStr, dbJob.city);
+        if (targetDate) {
+          onAssignJob(jobId, selectedTechId, targetDate, "08:00");
+          toast.success(`שירות הועבר ל-${targetDate} (${dbJob.city})`);
+        } else {
+          onUnassignJob(jobId);
+          toast.info("המשימה הוסרה מהלו״ז — לא נמצא יום מתאים באותו אזור");
+        }
+        return;
+      }
+
       const job = filterJobs.find((j) => j.id === jobId);
       if (!job) return;
 
@@ -522,9 +580,12 @@ export function MonthlyScheduleBoard({
       }
     },
     [
+      jobs,
       filterJobs,
       filterDistribution,
       findNearestAreaDay,
+      onAssignJob,
+      onUnassignJob,
       onAssignFilterService,
       onUnassignFilterService,
       selectedTechId,
@@ -549,11 +610,17 @@ export function MonthlyScheduleBoard({
           return next;
         });
       }
-      // Delete the persisted row + remove from global state
-      onUnassignFilterService?.(jobId);
+      // db-ongoing-* are real ongoing_services rows — their scheduling lives on the
+      // row (technician_id/scheduled_date), NOT in scheduled_filter_services. Clear it
+      // via the DB-job path so the delete actually persists across a refresh.
+      if (jobId.startsWith("db-ongoing-")) {
+        onUnassignJob(jobId);
+      } else {
+        onUnassignFilterService?.(jobId);
+      }
       toast.info("השירות הוסר מהלו״ז");
     },
-    [filterDistribution, onUnassignFilterService],
+    [filterDistribution, onUnassignFilterService, onUnassignJob],
   );
 
   // Delete a manual job — return it to the unassigned pool
@@ -1111,9 +1178,11 @@ export function MonthlyScheduleBoard({
               onClose={() => setPickerState(null)}
               unassignedManualJobs={unassignedManualJobs}
               unassignedFilterJobs={unassignedRangedFilters}
+              unassignedOngoingJobs={unassignedOngoingJobs}
               filterJobsFromOtherDays={fromOtherDays}
               otherDayIds={allOtherDayIdSet}
               onSelectManualJobs={handlePickerSelect}
+              onSelectOngoingJobs={handlePickerSelect}
               onSelectFilterJobs={(jobIds, odi) =>
                 handleFilterPickerMoveSelect(jobIds, odi, pickerState.dateStr)
               }

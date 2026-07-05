@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
-import { Archive, GripVertical, Navigation, Pencil, Save, Undo2, X } from "lucide-react";
+import { Archive, GripVertical, Navigation, Pencil, Phone, Save, Undo2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "../../AddressAutocomplete";
@@ -208,6 +208,15 @@ export function DayDetailDialog({
                         {typeConfig.label} · {job.estimatedDuration} דק׳
                       </p>
                       <p className='text-xs opacity-60'>{job.location}</p>
+                      {(job.phone || customer?.phone) && (
+                        <a
+                          href={`tel:${job.phone || customer?.phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className='flex items-center gap-1 text-xs opacity-70 hover:text-primary transition-colors w-fit'>
+                          <Phone className='w-3 h-3' />
+                          <span dir='ltr'>{job.phone || customer?.phone}</span>
+                        </a>
+                      )}
                       {isCompleted && (
                         <p className='text-xs font-medium mt-0.5'>
                           {job.completionStatus === "done"

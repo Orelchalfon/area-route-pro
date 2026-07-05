@@ -46,6 +46,9 @@ export function ClientSearchResults({ results }: { results: SearchResults }) {
               {format(new Date(s.service_date), 'dd/MM/yyyy')}
             </span>
             <span className="text-sm font-medium text-foreground flex-1">{s.task_description}</span>
+            {s.phone && (
+              <span className="text-xs text-muted-foreground" dir="ltr">{s.phone}</span>
+            )}
             {s.location && (
               <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
             )}
