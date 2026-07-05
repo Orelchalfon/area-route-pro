@@ -312,6 +312,25 @@ export function DayDetailDialog({
                             className='h-8 text-xs'
                           />
                         </div>
+                        <div>
+                          <label className='text-xs font-semibold text-muted-foreground'>
+                            טלפון
+                          </label>
+                          <Input
+                            type='tel'
+                            dir='ltr'
+                            value={editForm.phone}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                phone: e.target.value,
+                              }))
+                            }
+                            className='h-8 text-xs'
+                          />
+                        </div>
+                      </div>
+                      <div className='grid grid-cols-2 gap-2'>
                         <div className='w-full'>
                           <label className='text-xs font-semibold text-muted-foreground'>
                             משך (דקות)

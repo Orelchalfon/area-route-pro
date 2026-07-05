@@ -92,7 +92,9 @@ export function MonthListView({
                 <Filter className="w-4 h-4 text-primary flex-shrink-0" />
                 <span className="text-sm font-medium text-foreground flex-1">{s.task_description}</span>
                 {(() => {
-                  const phone = s.phone || (s.customer_id ? customersById?.get(s.customer_id)?.phone : undefined);
+                  const phone = s.customer_id
+                    ? customersById?.get(s.customer_id)?.phone || s.phone
+                    : s.phone;
                   return phone ? (
                     <a
                       href={`tel:${phone}`}
@@ -141,7 +143,18 @@ export function MonthListView({
         open={!!editing}
         onOpenChange={(open) => !open && setEditing(null)}
         onSave={(patch) => {
-          if (editing) onUpdateService?.(editing.id, patch);
+          if (editing) {
+            onUpdateService?.(editing.id, patch);
+            const linkedCustomer = editing.customer_id
+              ? customersById?.get(editing.customer_id)
+              : undefined;
+            if (
+              linkedCustomer &&
+              patch.phone.trim() !== (linkedCustomer.phone || "").trim()
+            ) {
+              onUpdateCustomer?.(linkedCustomer.id, { phone: patch.phone.trim() });
+            }
+          }
           setEditing(null);
         }}
         linkedCustomer={
@@ -207,10 +220,10 @@ function ServiceLineEditDialog({
         task_description: service.task_description || '',
         location: service.location || '',
         service_date: service.service_date?.slice(0, 10) || '',
-        phone: service.phone || '',
+        phone: linkedCustomer?.phone || service.phone || '',
       });
     }
-  }, [service]);
+  }, [linkedCustomer?.phone, service]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -266,7 +279,12 @@ function ServiceLineEditDialog({
           <Button
             className="w-full"
             disabled={!form.task_description}
-            onClick={() => onSave(form)}>
+            onClick={() =>
+              onSave({
+                ...form,
+                phone: form.phone.trim(),
+              })
+            }>
             שמור שינויים
           </Button>
         </div>

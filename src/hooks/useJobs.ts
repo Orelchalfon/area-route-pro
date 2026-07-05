@@ -603,7 +603,7 @@ export function useJobs() {
     persistDbJob(jobId, { technicianId, scheduledDate, scheduledTime });
   };
 
-  const updateJob = (jobId: string, data: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration' | 'priority' | 'type'>> & { lat?: number; lng?: number }) => {
+  const updateJob = (jobId: string, data: Partial<Pick<Job, 'location' | 'city' | 'notes' | 'estimatedDuration' | 'priority' | 'type' | 'phone'>> & { lat?: number; lng?: number }) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...data } : j));
 
     persistDbJob(jobId, data);

@@ -31,7 +31,7 @@ export type DbJobUpdateByTable = {
 export type DbJobUpdate = DbJobUpdateByTable[DbJobTable];
 
 export type JobSyncPatch = Partial<
-  Pick<Job, 'status' | 'location' | 'city' | 'notes' | 'priority' | 'estimatedDuration'>
+  Pick<Job, 'status' | 'location' | 'city' | 'notes' | 'priority' | 'estimatedDuration' | 'phone'>
 > & {
   technicianId?: string | null;
   scheduledDate?: string | null;
@@ -150,6 +150,7 @@ export function buildDbJobUpdatePatch<TTable extends DbJobTable>(
   if (data.location !== undefined) patch.address = data.location;
   if (data.city !== undefined) patch.city = data.city;
   if (data.notes !== undefined) patch.notes = data.notes;
+  if (data.phone !== undefined) patch.phone = data.phone;
   if (data.priority !== undefined) patch.priority = data.priority;
   if (data.estimatedDuration !== undefined) patch.estimated_duration = data.estimatedDuration;
   if (data.completionStatus !== undefined) patch.completion_status = data.completionStatus ?? null;

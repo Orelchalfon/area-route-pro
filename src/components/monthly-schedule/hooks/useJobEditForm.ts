@@ -13,6 +13,7 @@ import { toast } from "sonner";
 interface EditForm {
   location: string;
   city: string;
+  phone: string;
   notes: string;
   estimatedDuration: number;
 }
@@ -20,6 +21,7 @@ interface EditForm {
 const EMPTY_FORM: EditForm = {
   location: "",
   city: "",
+  phone: "",
   notes: "",
   estimatedDuration: 0,
 };
@@ -44,16 +46,21 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
   } | null>(null);
   const [isEditSaving, setIsEditSaving] = useState(false);
 
-  const startEditingJob = useCallback((job: Job) => {
-    setEditingJobId(job.id);
-    setEditForm({
-      location: job.location,
-      city: job.city,
-      notes: job.notes,
-      estimatedDuration: job.estimatedDuration,
-    });
-    setPendingEditCoords(null);
-  }, []);
+  const startEditingJob = useCallback(
+    (job: Job) => {
+      const customer = customers.find((c) => c.id === job.customerId);
+      setEditingJobId(job.id);
+      setEditForm({
+        location: job.location,
+        city: job.city,
+        phone: job.phone || customer?.phone || "",
+        notes: job.notes,
+        estimatedDuration: job.estimatedDuration,
+      });
+      setPendingEditCoords(null);
+    },
+    [customers],
+  );
 
   const closeEditingJob = useCallback(() => {
     setEditingJobId(null);
@@ -66,6 +73,7 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
 
       const nextLocation = editForm.location.trim();
       const nextCity = editForm.city.trim();
+      const nextPhone = editForm.phone.trim();
       const customer = customers.find((c) => c.id === job.customerId);
       const hasLocationChange =
         !!customer &&
@@ -73,7 +81,7 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
           nextCity !== (customer.city || "").trim());
 
       const customerUpdate: Partial<Customer> | null = customer
-        ? { address: nextLocation, city: nextCity }
+        ? { address: nextLocation, city: nextCity, phone: nextPhone }
         : null;
 
       setIsEditSaving(true);
@@ -99,11 +107,12 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
         }
 
         const nextJobData: Partial<
-          Pick<Job, "location" | "city" | "notes" | "estimatedDuration">
+          Pick<Job, "location" | "city" | "phone" | "notes" | "estimatedDuration">
         > & { lat?: number; lng?: number } = {
           ...editForm,
           location: nextLocation,
           city: nextCity,
+          phone: nextPhone,
         };
 
         // Propagate geocoded coords into the job so the map moves immediately

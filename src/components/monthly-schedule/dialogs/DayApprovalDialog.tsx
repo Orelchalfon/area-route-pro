@@ -130,6 +130,7 @@ export function DayApprovalDialog({
                   const customer = customers.find(
                     (c) => c.id === job.customerId,
                   );
+                  const phone = job.phone || customer?.phone;
                   const typeConfig = JOB_TYPE_CONFIG[job.type];
                   const isDragging = dragIdx === i;
                   const isOver = overIdx === i && dragIdx !== i;
@@ -176,18 +177,18 @@ export function DayApprovalDialog({
                         </span>
                         <span>{job.location}</span>
                       </div>
-                      {customer?.phone && (
+                      {phone && (
                         <div className='text-xs opacity-60 mt-0.5'>
-                          📱 {customer.phone}
+                          📱 <span dir='ltr'>{phone}</span>
                         </div>
                       )}
                       {/* WhatsApp — fades in once the day is approved; coordinates the appointment a week ahead */}
                       {isApproved &&
-                        customer &&
                         (() => {
-                          const waPhone = normalizeIsraeliPhone(customer.phone);
+                          const waPhone = normalizeIsraeliPhone(phone);
                           if (!waPhone) return null;
-                          const msg = `היי ${customer.name} מדברים מטל חרמון רצינו לתאם פגישה לשבוע הבא בתאריך ${dayDateText} בשעה ${startTime} ,אנא אשר הגעת טכנאי.`;
+                          const customerName = customer?.name || "לקוח";
+                          const msg = `היי ${customerName} מדברים מטל חרמון רצינו לתאם פגישה לשבוע הבא בתאריך ${dayDateText} בשעה ${startTime} ,אנא אשר הגעת טכנאי.`;
                           return (
                             <button
                               onClick={(e) => {
