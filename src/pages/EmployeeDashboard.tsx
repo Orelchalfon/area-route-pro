@@ -5,6 +5,7 @@ import { he } from 'date-fns/locale';
 import { Calendar, CheckCircle2, Clock, ListChecks, MapPin, Map as MapIcon, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJobsContext } from '@/contexts/JobsContext';
+import { approvedDayKey } from '@/hooks/useApprovedDays';
 import { technicians } from '@/data/mockData';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,16 +15,23 @@ const getTodayStr = () => format(new Date(), 'yyyy-MM-dd');
 
 export default function EmployeeDashboard() {
   const { technicianId } = useAuth();
-  const { jobs, customersList } = useJobsContext();
+  const { jobs, customersList, approvedDayKeys } = useJobsContext();
   const todayStr = getTodayStr();
   const tech = technicians.find(t => t.id === technicianId);
 
+  // Employees only see a day's jobs once the manager approves it; cancelling the
+  // approval removes it (approvedDayKeys is realtime-synced via useApprovedDays).
   const todayJobs = useMemo(
     () =>
       jobs
-        .filter(j => j.technicianId === technicianId && j.scheduledDate === todayStr)
+        .filter(
+          j =>
+            j.technicianId === technicianId &&
+            j.scheduledDate === todayStr &&
+            approvedDayKeys.has(approvedDayKey(j.technicianId, j.scheduledDate)),
+        )
         .sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || '')),
-    [jobs, technicianId, todayStr],
+    [jobs, technicianId, todayStr, approvedDayKeys],
   );
 
   const activeJobs = todayJobs.filter(j => j.status === 'confirmed');

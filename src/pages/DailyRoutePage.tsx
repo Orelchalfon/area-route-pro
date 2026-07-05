@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { approvedDayKey } from '@/hooks/useApprovedDays';
 import { technicians } from '@/data/mockData';
 import { Job, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ import { RoutePlannerView } from './daily-route/RoutePlannerView';
 import { JobWithCustomer } from './daily-route/types';
 
 export default function DailyRoutePage() {
-  const { jobs, customersList, approveDaySchedule, updateJob, updateCustomer } = useJobsContext();
+  const { jobs, customersList, approvedDayKeys, approveDaySchedule, updateJob, updateCustomer } = useJobsContext();
   const { isAdmin, technicianId } = useAuth();
   const [selectedTechId, setSelectedTechId] = useState(technicians[0].id);
   // Admins may browse any technician; employees are locked to their own route.
@@ -30,14 +31,16 @@ export default function DailyRoutePage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const todayStr = format(selectedDate, 'yyyy-MM-dd');
 
-  // Today's scheduled jobs for selected tech
+  // Today's scheduled jobs for selected tech. Employees only see a day once the
+  // manager approves it (realtime); admins keep the full view for planning.
   const todayJobs = useMemo(() =>
     jobs.filter(j =>
       j.scheduledDate === todayStr &&
       j.technicianId === activeTechId &&
-      (j.status === 'confirmed' || j.status === 'completed' || j.status === 'in_progress')
+      (j.status === 'confirmed' || j.status === 'completed' || j.status === 'in_progress') &&
+      (isAdmin || approvedDayKeys.has(approvedDayKey(activeTechId, todayStr)))
     ).sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || '')),
-    [jobs, todayStr, activeTechId]
+    [jobs, todayStr, activeTechId, isAdmin, approvedDayKeys]
   );
 
   // Resolve route-specific customer/location for each job

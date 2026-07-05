@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJobsContext } from '@/contexts/JobsContext';
+import { approvedDayKey } from '@/hooks/useApprovedDays';
 import { technicians } from '@/data/mockData';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
@@ -24,7 +25,14 @@ interface TechnicianViewProps {
 
 export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianViewProps) {
   const { isAdmin, technicianId } = useAuth();
-  const { customersList } = useJobsContext();
+  const { customersList, approvedDayKeys } = useJobsContext();
+  // Employees only see a day's jobs once the manager approves it (realtime); admins
+  // browsing keep the full view for planning.
+  const dayApproved = (j: Job) =>
+    isAdmin ||
+    (!!j.technicianId &&
+      !!j.scheduledDate &&
+      approvedDayKeys.has(approvedDayKey(j.technicianId, j.scheduledDate)));
   const [selectedTech, setSelectedTech] = useState(technicians[0].id);
   // Admins may browse any technician; employees are locked to their own.
   const activeTechId = isAdmin ? selectedTech : technicianId;
@@ -57,7 +65,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   }, [weekOffset]);
 
   const techJobs = jobs
-    .filter(j => j.technicianId === activeTechId && j.scheduledDate === selectedDay)
+    .filter(j => j.technicianId === activeTechId && j.scheduledDate === selectedDay && dayApproved(j))
     .sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || ''));
 
   const activeJobs = techJobs.filter(j => j.status === 'confirmed');
@@ -174,7 +182,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           selectedDay={selectedDay}
           weekOffset={weekOffset}
           getDayJobCount={(date) =>
-            jobs.filter(j => j.technicianId === activeTechId && j.scheduledDate === date && (j.status === 'confirmed' || j.status === 'completed')).length
+            jobs.filter(j => j.technicianId === activeTechId && j.scheduledDate === date && dayApproved(j) && (j.status === 'confirmed' || j.status === 'completed')).length
           }
           onSelectDay={setSelectedDay}
           onPrevWeek={() => setWeekOffset(w => w - 1)}
