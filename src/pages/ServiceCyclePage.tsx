@@ -18,6 +18,7 @@ import {
 import { useMemo, useState } from "react";
 import { ClientSearchResults } from "./service-cycle/ClientSearchResults";
 import { MonthCalendarView, MonthListView } from "./service-cycle/MonthViews";
+import { isServiceDone } from "./service-cycle/status";
 
 const MONTH_NAMES = [
   "ינואר",
@@ -217,7 +218,7 @@ export default function ServiceCyclePage() {
           </h2>
           <span className='text-sm text-muted-foreground'>
             {stat.total} משימות ·{" "}
-            {stat.services.filter((s) => s.is_done).length} בוצעו
+            {stat.services.filter(isServiceDone).length} בוצעו
           </span>
           <div className='mr-auto flex gap-1'>
             <Button

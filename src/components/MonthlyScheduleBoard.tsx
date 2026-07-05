@@ -362,7 +362,7 @@ export function MonthlyScheduleBoard({
     const windowEnd = addDays(today, 14);
     return ongoingServices
       .filter((s) => {
-        if (s.is_done === true) return false;
+        if (s.is_done === true || s.completion_status === "done") return false;
         if (s.scheduled_date) return false;
         const d = new Date(s.service_date.slice(0, 10) + "T00:00:00");
         return d >= windowStart && d <= windowEnd;
@@ -1233,6 +1233,7 @@ export function MonthlyScheduleBoard({
           onApprove={handleApproveDay}
           onUnapprove={handleUnapproveDay}
           approvedDays={approvedDays}
+          onAddJob={onAddJob}
         />
       )}
 

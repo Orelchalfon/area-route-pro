@@ -8,7 +8,7 @@ import {
 import { useJobsContext } from "@/contexts/JobsContext";
 import { cn } from "@/lib/utils";
 import { normalizeIsraeliPhone, whatsappUrl } from "@/lib/whatsapp";
-import { Job, JOB_TYPE_CONFIG } from "@/types";
+import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { CheckCircle, Clock, GripVertical, MessageCircle, RotateCcw } from "lucide-react";
@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CustomerInfoPopover } from "../../CustomerInfoPopover";
 import { DayRouteMap } from "../../DayRouteMap";
+import { FollowUpTasksPopover } from "../FollowUpTasksPopover";
 import { typeColors, typeIcons } from "../constants";
 import { useDragReorder } from "../hooks/useDragReorder";
 import { calculateTimeRanges } from "../utils";
@@ -30,6 +31,7 @@ export function DayApprovalDialog({
   onApprove,
   onUnapprove,
   approvedDays,
+  onAddJob,
 }: {
   open: boolean;
   onClose: () => void;
@@ -39,13 +41,21 @@ export function DayApprovalDialog({
   onApprove: (jobIds: string[], dateStr: string) => void;
   onUnapprove: (dateStr: string) => void;
   approvedDays: Set<string>;
+  onAddJob?: (data: {
+    type: JobType;
+    customerId: string;
+    technicianId: string;
+    scheduledDate: string;
+    scheduledTime: string;
+    notes: string;
+  }) => void;
 }) {
   const initialJobs = useMemo(
     () => [...filterJobs, ...dayJobs],
     [filterJobs, dayJobs],
   );
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
-  const { customersList: customers } = useJobsContext();
+  const { customersList: customers, markJobCompletion } = useJobsContext();
   const {
     dragIdx,
     overIdx,
@@ -204,6 +214,25 @@ export function DayApprovalDialog({
                             </button>
                           );
                         })()}
+                      {/* Follow-up tasks (משימות להמשך) — only for a job the technician
+                          already reported as done. Creates the next annual service
+                          (שנה מהיום) and re-affirms the current job as done. */}
+                      {job.completionStatus === "done" && onAddJob && (
+                        <div className='mt-2 flex' onClick={(e) => e.stopPropagation()}>
+                          <FollowUpTasksPopover
+                            job={job}
+                            customers={customers}
+                            onAddJob={(data) => {
+                              markJobCompletion(
+                                job.id,
+                                "done",
+                                job.completionNotes || "",
+                              );
+                              onAddJob(data);
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}

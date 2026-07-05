@@ -9,6 +9,10 @@ export interface OngoingService {
   location: string;
   is_done: boolean | null;
   status_label: string | null;
+  // Technician completion (בוצע / לא בוצע / צריך לחזור), written by the app on the
+  // ongoing_services row. Drives the service-cycle status pill; falls back to the
+  // calendar-synced is_done/status_label when absent.
+  completion_status: CompletionStatus | null;
   // App-created (שירות שוטף) rows carry a customer_id; calendar-derived rows don't.
   customer_id: string | null;
   // Set once the manager schedules the service onto a day (via the monthly board).
@@ -180,6 +184,7 @@ export function useOngoingServices() {
         location: r.location || '',
         is_done: r.is_done,
         status_label: r.status_label,
+        completion_status: mapCompletionStatus(r.completion_status) ?? null,
         customer_id: r.customer_id,
         scheduled_date: r.scheduled_date,
         phone: r.phone,
@@ -235,7 +240,14 @@ export function useOngoingServices() {
   const updateOngoingService = useCallback(
     async (
       id: string,
-      patch: { task_description?: string; location?: string; service_date?: string; phone?: string },
+      patch: {
+        task_description?: string;
+        location?: string;
+        service_date?: string;
+        phone?: string;
+        // Manager-editable completion status; drives the service-cycle pill.
+        completion_status?: CompletionStatus | null;
+      },
     ) => {
       setServices(prev =>
         prev.map(s => (s.id === id ? { ...s, ...patch } : s)),

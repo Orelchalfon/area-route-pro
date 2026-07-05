@@ -13,9 +13,10 @@ import { CustomerEditDialog } from '@/components/CustomerEditDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { OngoingService } from '@/hooks/useOngoingServices';
 import { cn } from '@/lib/utils';
-import { Customer } from '@/types';
+import { CompletionStatus, Customer } from '@/types';
 import {
   eachDayOfInterval,
   endOfMonth,
@@ -36,12 +37,25 @@ interface MonthListViewProps {
   services: OngoingService[];
   onUpdateService?: (
     id: string,
-    patch: { task_description?: string; location?: string; service_date?: string; phone?: string },
+    patch: {
+      task_description?: string;
+      location?: string;
+      service_date?: string;
+      phone?: string;
+      completion_status?: CompletionStatus | null;
+    },
   ) => void;
   onArchiveService?: (id: string) => void;
   customersById?: Map<string, Customer>;
   onUpdateCustomer?: (customerId: string, data: Partial<Customer>) => void;
 }
+
+// Manager-editable completion states for a service-cycle row.
+const STATUS_OPTIONS: { value: CompletionStatus; label: string; dot: string }[] = [
+  { value: 'done', label: 'בוצע', dot: 'bg-green-500' },
+  { value: 'need_return', label: 'צריך לחזור', dot: 'bg-amber-500' },
+  { value: 'not_done', label: 'לא בוצע', dot: 'bg-red-500' },
+];
 
 export function MonthListView({
   services,
@@ -108,10 +122,49 @@ export function MonthListView({
                 {s.location && (
                   <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
                 )}
-                <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s.is_done))}>
-                  {s.is_done && <CheckCircle className="w-3 h-3" />}
-                  {statusText(s)}
-                </span>
+                {onUpdateService ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        title="לחץ לעדכון סטטוס"
+                        className={cn(
+                          'text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity',
+                          statusClass(s),
+                        )}>
+                        {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
+                        {statusText(s)}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent dir="rtl" align="end" className="w-44 p-1">
+                      <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1">עדכן סטטוס</p>
+                      {STATUS_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => onUpdateService(s.id, { completion_status: opt.value })}
+                          className={cn(
+                            'w-full text-right text-xs px-2 py-1.5 rounded hover:bg-muted/60 transition-colors flex items-center gap-2',
+                            s.completion_status === opt.value && 'bg-muted font-medium',
+                          )}>
+                          <span className={cn('w-2 h-2 rounded-full flex-shrink-0', opt.dot)} />
+                          {opt.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => onUpdateService(s.id, { completion_status: null })}
+                        className="w-full text-right text-xs px-2 py-1.5 rounded hover:bg-muted/60 transition-colors text-muted-foreground">
+                        נקה סטטוס
+                      </button>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
+                    {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
+                    {statusText(s)}
+                  </span>
+                )}
                 {canManage && (
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {onUpdateService && (
@@ -345,10 +398,10 @@ export function MonthCalendarView({ services, selectedMonth, selectedYear }: { s
                   {dayServices.slice(0, 4).map(s => (
                     <div
                       key={s.id}
-                      className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border truncate', statusClass(s.is_done))}
+                      className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border truncate', statusClass(s))}
                       title={`${s.task_description} — ${s.location}${s.phone ? ` — ${s.phone}` : ''} — ${statusText(s)}`}
                     >
-                      {s.is_done ? <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" /> : <Filter className="w-2.5 h-2.5 flex-shrink-0" />}
+                      {(s.completion_status === 'done' || s.is_done) ? <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" /> : <Filter className="w-2.5 h-2.5 flex-shrink-0" />}
                       <span className="truncate">{s.task_description}</span>
                     </div>
                   ))}

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,6 +22,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [technicianId, setTechnicianId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // The user id whose profile is currently loaded. Used to ignore background
+  // token refreshes (which fire on tab/window focus): those keep the same user,
+  // so we must NOT flip `loading` or reload the profile — otherwise RequireAuth
+  // briefly swaps to its spinner and remounts the whole app, wiping page state.
+  const loadedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -34,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!active) return;
         setRole(null);
         setTechnicianId(null);
+        loadedUserIdRef.current = null;
         setLoading(false);
         return;
       }
@@ -45,14 +51,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setRole((data?.role as AppRole) ?? null);
       setTechnicianId(data?.technician_id ?? null);
+      loadedUserIdRef.current = nextSession.user.id;
       setLoading(false);
     };
 
     // Subscribe first so we don't miss auth events that fire during init.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      // Always keep the session fresh (a re-render is fine — it does not remount).
       setSession(nextSession);
-      setLoading(true);
-      void loadProfile(nextSession);
+      // Only (re)load the profile + show the loading gate when the *user* actually
+      // changes (sign in / out / different user). Same-user token refreshes on tab
+      // focus become no-ops for the React tree, so page state survives.
+      const nextUserId = nextSession?.user?.id ?? null;
+      if (nextUserId !== loadedUserIdRef.current) {
+        setLoading(true);
+        void loadProfile(nextSession);
+      }
     });
 
     supabase.auth.getSession().then(({ data }) => {

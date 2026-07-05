@@ -52,8 +52,8 @@ export function ClientSearchResults({ results }: { results: SearchResults }) {
             {s.location && (
               <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
             )}
-            <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s.is_done))}>
-              {s.is_done && <CheckCircle className="w-3 h-3" />}
+            <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
+              {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
               {statusText(s)}
             </span>
           </div>
