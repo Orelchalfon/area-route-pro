@@ -129,7 +129,15 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
           prev.map((j) => (j.id === job.id ? { ...j, ...nextJobData } : j)),
         );
 
-        if (customer && customerUpdate) {
+        // Don't write derived ongoing-service "customers" (db-ongoing-cust-*) back to
+        // the customers table — their name is the task description, so the upsert in
+        // updateCustomer would mint a junk duplicate customer card. The job's own row
+        // (ongoing_services) already got the address/city/phone via updateJob above.
+        if (
+          customer &&
+          customerUpdate &&
+          !customer.id.startsWith("db-ongoing-cust-")
+        ) {
           updateCustomer(customer.id, customerUpdate);
         }
 
