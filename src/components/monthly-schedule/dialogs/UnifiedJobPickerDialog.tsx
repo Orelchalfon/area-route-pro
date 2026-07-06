@@ -41,6 +41,8 @@ export function UnifiedJobPickerDialog({
   onSelectOngoingJobs,
   dayLabel,
   dayAreas,
+  selectedJobIds,
+  onSelectedJobIdsChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -54,9 +56,12 @@ export function UnifiedJobPickerDialog({
   onSelectOngoingJobs: (jobIds: string[]) => void;
   dayLabel: string;
   dayAreas: string[];
+  // Selection is lifted to the parent so it survives the dialog unmounting
+  // when closed (the parent renders this conditionally on `pickerState`).
+  selectedJobIds: Set<string>;
+  onSelectedJobIdsChange: (next: Set<string>) => void;
 }) {
   const { customersList: customers } = useJobsContext();
-  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("malfunction");
   // The 'שירות' pool can be large (hundreds of open ongoing services); a text filter
   // keeps it usable on top of the per-day area filter.
@@ -122,12 +127,10 @@ export function UnifiedJobPickerDialog({
   }, [serviceSearch, jobsByType.filter_replacement, customers]);
 
   const toggleJob = (jobId: string) => {
-    setSelectedJobIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(jobId)) next.delete(jobId);
-      else next.add(jobId);
-      return next;
-    });
+    const next = new Set(selectedJobIds);
+    if (next.has(jobId)) next.delete(jobId);
+    else next.add(jobId);
+    onSelectedJobIdsChange(next);
   };
 
   const handleConfirm = () => {
@@ -147,11 +150,12 @@ export function UnifiedJobPickerDialog({
     if (ongoingIds.length > 0) onSelectOngoingJobs(ongoingIds);
     if (filterIds.length > 0) onSelectFilterJobs(filterIds, otherDayIds);
 
-    setSelectedJobIds(new Set());
+    onSelectedJobIdsChange(new Set());
   };
 
   const handleClose = () => {
-    setSelectedJobIds(new Set());
+    // Selections are intentionally kept so reopening the same day restores them;
+    // they only clear on per-job uncheck or on confirm (handleConfirm).
     setServiceSearch("");
     onClose();
   };

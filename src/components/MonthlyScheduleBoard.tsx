@@ -100,6 +100,9 @@ interface MonthlyScheduleBoardProps {
   }) => void;
 }
 
+// Stable empty default so days with no selection don't create a new Set each render.
+const EMPTY_SELECTION: Set<string> = new Set();
+
 export function MonthlyScheduleBoard({
   jobs,
   onApprove,
@@ -134,6 +137,11 @@ export function MonthlyScheduleBoard({
     dateStr: string;
     dayLabel: string;
   } | null>(null);
+  // Picker checkbox selections kept per day so closing/reopening the picker for
+  // the same day restores what was checked (the dialog itself unmounts on close).
+  const [pickerSelections, setPickerSelections] = useState<
+    Record<string, Set<string>>
+  >({});
   const [pendingDelete, setPendingDelete] = useState<{
     jobId: string;
     fromDateStr: string;
@@ -1188,6 +1196,15 @@ export function MonthlyScheduleBoard({
               }
               dayLabel={pickerState.dayLabel}
               dayAreas={dayAreas}
+              selectedJobIds={
+                pickerSelections[pickerState.dateStr] ?? EMPTY_SELECTION
+              }
+              onSelectedJobIdsChange={(next) =>
+                setPickerSelections((prev) => ({
+                  ...prev,
+                  [pickerState.dateStr]: next,
+                }))
+              }
             />
           );
         })()}
