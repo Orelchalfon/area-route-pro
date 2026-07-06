@@ -13,7 +13,6 @@ import { CustomerEditDialog } from '@/components/CustomerEditDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { OngoingService } from '@/hooks/useOngoingServices';
 import { cn } from '@/lib/utils';
 import { CompletionStatus, Customer } from '@/types';
@@ -30,6 +29,7 @@ import { CalendarDays, CheckCircle, Filter, Pencil, Phone, Trash2, UserCog } fro
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { statusClass, statusText } from './status';
+import { StatusEditPopover } from './StatusEditPopover';
 
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
@@ -49,13 +49,6 @@ interface MonthListViewProps {
   customersById?: Map<string, Customer>;
   onUpdateCustomer?: (customerId: string, data: Partial<Customer>) => void;
 }
-
-// Manager-editable completion states for a service-cycle row.
-const STATUS_OPTIONS: { value: CompletionStatus; label: string; dot: string }[] = [
-  { value: 'done', label: 'בוצע', dot: 'bg-green-500' },
-  { value: 'need_return', label: 'צריך לחזור', dot: 'bg-amber-500' },
-  { value: 'not_done', label: 'לא בוצע', dot: 'bg-red-500' },
-];
 
 export function MonthListView({
   services,
@@ -123,42 +116,21 @@ export function MonthListView({
                   <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
                 )}
                 {onUpdateService ? (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        title="לחץ לעדכון סטטוס"
-                        className={cn(
-                          'text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity',
-                          statusClass(s),
-                        )}>
-                        {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
-                        {statusText(s)}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent dir="rtl" align="end" className="w-44 p-1">
-                      <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1">עדכן סטטוס</p>
-                      {STATUS_OPTIONS.map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => onUpdateService(s.id, { completion_status: opt.value })}
-                          className={cn(
-                            'w-full text-right text-xs px-2 py-1.5 rounded hover:bg-muted/60 transition-colors flex items-center gap-2',
-                            s.completion_status === opt.value && 'bg-muted font-medium',
-                          )}>
-                          <span className={cn('w-2 h-2 rounded-full flex-shrink-0', opt.dot)} />
-                          {opt.label}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => onUpdateService(s.id, { completion_status: null })}
-                        className="w-full text-right text-xs px-2 py-1.5 rounded hover:bg-muted/60 transition-colors text-muted-foreground">
-                        נקה סטטוס
-                      </button>
-                    </PopoverContent>
-                  </Popover>
+                  <StatusEditPopover service={s} onUpdateService={onUpdateService}>
+                    <button
+                      type="button"
+                      title="לחץ לעדכון סטטוס"
+                      aria-label={`עדכן סטטוס — ${s.task_description}`}
+                      className={cn(
+                        'text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0 cursor-pointer',
+                        'hover:opacity-80 motion-safe:active:scale-95 transition-all',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+                        statusClass(s),
+                      )}>
+                      {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
+                      {statusText(s)}
+                    </button>
+                  </StatusEditPopover>
                 ) : (
                   <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
                     {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
@@ -346,7 +318,79 @@ function ServiceLineEditDialog({
   );
 }
 
-export function MonthCalendarView({ services, selectedMonth, selectedYear }: { services: OngoingService[]; selectedMonth: number; selectedYear: number }) {
+// One service inside a calendar day cell. Editable (opens the status popover) when
+// an update handler is provided; otherwise a plain read-only chip.
+function CalendarServiceChip({
+  service: s,
+  onUpdateService,
+}: {
+  service: OngoingService;
+  onUpdateService?: MonthListViewProps['onUpdateService'];
+}) {
+  const isDone = s.completion_status === 'done' || s.is_done;
+  const title = `${s.task_description} — ${s.location}${s.phone ? ` — ${s.phone}` : ''} — ${statusText(s)}`;
+  const base = cn(
+    'flex items-center gap-1 px-1.5 min-h-[22px] w-full rounded text-[10px] border truncate',
+    statusClass(s),
+  );
+  const inner = (
+    <>
+      {isDone ? (
+        <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />
+      ) : (
+        <Filter className="w-2.5 h-2.5 flex-shrink-0" />
+      )}
+      <span className="truncate">{s.task_description}</span>
+    </>
+  );
+
+  if (!onUpdateService) {
+    return (
+      <div className={base} title={title}>
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <StatusEditPopover service={s} onUpdateService={onUpdateService} align="start">
+      <button
+        type="button"
+        title={title}
+        aria-label={`עדכן סטטוס — ${s.task_description}`}
+        className={cn(
+          base,
+          'cursor-pointer text-right hover:brightness-95 motion-safe:active:scale-[0.98] transition-all',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+        )}>
+        {inner}
+      </button>
+    </StatusEditPopover>
+  );
+}
+
+export function MonthCalendarView({
+  services,
+  selectedMonth,
+  selectedYear,
+  onUpdateService,
+}: {
+  services: OngoingService[];
+  selectedMonth: number;
+  selectedYear: number;
+  onUpdateService?: MonthListViewProps['onUpdateService'];
+}) {
+  // Days with more than 4 services collapse to keep the grid compact; the manager can
+  // expand a day inline so every service stays reachable/editable.
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const toggleExpand = (dateStr: string) =>
+    setExpandedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) next.delete(dateStr);
+      else next.add(dateStr);
+      return next;
+    });
+
   const monthDate = new Date(selectedYear, selectedMonth - 1, 1);
   const monthStart = startOfMonth(monthDate);
   const monthEnd = endOfMonth(monthDate);
@@ -376,6 +420,8 @@ export function MonthCalendarView({ services, selectedMonth, selectedYear }: { s
           const isWeekend = getDay(day) === 5 || getDay(day) === 6;
           const dayServices = servicesByDate[dateStr] || [];
           const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
+          const isExpanded = expandedDays.has(dateStr);
+          const visibleServices = isExpanded ? dayServices : dayServices.slice(0, 4);
 
           return (
             <div
@@ -395,18 +441,21 @@ export function MonthCalendarView({ services, selectedMonth, selectedYear }: { s
               </div>
               {isCurrentMonth && !isWeekend && (
                 <div className="space-y-0.5">
-                  {dayServices.slice(0, 4).map(s => (
-                    <div
+                  {visibleServices.map(s => (
+                    <CalendarServiceChip
                       key={s.id}
-                      className={cn('flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border truncate', statusClass(s))}
-                      title={`${s.task_description} — ${s.location}${s.phone ? ` — ${s.phone}` : ''} — ${statusText(s)}`}
-                    >
-                      {(s.completion_status === 'done' || s.is_done) ? <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" /> : <Filter className="w-2.5 h-2.5 flex-shrink-0" />}
-                      <span className="truncate">{s.task_description}</span>
-                    </div>
+                      service={s}
+                      onUpdateService={onUpdateService}
+                    />
                   ))}
                   {dayServices.length > 4 && (
-                    <span className="text-[9px] text-muted-foreground px-1">+{dayServices.length - 4} עוד</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(dateStr)}
+                      aria-expanded={isExpanded}
+                      className="w-full text-[9px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded text-right cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
+                      {isExpanded ? 'הצג פחות' : `+${dayServices.length - 4} עוד`}
+                    </button>
                   )}
                 </div>
               )}

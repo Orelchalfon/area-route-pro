@@ -249,6 +249,7 @@ export default function ServiceCyclePage() {
             services={stat.services}
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
+            onUpdateService={updateOngoingService}
           />
         )}
       </div>
