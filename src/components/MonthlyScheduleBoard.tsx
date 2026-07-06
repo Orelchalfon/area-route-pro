@@ -44,6 +44,7 @@ import {
   Filter,
   MapPin,
   Plus,
+  Trash2,
   Wrench,
   ZoomIn,
   ZoomOut,
@@ -142,6 +143,7 @@ export function MonthlyScheduleBoard({
   const [pickerSelections, setPickerSelections] = useState<
     Record<string, Set<string>>
   >({});
+  const [pendingDayReset, setPendingDayReset] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{
     jobId: string;
     fromDateStr: string;
@@ -669,6 +671,47 @@ export function MonthlyScheduleBoard({
     setPendingDelete(null);
   }, [pendingDelete, handleDeleteFilter, handleDeleteManual]);
 
+  // Reset a whole day — unassign every job (manual + filter/service) back to the
+  // pool. Replicates handleDeleteFilter/handleDeleteManual side-effects in a
+  // single pass with one summary toast instead of one toast per job. Plain
+  // function (not useCallback) since it closes over the render-fresh
+  // getFilterDayJobs/getManualDayJobs helpers and is only invoked on confirm.
+  const handleResetDay = (dateStr: string) => {
+    const filters = getFilterDayJobs(dateStr);
+    const manual = getManualDayJobs(dateStr);
+    const count = filters.length + manual.length;
+    if (count === 0) return;
+    filters.forEach((j) => {
+      const isAuto = (filterDistribution.get(dateStr) || []).some(
+        (f) => f.id === j.id,
+      );
+      if (isAuto) {
+        setRemovedFromAutoIds((prev) => new Set(prev).add(j.id));
+      } else {
+        setExtraFilterAssignments((prev) => {
+          const next = new Map(prev);
+          const dayJobs = (next.get(dateStr) || []).filter(
+            (f) => f.id !== j.id,
+          );
+          if (dayJobs.length > 0) next.set(dateStr, dayJobs);
+          else next.delete(dateStr);
+          return next;
+        });
+      }
+      // db-ongoing-* schedule lives on the row; others in scheduled_filter_services.
+      if (j.id.startsWith("db-ongoing-")) onUnassignJob(j.id);
+      else onUnassignFilterService?.(j.id);
+    });
+    manual.forEach((j) => onUnassignJob(j.id));
+    toast.info(`${count} משימות הוסרו מהיום וחזרו למאגר`);
+  };
+
+  const confirmDayReset = () => {
+    if (!pendingDayReset) return;
+    handleResetDay(pendingDayReset);
+    setPendingDayReset(null);
+  };
+
   // Stats
   const stats = useMemo(() => {
     const filterCount = filterJobs.length;
@@ -961,6 +1004,21 @@ export function MonthlyScheduleBoard({
                             {Math.floor(totalMinutes / 60)}:
                             {String(totalMinutes % 60).padStart(2, "0")}
                           </span>
+                        )}
+                        {/* Reset day — unassign every job on this day back to the pool.
+                            Destructive, so it's separated from the '+' add button and
+                            guarded by a confirmation dialog. */}
+                        {!isWeekend && inCurrentMonth && hasJobs && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPendingDayReset(dateStr);
+                            }}
+                            className='p-0.5 rounded hover:bg-destructive/15 transition-colors'
+                            title='אפס יום — הסר את כל המשימות'
+                            aria-label='אפס יום — הסר את כל המשימות'>
+                            <Trash2 className='w-3 h-3 text-muted-foreground hover:text-destructive' />
+                          </button>
                         )}
                         {/* Approve / manage-approval entry point. When approved the green check
                             reopens the dialog so the day can be un-approved and edited. */}
@@ -1285,6 +1343,41 @@ export function MonthlyScheduleBoard({
               onClick={confirmDelete}
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
               הסר
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Day reset confirmation */}
+      <AlertDialog
+        open={!!pendingDayReset}
+        onOpenChange={(o) => {
+          if (!o) setPendingDayReset(null);
+        }}>
+        <AlertDialogContent dir='rtl'>
+          <AlertDialogHeader>
+            <AlertDialogTitle className='text-right'>איפוס יום</AlertDialogTitle>
+            <AlertDialogDescription className='text-right'>
+              {(() => {
+                if (!pendingDayReset) return "האם להסיר את כל המשימות מהיום?";
+                const count =
+                  getFilterDayJobs(pendingDayReset).length +
+                  getManualDayJobs(pendingDayReset).length;
+                const label = format(
+                  new Date(pendingDayReset + "T00:00:00"),
+                  "EEEE d/M",
+                  { locale: he },
+                );
+                return `האם להסיר את כל ${count} המשימות מ${label} ולהחזירן למאגר?`;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDayReset}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+              הסר הכל
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
