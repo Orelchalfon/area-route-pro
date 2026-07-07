@@ -142,6 +142,14 @@ export function DayApprovalDialog({
                   );
                   const phone = job.phone || customer?.phone;
                   const typeConfig = JOB_TYPE_CONFIG[job.type];
+                  // Job details (הערות) shown inline so the manager sees them without
+                  // opening anything — mirrors UnifiedJobPickerDialog: ongoing-service
+                  // jobs store "task | note", so surface just the task description; all
+                  // other jobs show their full notes string.
+                  const isOngoing = job.id.startsWith("db-ongoing-");
+                  const noteText = (
+                    isOngoing ? (job.notes || "").split(" | ")[0] : job.notes
+                  )?.trim();
                   const isDragging = dragIdx === i;
                   const isOver = overIdx === i && dragIdx !== i;
                   return (
@@ -187,6 +195,13 @@ export function DayApprovalDialog({
                         </span>
                         <span>{job.location}</span>
                       </div>
+                      {noteText && (
+                        <p
+                          className='text-xs opacity-70 mt-1 line-clamp-2'
+                          title={noteText}>
+                          {noteText}
+                        </p>
+                      )}
                       {phone && (
                         <div className='text-xs opacity-60 mt-0.5'>
                           📱 <span dir='ltr'>{phone}</span>

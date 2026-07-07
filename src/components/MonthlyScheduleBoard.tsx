@@ -56,7 +56,11 @@ import { DayApprovalDialog } from "./monthly-schedule/dialogs/DayApprovalDialog"
 import { DayDetailDialog } from "./monthly-schedule/dialogs/DayDetailDialog";
 import { UnifiedJobPickerDialog } from "./monthly-schedule/dialogs/UnifiedJobPickerDialog";
 import { MiniJobChip } from "./monthly-schedule/MiniJobChip";
-import { REGIONS, jobMatchesAreas } from "./monthly-schedule/regions";
+import {
+  REGIONS,
+  UNASSIGNED_REGION,
+  jobMatchesAreas,
+} from "./monthly-schedule/regions";
 import {
   distributeFilterJobs,
   generateFilterJobs,
@@ -1080,7 +1084,7 @@ export function MonthlyScheduleBoard({
                               בחר אזורים ליום:
                             </p>
                             <div className='space-y-1 max-h-[200px] overflow-y-auto'>
-                              {REGIONS.map((r) => (
+                              {[...REGIONS, UNASSIGNED_REGION].map((r) => (
                                 <label
                                   key={r}
                                   className='flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-xs'>

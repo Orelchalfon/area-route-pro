@@ -17,6 +17,12 @@ export const REGIONS = [
   "שומרון",
 ];
 
+// Bucket for jobs whose city resolves to none of the real REGIONS above. Lets the
+// manager still filter/schedule a client whose city isn't mapped yet (e.g. a freshly
+// added customer in an out-of-list town). Kept out of REGIONS so it stays a real-region
+// list; the picker appends it and jobMatchesAreas handles it explicitly.
+export const UNASSIGNED_REGION = "לא משויך";
+
 // Map specific cities to their parent region
 const CITY_TO_REGION: Record<string, string> = {
   // השרון
@@ -143,6 +149,14 @@ const CITY_TO_REGION: Record<string, string> = {
   חשמונאים: "שומרון",
 };
 
+/** Whether a city resolves to any real region (direct name, map, or partial match). */
+function cityHasRegion(city: string): boolean {
+  if (!city) return false;
+  if ((REGIONS as string[]).includes(city)) return true;
+  if (CITY_TO_REGION[city]) return true;
+  return REGIONS.some((r) => city.includes(r) || r.includes(city));
+}
+
 /** Check if a job's city belongs to any of the selected regions */
 export function jobMatchesAreas(job: Job, areas: string[]): boolean {
   if (areas.length === 0) return true;
@@ -152,9 +166,13 @@ export function jobMatchesAreas(job: Job, areas: string[]): boolean {
   // Map city to region
   const region = CITY_TO_REGION[city];
   if (region && areas.includes(region)) return true;
-  // Partial match: check if city contains or is contained by a region name
+  // Partial match: check if city contains or is contained by a region name.
+  // Skip the unassigned bucket here so its label can't spuriously partial-match.
   for (const area of areas) {
+    if (area === UNASSIGNED_REGION) continue;
     if (city.includes(area) || area.includes(city)) return true;
   }
+  // Unassigned bucket: surface jobs no real region claims.
+  if (areas.includes(UNASSIGNED_REGION) && !cityHasRegion(city)) return true;
   return false;
 }
