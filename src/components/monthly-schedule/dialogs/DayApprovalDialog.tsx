@@ -193,7 +193,13 @@ export function DayApprovalDialog({
                         <span>
                           {typeConfig.label} · {job.estimatedDuration} דק׳
                         </span>
-                        <span>{job.location}</span>
+                        <span
+                          title={[job.location, job.city]
+                            .filter(Boolean)
+                            .join(", ")}>
+                          {job.location}
+                          {job.city ? `, ${job.city}` : ""}
+                        </span>
                       </div>
                       {noteText && (
                         <p

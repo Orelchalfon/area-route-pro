@@ -151,6 +151,13 @@ export function DayDetailDialog({
             {orderedJobs.map((job, idx) => {
               const customer = customers.find((c) => c.id === job.customerId);
               const typeConfig = JOB_TYPE_CONFIG[job.type];
+              // Job details (הערות) inline so the manager reads them without opening the
+              // edit form — same job.notes the edit הערות field binds to. Ongoing-service
+              // jobs store "task | note", so surface just the task description.
+              const isOngoing = job.id.startsWith("db-ongoing-");
+              const noteText = (
+                isOngoing ? (job.notes || "").split(" | ")[0] : job.notes
+              )?.trim();
               const isCompleted = job.status === "completed";
               const borderClass = job.completionStatus
                 ? completionColorMap[job.completionStatus]
@@ -207,7 +214,21 @@ export function DayDetailDialog({
                       <p className='text-xs opacity-70'>
                         {typeConfig.label} · {job.estimatedDuration} דק׳
                       </p>
-                      <p className='text-xs opacity-60'>{job.location}</p>
+                      <p
+                        className='text-xs opacity-60'
+                        title={[job.location, job.city]
+                          .filter(Boolean)
+                          .join(", ")}>
+                        {job.location}
+                        {job.city ? `, ${job.city}` : ""}
+                      </p>
+                      {noteText && (
+                        <p
+                          className='text-xs opacity-60 mt-0.5 line-clamp-2'
+                          title={noteText}>
+                          {noteText}
+                        </p>
+                      )}
                       {(job.phone || customer?.phone) && (
                         <a
                           href={`tel:${job.phone || customer?.phone}`}
