@@ -33,7 +33,7 @@ type MalfRow = {
   updated_at: string;
 };
 
-type InstRow = {
+export type InstRow = {
   id: string;
   customer_name: string | null;
   phone: string | null;
@@ -91,7 +91,7 @@ function malfToJobAndCustomer(row: MalfRow): { job: Job; customer: Customer } {
   return { job, customer };
 }
 
-function instToJobAndCustomer(row: InstRow): { job: Job; customer: Customer } {
+export function instToJobAndCustomer(row: InstRow): { job: Job; customer: Customer } {
   const customer: Customer = {
     id: makeInstallationCustomerId(row.id),
     name: row.customer_name || 'ללא שם',
@@ -116,8 +116,8 @@ function instToJobAndCustomer(row: InstRow): { job: Job; customer: Customer } {
     completionStatus: mapCompletionStatus(row.completion_status),
     completionNotes: row.completion_notes || undefined,
     createdAt: (row.installation_date || row.created_at).slice(0, 10),
-    scheduledDate: row.scheduled_date || row.installation_date || undefined,
-    scheduledTime: row.scheduled_time || row.installation_time || undefined,
+    scheduledDate: row.scheduled_date || undefined,
+    scheduledTime: row.scheduled_time || undefined,
   };
   return { job, customer };
 }
