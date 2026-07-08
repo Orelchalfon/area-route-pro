@@ -24,6 +24,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { jobMatchesPickerSearch } from "./jobPickerSearch";
 import { jobMatchesAreas } from "../regions";
 
 const PICKER_PAGE_SIZE = 100;
@@ -64,9 +65,7 @@ export function UnifiedJobPickerDialog({
 }) {
   const { customersList: customers } = useJobsContext();
   const [activeTab, setActiveTab] = useState("malfunction");
-  // The 'שירות' pool can be large (hundreds of open ongoing services); a text filter
-  // keeps it usable on top of the per-day area filter.
-  const [serviceSearch, setServiceSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Don't offer jobs that are already finished — only schedule open work.
   const isCompleted = (j: Job) =>
@@ -116,16 +115,21 @@ export function UnifiedJobPickerDialog({
     [areaFilteredManualJobs, areaFilteredFilterJobs, areaFilteredOngoingJobs],
   );
 
-  // Text search over the 'שירות' tab (customer name / task description / city).
-  const filteredServiceJobs = useMemo(() => {
-    const q = serviceSearch.trim().toLowerCase();
-    if (!q) return jobsByType.filter_replacement;
-    return jobsByType.filter_replacement.filter((job) => {
-      const name = customers.find((c) => c.id === job.customerId)?.name || "";
-      return [name, job.notes, job.city, job.location]
-        .some((f) => f && f.toLowerCase().includes(q));
-    });
-  }, [serviceSearch, jobsByType.filter_replacement, customers]);
+  const filteredJobsByType = useMemo(() => {
+    const customersById = new Map(customers.map((c) => [c.id, c]));
+    const filterJobs = (items: Job[]) =>
+      items.filter((job) =>
+        jobMatchesPickerSearch(job, customersById.get(job.customerId), searchQuery),
+      );
+
+    return {
+      malfunction: filterJobs(jobsByType.malfunction),
+      installation: filterJobs(jobsByType.installation),
+      filter_replacement: filterJobs(jobsByType.filter_replacement),
+    };
+  }, [customers, jobsByType, searchQuery]);
+
+  const tabCounts = searchQuery.trim() ? filteredJobsByType : jobsByType;
 
   const toggleJob = (jobId: string) => {
     const next = new Set(selectedJobIds);
@@ -157,7 +161,7 @@ export function UnifiedJobPickerDialog({
   const handleClose = () => {
     // Selections are intentionally kept so reopening the same day restores them;
     // they only clear on per-job uncheck or on confirm (handleConfirm).
-    setServiceSearch("");
+    setSearchQuery("");
     onClose();
   };
 
@@ -182,20 +186,29 @@ export function UnifiedJobPickerDialog({
           <TabsList className='w-full justify-start overflow-x-auto'>
             <TabsTrigger value='malfunction' className='gap-1'>
               <AlertTriangle className='w-3.5 h-3.5' />
-              תקלות ({jobsByType.malfunction.length})
+              תקלות ({tabCounts.malfunction.length})
             </TabsTrigger>
             <TabsTrigger value='installation' className='gap-1'>
               <Wrench className='w-3.5 h-3.5' />
-              התקנות ({jobsByType.installation.length})
+              התקנות ({tabCounts.installation.length})
             </TabsTrigger>
             <TabsTrigger value='filter_replacement' className='gap-1'>
               <Filter className='w-3.5 h-3.5' />
-              שירות ({jobsByType.filter_replacement.length})
+              שירות ({tabCounts.filter_replacement.length})
             </TabsTrigger>
           </TabsList>
+          <div className='relative my-2'>
+            <Search className='absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none' />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder='חיפוש לפי שם / טלפון / תיאור / עיר...'
+              className='pr-9'
+            />
+          </div>
           <TabsContent value='malfunction' className='min-h-0 flex-1'>
             <IncrementalJobList
-              items={jobsByType.malfunction}
+              items={filteredJobsByType.malfunction}
               customers={customers}
               otherDayIds={otherDayIds}
               selectedJobIds={selectedJobIds}
@@ -204,7 +217,7 @@ export function UnifiedJobPickerDialog({
           </TabsContent>
           <TabsContent value='installation' className='min-h-0 flex-1'>
             <IncrementalJobList
-              items={jobsByType.installation}
+              items={filteredJobsByType.installation}
               customers={customers}
               otherDayIds={otherDayIds}
               selectedJobIds={selectedJobIds}
@@ -214,17 +227,8 @@ export function UnifiedJobPickerDialog({
           <TabsContent
             value='filter_replacement'
             className='min-h-0 flex-1 flex flex-col'>
-            <div className='relative mb-2'>
-              <Search className='absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none' />
-              <Input
-                value={serviceSearch}
-                onChange={(e) => setServiceSearch(e.target.value)}
-                placeholder='חיפוש לפי שם / תיאור / עיר...'
-                className='pr-9'
-              />
-            </div>
             <IncrementalJobList
-              items={filteredServiceJobs}
+              items={filteredJobsByType.filter_replacement}
               customers={customers}
               otherDayIds={otherDayIds}
               selectedJobIds={selectedJobIds}
