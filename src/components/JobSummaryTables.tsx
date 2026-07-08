@@ -1,5 +1,5 @@
 import { Job, STATUS_CONFIG } from '@/types';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';

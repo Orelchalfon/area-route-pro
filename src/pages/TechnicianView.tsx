@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { approvedDayKey } from '@/hooks/useApprovedDays';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';

@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 
 type Role = 'admin' | 'employee';
 

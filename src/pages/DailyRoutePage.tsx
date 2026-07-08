@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { approvedDayKey } from '@/hooks/useApprovedDays';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { Job, Customer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

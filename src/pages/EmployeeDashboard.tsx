@@ -6,7 +6,7 @@ import { Calendar, CheckCircle2, Clock, ListChecks, MapPin, Map as MapIcon, User
 import { useAuth } from '@/contexts/AuthContext';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { approvedDayKey } from '@/hooks/useApprovedDays';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { JobCard } from '@/components/JobCard';

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Job } from '@/types';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, MapPin, Clock, Filter } from 'lucide-react';

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Job, JOB_TYPE_CONFIG, STATUS_CONFIG, JobType } from '@/types';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronDown } from 'lucide-react';

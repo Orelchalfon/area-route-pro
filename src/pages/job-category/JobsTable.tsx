@@ -7,7 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useJobsContext } from "@/contexts/JobsContext";
-import { technicians } from "@/data/mockData";
+import { technicians } from "@/data/technicians";
 import { areaForCity } from "@/lib/areas";
 import { formatHebrewDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";

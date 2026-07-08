@@ -1,5 +1,5 @@
 import { Job, JOB_TYPE_CONFIG, STATUS_CONFIG, Customer } from '@/types';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { Button } from '@/components/ui/button';
 import { Clock, MapPin, User, Phone, Navigation, CheckCircle2 } from 'lucide-react';
 import { useJobsContext } from '@/contexts/JobsContext';

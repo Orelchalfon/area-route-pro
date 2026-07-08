@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useJobsContext } from "@/contexts/JobsContext";
-import { technicians } from "@/data/mockData";
+import { technicians } from "@/data/technicians";
 import { cn } from "@/lib/utils";
 import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import {

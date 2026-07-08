@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useJobsContext } from "@/contexts/JobsContext";
-import { technicians } from "@/data/mockData";
+import { technicians } from "@/data/technicians";
 import { groupJobsByArea } from "@/lib/areas";
 import { Customer, Job } from "@/types";
 import { CheckCircle2, ChevronDown, MapPin } from "lucide-react";

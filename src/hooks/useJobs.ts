@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Job, JobStatus, JobType, JOB_TYPE_CONFIG, Customer, CompletionStatus, ServiceTrack, SERVICE_TRACK_CONFIG } from '@/types';
-import { technicians, initialJobs } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { loadCustomersFromCSV } from '@/lib/csvParser';
 import { formatHebrewDateTime } from '@/lib/dates';
 import { useActivityLogs } from '@/hooks/useActivityLogs';
@@ -37,7 +37,7 @@ function shouldResetStoredCoords(data: Partial<Customer>) {
 
 // Hook ordering stable v2 - malfunctions added
 export function useJobs() {
-  const [jobs, setJobs] = useState<Job[]>(initialJobs);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const { activityLogs, addLog, getCustomerLogs } = useActivityLogs();

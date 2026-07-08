@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useJobsContext } from '@/contexts/JobsContext';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { JOB_TYPE_CONFIG } from '@/types';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { he } from 'date-fns/locale';

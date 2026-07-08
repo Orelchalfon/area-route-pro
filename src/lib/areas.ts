@@ -15,7 +15,7 @@ export type AreaOrUnassigned = Area | typeof UNASSIGNED_AREA;
 export const AREA_ORDER: AreaOrUnassigned[] = [...AREAS, UNASSIGNED_AREA];
 
 // Curated city → area map, by real Israeli geography. Seeded from every city seen
-// in sheets/*.csv and src/data/mockData.ts. Add new cities here as they appear.
+// in the imported customer data. Add new cities here as they appear.
 export const CITY_AREA: Record<string, Area> = {
   // צפון — Haifa district + Galilee + Carmel coast
   'חיפה': 'צפון',

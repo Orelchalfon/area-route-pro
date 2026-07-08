@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { technicians } from '@/data/mockData';
+import { technicians } from '@/data/technicians';
 import { Customer, Job, JobType } from '@/types';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
