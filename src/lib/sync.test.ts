@@ -56,6 +56,18 @@ describe('db job sync mapping', () => {
       completion_notes: null,
     });
   });
+
+  it('clears scheduling fields without changing status when status is omitted', () => {
+    expect(buildDbJobUpdatePatch('malfunctions', {
+      technicianId: null,
+      scheduledDate: null,
+      scheduledTime: null,
+    })).toEqual({
+      technician_id: null,
+      scheduled_date: null,
+      scheduled_time: null,
+    });
+  });
 });
 
 describe('Make payload normalization', () => {

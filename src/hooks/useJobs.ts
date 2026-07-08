@@ -738,7 +738,6 @@ export function useJobs() {
         j.id === jobId
           ? {
               ...j,
-              status: "draft" as JobStatus,
               technicianId: undefined,
               scheduledDate: undefined,
               scheduledTime: undefined,
@@ -857,7 +856,6 @@ export function useJobs() {
       ),
     );
     persistDbJob(jobId, {
-      status: "draft",
       technicianId: null,
       scheduledDate: null,
       scheduledTime: null,

@@ -11,6 +11,7 @@ export function EditableJobRow({
   showAssignment,
   onEditCustomer,
   onDeleteJob,
+  onUnassignJob,
 }: {
   job: Job;
   customer: Customer | undefined;
@@ -18,6 +19,7 @@ export function EditableJobRow({
   showAssignment?: boolean;
   onEditCustomer: (customer: Customer) => void;
   onDeleteJob: (job: Job) => void;
+  onUnassignJob?: (jobId: string) => void;
 }) {
   // "Opened on" stamp: prefer the stored Hebrew openedDate, fall back to
   // formatting createdAt for jobs that predate the field (e.g. DB-loaded rows).
@@ -53,6 +55,7 @@ export function EditableJobRow({
           customer={customer}
           onEditCustomer={onEditCustomer}
           onDeleteJob={onDeleteJob}
+          onUnassignJob={onUnassignJob}
         />
       </TableCell>
     </TableRow>

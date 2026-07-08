@@ -22,11 +22,13 @@ export function JobsByArea({
   showAssignment,
   onEditCustomer,
   onDeleteJob,
+  onUnassignJob,
 }: {
   jobs: Job[];
   showAssignment?: boolean;
   onEditCustomer: (customer: Customer) => void;
   onDeleteJob: (job: Job) => void;
+  onUnassignJob?: (jobId: string) => void;
 }) {
   const { customersList: customers } = useJobsContext();
 
@@ -97,6 +99,9 @@ export function JobsByArea({
                             showAssignment={showAssignment}
                             onEditCustomer={onEditCustomer}
                             onDeleteJob={onDeleteJob}
+                            onUnassignJob={
+                              showAssignment ? onUnassignJob : undefined
+                            }
                           />
                         );
                       })}

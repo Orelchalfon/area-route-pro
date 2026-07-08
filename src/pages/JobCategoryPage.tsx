@@ -25,6 +25,10 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  hasBoardAssignment,
+  isWaitingForAssignment,
+} from "./job-category/assignmentBuckets";
 import { JobsByArea } from "./job-category/JobsByArea";
 import { JobsTable } from "./job-category/JobsTable";
 import { LiveSyncStatus } from "./job-category/LiveSyncStatus";
@@ -49,6 +53,7 @@ export default function JobCategoryPage({
     addJob,
     updateCustomer,
     archiveJob,
+    unassignJob,
     dbSyncStatus,
     dbSyncError,
     dbLastSyncedAt,
@@ -116,12 +121,13 @@ export default function JobCategoryPage({
     });
   }, [allOfType, customersList, searchQuery]);
 
-  const unassigned = filtered.filter(
-    (j) => !j.technicianId && !j.scheduledDate && j.status === "draft",
-  );
-  const assigned = filtered.filter(
-    (j) => j.technicianId || j.scheduledDate || j.status !== "draft",
-  );
+  const unassigned = filtered.filter(isWaitingForAssignment);
+  const assigned = filtered.filter(hasBoardAssignment);
+
+  const handleUnassignJob = (jobId: string) => {
+    unassignJob(jobId);
+    toast.success("המשימה הוחזרה לממתינים לשיבוץ");
+  };
 
   const renderJobs = (jobsToRender: Job[], showAssignment?: boolean) =>
     viewMode === "table" ? (
@@ -130,6 +136,7 @@ export default function JobCategoryPage({
         showAssignment={showAssignment}
         onEditCustomer={setEditingCustomer}
         onDeleteJob={setPendingDelete}
+        onUnassignJob={showAssignment ? handleUnassignJob : undefined}
       />
     ) : (
       <JobsByArea
@@ -137,6 +144,7 @@ export default function JobCategoryPage({
         showAssignment={showAssignment}
         onEditCustomer={setEditingCustomer}
         onDeleteJob={setPendingDelete}
+        onUnassignJob={showAssignment ? handleUnassignJob : undefined}
       />
     );
 

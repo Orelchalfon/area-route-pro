@@ -37,11 +37,13 @@ export function JobsTable({
   showAssignment,
   onEditCustomer,
   onDeleteJob,
+  onUnassignJob,
 }: {
   jobs: Job[];
   showAssignment?: boolean;
   onEditCustomer: (customer: Customer) => void;
   onDeleteJob: (job: Job) => void;
+  onUnassignJob?: (jobId: string) => void;
 }) {
   const { customersList: customers } = useJobsContext();
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
@@ -212,6 +214,7 @@ export function JobsTable({
                       customer={customer}
                       onEditCustomer={onEditCustomer}
                       onDeleteJob={onDeleteJob}
+                      onUnassignJob={showAssignment ? onUnassignJob : undefined}
                     />
                   </TableCell>
                 </TableRow>
