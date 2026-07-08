@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Job, Customer, JOB_TYPE_CONFIG, JobStatus, CompletionStatus } from '@/types';
+import { Job, Customer, JOB_TYPE_CONFIG, CompletionStatus } from '@/types';
+import { mapCompletionStatus, mapPriority, mapStatus } from '@/lib/jobMappers';
+import { makeDbCustomerId, makeOngoingCustomerId, makeOngoingJobId } from '@/lib/idConventions';
 
 export interface OngoingService {
   id: string;
@@ -49,30 +51,6 @@ type OngoingServiceRow = {
   source: string | null;
 };
 
-function mapStatus(status: string | null): JobStatus {
-  if (
-    status === 'draft' ||
-    status === 'pending_customer' ||
-    status === 'confirmed' ||
-    status === 'in_progress' ||
-    status === 'completed' ||
-    status === 'rescheduled'
-  ) {
-    return status;
-  }
-  return 'draft';
-}
-
-function mapPriority(p: string | null): Job['priority'] {
-  if (p === 'high' || p === 'medium' || p === 'low') return p;
-  return 'low';
-}
-
-function mapCompletionStatus(status: string | null): CompletionStatus | undefined {
-  if (status === 'done' || status === 'not_done' || status === 'need_return') return status;
-  return undefined;
-}
-
 // Only rows created through the app's "פניה חדשה" flow (they carry a customer_id)
 // become schedulable jobs. Calendar/follow-up rows stay out of the board.
 function ongoingToJobAndCustomer(row: OngoingServiceRow): { job: Job; customer: Customer } {
@@ -81,8 +59,8 @@ function ongoingToJobAndCustomer(row: OngoingServiceRow): { job: Job; customer: 
   // matches and the name renders); calendar/fallback rows keep a `db-ongoing-cust-`
   // id, which `useJobs` folds into `customersList` as a derived customer.
   const customerId = row.customer_id
-    ? `db-cust-${row.customer_id}`
-    : `db-ongoing-cust-${row.id}`;
+    ? makeDbCustomerId(row.customer_id)
+    : makeOngoingCustomerId(row.id);
   const customer: Customer = {
     id: customerId,
     // Calendar-derived rows have no customer_name — their task_description embeds the
@@ -96,7 +74,7 @@ function ongoingToJobAndCustomer(row: OngoingServiceRow): { job: Job; customer: 
     filterReplacementMonth: 1,
   };
   const job: Job = {
-    id: `db-ongoing-${row.id}`,
+    id: makeOngoingJobId(row.id),
     type: 'filter_replacement',
     status: mapStatus(row.status),
     priority: mapPriority(row.priority),

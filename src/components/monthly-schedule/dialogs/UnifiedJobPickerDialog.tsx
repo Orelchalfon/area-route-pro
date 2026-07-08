@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { useIncrementalRender } from "@/hooks/useIncrementalRender";
+import { isOngoingJob } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
 import { Customer, Job } from "@/types";
 import {
@@ -280,7 +281,7 @@ function IncrementalJobList({
         {visible.map((job) => {
           const customer = customers.find((c) => c.id === job.customerId);
           const isFromOther = otherDayIds.has(job.id);
-          const isOngoing = job.id.startsWith("db-ongoing-");
+          const isOngoing = isOngoingJob(job.id);
           const taskDescription = isOngoing
             ? (job.notes || "").split(" | ")[0]
             : undefined;

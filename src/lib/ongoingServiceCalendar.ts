@@ -1,4 +1,5 @@
 import { Customer, Job, JOB_TYPE_CONFIG } from '@/types';
+import { ID_PREFIX, makeIcsCustomerId } from '@/lib/idConventions';
 import {
   detectProduct,
   detectServiceTrack,
@@ -41,7 +42,7 @@ export function buildCalendarServiceData(
     if (customerName && !customerMap.has(customerKey)) {
       customerIdx++;
       customerMap.set(customerKey, {
-        id: `ics-c${customerIdx}`,
+        id: makeIcsCustomerId(customerIdx),
         name: customerName,
         phone: '',
         address: city,
@@ -54,10 +55,10 @@ export function buildCalendarServiceData(
     }
 
     const customer = customerMap.get(customerKey);
-    const customerId = customer?.id || `ics-c-unknown-${s.id}`;
+    const customerId = customer?.id || `${ID_PREFIX.icsCustomer}-unknown-${s.id}`;
 
     jobs.push({
-      id: `ics-${s.id}`,
+      id: `${ID_PREFIX.icsJob}${s.id}`,
       type: 'filter_replacement',
       status: 'draft',
       priority: 'low',

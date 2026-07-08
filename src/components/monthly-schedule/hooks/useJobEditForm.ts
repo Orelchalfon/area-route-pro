@@ -1,6 +1,7 @@
 import { useJobsContext } from "@/contexts/JobsContext";
 import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
 import { geocodeAddress } from "@/lib/geocodeAddress";
+import { isOngoingCustomer } from "@/lib/idConventions";
 import { Customer, Job } from "@/types";
 import {
   type Dispatch,
@@ -133,11 +134,7 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
         // the customers table — their name is the task description, so the upsert in
         // updateCustomer would mint a junk duplicate customer card. The job's own row
         // (ongoing_services) already got the address/city/phone via updateJob above.
-        if (
-          customer &&
-          customerUpdate &&
-          !customer.id.startsWith("db-ongoing-cust-")
-        ) {
+        if (customer && customerUpdate && !isOngoingCustomer(customer.id)) {
           updateCustomer(customer.id, customerUpdate);
         }
 

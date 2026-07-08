@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Customer, ServiceTrack } from '@/types';
 import type { TablesInsert } from '@/integrations/supabase/types';
+import { makeDbCustomerId, parseDbCustomerId } from '@/lib/idConventions';
 
 export type CustomerRow = {
   id: string;
@@ -28,7 +29,7 @@ function mapServiceTrack(value: string | null): ServiceTrack | undefined {
 
 export function rowToCustomer(row: CustomerRow): Customer {
   return {
-    id: `db-cust-${row.id}`,
+    id: makeDbCustomerId(row.id),
     name: row.name || 'ללא שם',
     phone: row.phone || '',
     address: row.address || '',
@@ -74,7 +75,7 @@ function customerToRow(data: Partial<Customer>): Partial<TablesInsert<'customers
 
 // Strip the db-cust- prefix back to the raw UUID used as the customers PK.
 export function customerDbId(customerId: string): string | null {
-  return customerId.startsWith('db-cust-') ? customerId.replace('db-cust-', '') : null;
+  return parseDbCustomerId(customerId);
 }
 
 // Insert a brand-new customer (source 'app'); returns the saved Customer with its db-cust- id.

@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
+import { isOngoingJob } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
 import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
@@ -28,7 +29,6 @@ export function DayDetailDialog({
   dayJobs,
   filterJobs,
   onRemoveJob,
-  onMoveJob,
   onCloseJob,
   onReturnJob,
   onAddJob,
@@ -75,7 +75,6 @@ export function DayDetailDialog({
     closeEditingJob,
     handleSaveEditedJob,
   } = useJobEditForm(setOrderedJobs);
-  const [showMap, setShowMap] = useState(false);
   const dayDate = new Date(dateStr + "T00:00:00");
   const dayLabel = format(dayDate, "EEEE d/M", { locale: he });
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
@@ -154,7 +153,7 @@ export function DayDetailDialog({
               // Job details (הערות) inline so the manager reads them without opening the
               // edit form — same job.notes the edit הערות field binds to. Ongoing-service
               // jobs store "task | note", so surface just the task description.
-              const isOngoing = job.id.startsWith("db-ongoing-");
+              const isOngoing = isOngoingJob(job.id);
               const noteText = (
                 isOngoing ? (job.notes || "").split(" | ")[0] : job.notes
               )?.trim();

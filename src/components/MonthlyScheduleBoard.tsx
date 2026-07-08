@@ -18,8 +18,13 @@ import {
 } from "@/components/ui/popover";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { technicians } from "@/data/technicians";
-import { cn } from "@/lib/utils";
-import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
+import {
+  isOngoingJob,
+  makeDbCustomerId,
+  makeOngoingCustomerId,
+  makeOngoingJobId,
+} from "@/lib/idConventions";
+import { Job, JobType } from "@/types";
 import {
   addMonths,
   addWeeks,
@@ -110,9 +115,7 @@ const EMPTY_SELECTION: Set<string> = new Set();
 
 export function MonthlyScheduleBoard({
   jobs,
-  onApprove,
   onApproveDaySchedule,
-  onStatusChange,
   onAssignJob,
   onUnassignJob,
   onAssignFilterService,
@@ -331,24 +334,6 @@ export function MonthlyScheduleBoard({
   };
 
   // Unassigned filter jobs (not yet distributed to any day)
-  const assignedFilterIds = useMemo(() => {
-    const ids = new Set<string>();
-    filterDistribution.forEach((jobs) =>
-      jobs.forEach((j) => {
-        if (!removedFromAutoIds.has(j.id)) ids.add(j.id);
-      }),
-    );
-    extraFilterAssignments.forEach((jobs) =>
-      jobs.forEach((j) => ids.add(j.id)),
-    );
-    return ids;
-  }, [filterDistribution, extraFilterAssignments, removedFromAutoIds]);
-
-  const unassignedFilterJobs = useMemo(
-    () => filterJobs.filter((j) => !assignedFilterIds.has(j.id)),
-    [filterJobs, assignedFilterIds],
-  );
-
   // Manually assigned jobs (malfunction/installation) for this tech & month — exclude filter jobs which are managed separately
   const manualJobs = jobs.filter(
     (j) =>
@@ -382,13 +367,13 @@ export function MonthlyScheduleBoard({
         return d >= windowStart && d <= windowEnd;
       })
       .map<Job>((s) => ({
-        id: `db-ongoing-${s.id}`,
+        id: makeOngoingJobId(s.id),
         type: "filter_replacement",
         status: "draft",
         priority: "low",
         customerId: s.customer_id
-          ? `db-cust-${s.customer_id}`
-          : `db-ongoing-cust-${s.id}`,
+          ? makeDbCustomerId(s.customer_id)
+          : makeOngoingCustomerId(s.id),
         estimatedDuration: 20,
         phone: s.phone || undefined,
         location: s.location,
@@ -412,29 +397,6 @@ export function MonthlyScheduleBoard({
         !localIds.has(j.id),
     );
     return [...localJobs, ...globalFilterJobs];
-  };
-
-  const handleFilterPickerSelect = (jobIds: string[], dateStr: string) => {
-    // Search in ranged jobs (not just current month) so adjacent-month jobs are found
-    const ranged = getFilterJobsInRange(dateStr);
-    const allCandidates = [...filterJobs, ...ranged];
-    const seen = new Set<string>();
-    const unique = allCandidates.filter((j) => {
-      if (seen.has(j.id)) return false;
-      seen.add(j.id);
-      return true;
-    });
-    const selected = unique.filter((j) => jobIds.includes(j.id));
-    setExtraFilterAssignments((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(dateStr) || [];
-      next.set(dateStr, [...existing, ...selected]);
-      return next;
-    });
-    // Persist each scheduled service so it survives a refresh
-    selected.forEach((job) =>
-      onAssignFilterService?.(job, selectedTechId, dateStr, ""),
-    );
   };
 
   const handleFilterPickerMoveSelect = (
@@ -541,7 +503,7 @@ export function MonthlyScheduleBoard({
       // db-ongoing-* are real DB rows scheduled via assignJob — move/unschedule them
       // through the DB-job path (persists to ongoing_services), not the synthetic
       // scheduled_filter_services path.
-      if (jobId.startsWith("db-ongoing-")) {
+      if (isOngoingJob(jobId)) {
         const dbJob = jobs.find((j) => j.id === jobId);
         if (!dbJob) return;
         const targetDate = findNearestAreaDay(fromDateStr, dbJob.city);
@@ -627,7 +589,7 @@ export function MonthlyScheduleBoard({
       // db-ongoing-* are real ongoing_services rows — their scheduling lives on the
       // row (technician_id/scheduled_date), NOT in scheduled_filter_services. Clear it
       // via the DB-job path so the delete actually persists across a refresh.
-      if (jobId.startsWith("db-ongoing-")) {
+      if (isOngoingJob(jobId)) {
         onUnassignJob(jobId);
       } else {
         onUnassignFilterService?.(jobId);
@@ -703,7 +665,7 @@ export function MonthlyScheduleBoard({
         });
       }
       // db-ongoing-* schedule lives on the row; others in scheduled_filter_services.
-      if (j.id.startsWith("db-ongoing-")) onUnassignJob(j.id);
+      if (isOngoingJob(j.id)) onUnassignJob(j.id);
       else onUnassignFilterService?.(j.id);
     });
     manual.forEach((j) => onUnassignJob(j.id));

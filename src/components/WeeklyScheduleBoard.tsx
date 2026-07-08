@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Job, JOB_TYPE_CONFIG, STATUS_CONFIG, JobType } from '@/types';
+import { Job, JOB_TYPE_CONFIG } from '@/types';
 import { technicians } from '@/data/technicians';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X, ChevronDown } from 'lucide-react';
+import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays, startOfToday } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -247,7 +247,7 @@ function AreaPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, dayLabe
   );
 }
 
-export function WeeklyScheduleBoard({ jobs, onApprove, onStatusChange, onAssignJob, onUnassignJob }: WeeklyScheduleBoardProps) {
+export function WeeklyScheduleBoard({ jobs, onApprove, onAssignJob, onUnassignJob }: WeeklyScheduleBoardProps) {
   const today = startOfToday();
   const [selectedTechId, setSelectedTechId] = useState<string | null>(null);
   const [pickerState, setPickerState] = useState<{ open: boolean; techId: string; dateStr: string; dayLabel: string } | null>(null);

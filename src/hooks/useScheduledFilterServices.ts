@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Job, JOB_TYPE_CONFIG, JobStatus, CompletionStatus } from '@/types';
+import { Job, JOB_TYPE_CONFIG } from '@/types';
+import { mapCompletionStatus, mapStatus } from '@/lib/jobMappers';
 
 type ScheduledFilterServiceRow = {
   id: string;
@@ -20,24 +21,6 @@ type ScheduledFilterServiceRow = {
   updated_at: string;
 };
 
-function mapStatus(status: string | null): JobStatus {
-  if (
-    status === 'draft' ||
-    status === 'pending_customer' ||
-    status === 'confirmed' ||
-    status === 'in_progress' ||
-    status === 'completed' ||
-    status === 'rescheduled'
-  ) {
-    return status;
-  }
-  return 'confirmed';
-}
-
-function mapCompletionStatus(status: string | null): CompletionStatus | undefined {
-  if (status === 'done' || status === 'not_done' || status === 'need_return') return status;
-  return undefined;
-}
 
 // A scheduled filter service reconciles back to its synthetic board id via job_key,
 // so the loaded Job keeps id === job_key (filter-{year}-{month}-{customerId}).
@@ -45,7 +28,7 @@ function rowToJob(row: ScheduledFilterServiceRow): Job {
   return {
     id: row.job_key,
     type: 'filter_replacement',
-    status: mapStatus(row.status),
+    status: mapStatus(row.status, 'confirmed'),
     priority: 'low',
     customerId: row.customer_id,
     technicianId: row.technician_id || undefined,

@@ -116,7 +116,6 @@ export async function loadInstallationsFromCSV(url: string): Promise<{ customers
 }
 
 function parseSimpleCSV(text: string): string[][] {
-  const QUOTE = '"';
   const rows: string[][] = [];
   let row: string[] = [];
   let field = '';

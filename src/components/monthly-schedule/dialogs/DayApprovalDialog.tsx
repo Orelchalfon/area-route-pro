@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useJobsContext } from "@/contexts/JobsContext";
+import { isOngoingJob } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
 import { normalizeIsraeliPhone, whatsappUrl } from "@/lib/whatsapp";
 import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
@@ -146,7 +147,7 @@ export function DayApprovalDialog({
                   // opening anything — mirrors UnifiedJobPickerDialog: ongoing-service
                   // jobs store "task | note", so surface just the task description; all
                   // other jobs show their full notes string.
-                  const isOngoing = job.id.startsWith("db-ongoing-");
+                  const isOngoing = isOngoingJob(job.id);
                   const noteText = (
                     isOngoing ? (job.notes || "").split(" | ")[0] : job.notes
                   )?.trim();

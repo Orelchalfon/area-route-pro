@@ -4,12 +4,6 @@ import { Customer } from '@/types';
  * Parse RFC 4180 CSV (handles quoted multi-line fields)
  */
 function parseCSV(text: string): string[][] {
-  // States for the parser
-  const COMMA = ',';
-  const QUOTE = '"';
-  const NEWLINE = '\n';
-  const RETURN = '\r';
-
   const rows: string[][] = [];
   let row: string[] = [];
   let field = '';
@@ -99,7 +93,6 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
   const iMiddle = col('Middle Name');
   const iLast = col('Last Name');
   const iTitle = col('Title');
-  const iSuffix = col('Suffix');
   const iNickname = col('Nickname');
   const iEmail = col('E-mail Address');
   const iEmail2 = col('E-mail 2 Address');
@@ -129,7 +122,6 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
   const iManager = col("Manager's Name");
   const iAssistant = col("Assistant's Name");
   const iAssistantPhone = col("Assistant's Phone");
-  const iCompanyYomi = col('Company Yomi');
   const iBizStreet = col('Business Street');
   const iBizCity = col('Business City');
   const iBizState = col('Business State');
@@ -147,8 +139,6 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
   const iOtherCountry = col('Other Country/Region');
   const iWebPage = col('Personal Web Page');
   const iSpouse = col('Spouse');
-  const iSchools = col('Schools');
-  const iHobby = col('Hobby');
   const iLocation = col('Location');
   const iWebPage2 = col('Web Page');
   const iBirthday = col('Birthday');
@@ -224,7 +214,6 @@ export async function loadCustomersFromCSV(url: string): Promise<Customer[]> {
     // Capture secondary addresses in notes
     const addressNotes: string[] = [];
     const homeAddr = clean(get(iHomeStreet));
-    const homeCity = clean(get(iHomeCity));
     const bizAddr = clean(get(iBizStreet));
     const bizCity = clean(get(iBizCity));
     const otherAddr = clean(get(iOtherStreet));

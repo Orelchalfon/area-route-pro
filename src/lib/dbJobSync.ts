@@ -1,5 +1,6 @@
 import type { Job } from '@/types';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import { ID_PREFIX } from '@/lib/idConventions';
 
 export type DbJobTable = 'malfunctions' | 'installations' | 'ongoing_services';
 
@@ -41,16 +42,16 @@ export type JobSyncPatch = Partial<
 };
 
 export function getDbJobRef(jobId: string): DbJobRef | null {
-  if (jobId.startsWith('db-malf-')) {
-    return { table: 'malfunctions', dbId: jobId.replace('db-malf-', '') };
+  if (jobId.startsWith(ID_PREFIX.malfunctionJob)) {
+    return { table: 'malfunctions', dbId: jobId.slice(ID_PREFIX.malfunctionJob.length) };
   }
 
-  if (jobId.startsWith('db-inst-')) {
-    return { table: 'installations', dbId: jobId.replace('db-inst-', '') };
+  if (jobId.startsWith(ID_PREFIX.installationJob)) {
+    return { table: 'installations', dbId: jobId.slice(ID_PREFIX.installationJob.length) };
   }
 
-  if (jobId.startsWith('db-ongoing-')) {
-    return { table: 'ongoing_services', dbId: jobId.replace('db-ongoing-', '') };
+  if (jobId.startsWith(ID_PREFIX.ongoingJob)) {
+    return { table: 'ongoing_services', dbId: jobId.slice(ID_PREFIX.ongoingJob.length) };
   }
 
   return null;
@@ -134,7 +135,7 @@ export function buildOngoingServiceInsert(
 }
 
 export function buildDbJobUpdatePatch<TTable extends DbJobTable>(
-  table: TTable,
+  _table: TTable,
   data: JobSyncPatch,
 ): DbJobUpdateByTable[TTable] {
   // Note: do NOT set `source` here. The employee RLS trigger

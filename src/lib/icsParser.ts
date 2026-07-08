@@ -1,4 +1,5 @@
 import { Customer, Job, JobType, ServiceTrack } from '@/types';
+import { ID_PREFIX, makeIcsCustomerId } from '@/lib/idConventions';
 
 interface ICSEvent {
   summary: string;
@@ -149,7 +150,7 @@ export function parseICS(text: string, serviceOnly = false): { customers: Custom
     if (!customerMap.has(customerKey) && customerName) {
       customerIdx++;
       customerMap.set(customerKey, {
-        id: `ics-c${customerIdx}`,
+        id: makeIcsCustomerId(customerIdx),
         name: customerName,
         phone: '',
         address: city,
@@ -162,7 +163,7 @@ export function parseICS(text: string, serviceOnly = false): { customers: Custom
     }
 
     const customer = customerMap.get(customerKey);
-    const customerId = customer?.id || `ics-c-unknown-${i}`;
+    const customerId = customer?.id || `${ID_PREFIX.icsCustomer}-unknown-${i}`;
 
     // Calculate duration
     const startMin = parseInt(time.split(':')[0]) * 60 + parseInt(time.split(':')[1]);
@@ -172,7 +173,7 @@ export function parseICS(text: string, serviceOnly = false): { customers: Custom
     const jobType: JobType = serviceOnly ? 'filter_replacement' : (isInstallation(ev.summary) ? 'installation' : 'filter_replacement');
 
     jobs.push({
-      id: `ics-j${i + 1}`,
+      id: `${ID_PREFIX.icsJob}j${i + 1}`,
       type: jobType,
       status: 'draft',
       priority: 'low',

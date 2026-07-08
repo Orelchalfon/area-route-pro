@@ -159,7 +159,7 @@ export default function WorkSchedulePage() {
                   {/* Expanded tasks list */}
                   {isExpanded && dayJobs.length > 0 && (
                     <CardContent className="px-4 pb-3 pt-0 space-y-2">
-                      {dayJobs.map((job, idx) => {
+                      {dayJobs.map((job) => {
                         const typeConf = JOB_TYPE_CONFIG[job.type];
                         const completionClass = getCompletionColor(job);
 

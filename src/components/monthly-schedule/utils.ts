@@ -1,5 +1,6 @@
 import { Customer, Job } from "@/types";
 import { format } from "date-fns";
+import { makeFilterJobId } from "@/lib/idConventions";
 
 // Generate filter replacement jobs for a given month based on customer data
 export function generateFilterJobs(
@@ -10,8 +11,8 @@ export function generateFilterJobs(
   const monthCustomers = allCustomers.filter(
     (c) => c.filterReplacementMonth === month,
   );
-  return monthCustomers.map((customer, i) => ({
-    id: `filter-${year}-${month}-${customer.id}`,
+  return monthCustomers.map((customer) => ({
+    id: makeFilterJobId(year, month, customer.id),
     type: "filter_replacement" as const,
     status: "draft" as const,
     priority: "low" as const,

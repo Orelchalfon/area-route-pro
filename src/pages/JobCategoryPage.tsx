@@ -11,17 +11,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { Customer, Job, JobType } from "@/types";
 import {
   CheckCircle2,
-  ChevronDown,
   Clock,
   List,
   MapPin,

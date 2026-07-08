@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Job, Customer, JOB_TYPE_CONFIG, JobStatus, CompletionStatus } from '@/types';
+import { Job, Customer, JOB_TYPE_CONFIG } from '@/types';
+import { mapCompletionStatus, mapPriority, mapStatus } from '@/lib/jobMappers';
+import {
+  makeInstallationCustomerId,
+  makeInstallationJobId,
+  makeMalfunctionCustomerId,
+  makeMalfunctionJobId,
+} from '@/lib/idConventions';
 
 type MalfRow = {
   id: string;
@@ -53,37 +60,9 @@ type InstRow = {
 
 export type RealtimeStatus = 'connecting' | 'live' | 'error' | 'closed';
 
-function mapPriority(p: string | null): Job['priority'] {
-  if (p === 'high' || p === 'medium' || p === 'low') return p;
-  if (p === 'גבוהה') return 'high';
-  if (p === 'בינונית') return 'medium';
-  return 'low';
-}
-
-function mapStatus(status: string | null): JobStatus {
-  if (
-    status === 'draft' ||
-    status === 'pending_customer' ||
-    status === 'confirmed' ||
-    status === 'in_progress' ||
-    status === 'completed' ||
-    status === 'rescheduled'
-  ) {
-    return status;
-  }
-
-  if (status === 'pending') return 'draft';
-  return 'draft';
-}
-
-function mapCompletionStatus(status: string | null | undefined): CompletionStatus | undefined {
-  if (status === 'done' || status === 'not_done' || status === 'need_return') return status;
-  return undefined;
-}
-
 function malfToJobAndCustomer(row: MalfRow): { job: Job; customer: Customer } {
   const customer: Customer = {
-    id: `db-malf-cust-${row.id}`,
+    id: makeMalfunctionCustomerId(row.id),
     name: row.customer_name || 'ללא שם',
     phone: row.phone || '',
     address: row.address || '',
@@ -93,10 +72,10 @@ function malfToJobAndCustomer(row: MalfRow): { job: Job; customer: Customer } {
     filterReplacementMonth: 1,
   };
   const job: Job = {
-    id: `db-malf-${row.id}`,
+    id: makeMalfunctionJobId(row.id),
     type: 'malfunction',
     status: mapStatus(row.status),
-    priority: mapPriority(row.priority),
+    priority: mapPriority(row.priority, { hebrew: true }),
     customerId: customer.id,
     technicianId: row.technician_id || undefined,
     scheduledDate: row.scheduled_date || undefined,
@@ -114,7 +93,7 @@ function malfToJobAndCustomer(row: MalfRow): { job: Job; customer: Customer } {
 
 function instToJobAndCustomer(row: InstRow): { job: Job; customer: Customer } {
   const customer: Customer = {
-    id: `db-inst-cust-${row.id}`,
+    id: makeInstallationCustomerId(row.id),
     name: row.customer_name || 'ללא שם',
     phone: row.phone || '',
     address: row.address || '',
@@ -124,10 +103,10 @@ function instToJobAndCustomer(row: InstRow): { job: Job; customer: Customer } {
     filterReplacementMonth: 1,
   };
   const job: Job = {
-    id: `db-inst-${row.id}`,
+    id: makeInstallationJobId(row.id),
     type: 'installation',
     status: mapStatus(row.status),
-    priority: mapPriority(row.priority),
+    priority: mapPriority(row.priority, { hebrew: true }),
     customerId: customer.id,
     technicianId: row.technician_id || undefined,
     estimatedDuration: row.estimated_duration || JOB_TYPE_CONFIG.installation.duration,

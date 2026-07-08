@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { OngoingService, useOngoingServices } from "@/hooks/useOngoingServices";
+import { parseDbCustomerId } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
@@ -47,7 +48,8 @@ export default function ServiceCyclePage() {
   const customersByRawId = useMemo(() => {
     const map = new Map<string, (typeof customersList)[number]>();
     customersList.forEach((c) => {
-      if (c.id.startsWith("db-cust-")) map.set(c.id.replace("db-cust-", ""), c);
+      const rawId = parseDbCustomerId(c.id);
+      if (rawId) map.set(rawId, c);
     });
     return map;
   }, [customersList]);
