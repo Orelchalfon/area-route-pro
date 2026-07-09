@@ -17,10 +17,11 @@ export default function WorkSchedulePage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [addTaskState, setAddTaskState] = useState<{ techId: string; dateStr: string } | null>(null);
+  const today = useMemo(() => new Date(), []);
 
   const weekStart = useMemo(
-    () => startOfWeek(addDays(new Date(), weekOffset * 7), { weekStartsOn: 0 }),
-    [weekOffset],
+    () => startOfWeek(addDays(today, weekOffset * 7), { weekStartsOn: 0 }),
+    [today, weekOffset],
   );
 
   const days = useMemo(() => {
