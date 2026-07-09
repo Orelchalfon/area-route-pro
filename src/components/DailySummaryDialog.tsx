@@ -22,7 +22,7 @@ interface DailySummaryDialogProps {
   allCustomers?: Customer[];
 }
 
-export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLogs, onConfirmSummary, allCustomers = [] }: DailySummaryDialogProps) {
+export function DailySummaryDialog({ open, onClose, jobs, closedJobs: _closedJobs, activityLogs, onConfirmSummary, allCustomers = [] }: DailySummaryDialogProps) {
   const [confirmed, setConfirmed] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -87,7 +87,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs, activityLo
     const actionItems = Array.from(customerMap.values()).filter(e => e.actions.length > 0);
 
     return { todayLogs, completedToday, filtersDone, malfunctionsDone, installationsDone, notCompleted, actionItems, totalActions: todayLogs.length };
-  }, [jobs, closedJobs, activityLogs, selectedDateStr, allCustomers]);
+  }, [jobs, activityLogs, selectedDateStr, allCustomers]);
 
   const getCustomer = (customerId: string): Customer | undefined =>
     allCustomers.find(c => c.id === customerId);

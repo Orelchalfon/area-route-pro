@@ -21,6 +21,23 @@ type ScheduledFilterServiceRow = {
   updated_at: string;
 };
 
+const SCHEDULED_FILTER_SERVICE_COLUMNS = [
+  'id',
+  'job_key',
+  'customer_id',
+  'scheduled_date',
+  'scheduled_time',
+  'technician_id',
+  'status',
+  'completion_status',
+  'completion_notes',
+  'estimated_duration',
+  'location',
+  'city',
+  'notes',
+  'created_at',
+  'updated_at',
+].join(',');
 
 // A scheduled filter service reconciles back to its synthetic board id via job_key,
 // so the loaded Job keeps id === job_key (filter-{year}-{month}-{customerId}).
@@ -51,7 +68,8 @@ export function useScheduledFilterServices() {
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
       .from('scheduled_filter_services')
-      .select('*')
+      .select(SCHEDULED_FILTER_SERVICE_COLUMNS)
+      .or('status.is.null,status.neq.archived')
       .order('scheduled_date', { ascending: true });
 
     if (error) {
@@ -60,11 +78,8 @@ export function useScheduledFilterServices() {
       return;
     }
 
-    // Hide archived (closed/deleted) rows. Filtered client-side, not via
-    // `.neq('status','archived')`, because that SQL form also drops NULL-status rows.
     setJobs(
       ((data as ScheduledFilterServiceRow[] | null) ?? [])
-        .filter(row => row.status !== 'archived')
         .map(rowToJob),
     );
     setLoaded(true);

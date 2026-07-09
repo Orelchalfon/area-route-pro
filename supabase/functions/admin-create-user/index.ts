@@ -14,6 +14,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const MIN_PASSWORD_LENGTH = 10;
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -61,7 +63,10 @@ Deno.serve(async (req) => {
 
   if (body.action === "list") {
     const { data, error } = await admin.auth.admin.listUsers();
-    if (error) return json({ error: error.message }, 400);
+    if (error) {
+      console.error("Failed to list users:", error);
+      return json({ error: "Failed to list users" }, 400);
+    }
 
     const { data: profiles } = await admin.from("profiles").select("id, role, technician_id, full_name");
     const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
@@ -84,8 +89,8 @@ Deno.serve(async (req) => {
   if (body.action === "create") {
     const email = body.email?.trim();
     const password = body.password ?? "";
-    if (!email || password.length < 6) {
-      return json({ error: "Email required and password must be at least 6 characters" }, 400);
+    if (!email || password.length < MIN_PASSWORD_LENGTH) {
+      return json({ error: `Email required and password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
     }
     const role = body.role === "admin" ? "admin" : "employee";
     const technicianId = role === "employee" ? (body.technicianId?.trim() || null) : null;
@@ -95,7 +100,10 @@ Deno.serve(async (req) => {
       password,
       email_confirm: true, // no confirmation email; user can log in immediately
     });
-    if (error) return json({ error: error.message }, 400);
+    if (error) {
+      console.error("Failed to create auth user:", error);
+      return json({ error: "Failed to create user" }, 400);
+    }
 
     const { error: profileError } = await admin.from("profiles").insert({
       id: data.user.id,
@@ -105,7 +113,8 @@ Deno.serve(async (req) => {
     if (profileError) {
       // Roll back the auth user so we never leave an account without a profile.
       await admin.auth.admin.deleteUser(data.user.id);
-      return json({ error: `Failed to create profile: ${profileError.message}` }, 400);
+      console.error("Failed to create profile:", profileError);
+      return json({ error: "Failed to create user profile" }, 400);
     }
 
     return json({ user: { id: data.user.id, email: data.user.email, role, technician_id: technicianId } }, 201);

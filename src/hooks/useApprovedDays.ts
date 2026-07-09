@@ -21,7 +21,7 @@ export function useApprovedDays() {
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
       .from('approved_schedule_days')
-      .select('*');
+      .select('id,technician_id,service_date,approved_at');
 
     if (error) {
       console.error('Error fetching approved schedule days:', error);

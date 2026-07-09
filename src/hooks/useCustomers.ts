@@ -21,6 +21,23 @@ export type CustomerRow = {
   place_id: string | null;
 };
 
+export const CUSTOMER_COLUMNS = [
+  'id',
+  'name',
+  'phone',
+  'address',
+  'city',
+  'email',
+  'product',
+  'filter_replacement_month',
+  'service_track',
+  'next_service_date',
+  'notes',
+  'lat',
+  'lng',
+  'place_id',
+].join(',');
+
 const SERVICE_TRACKS: ServiceTrack[] = ['annual_filter', 'external_filter', 'bypass_siliphos', 'service_visit'];
 
 function mapServiceTrack(value: string | null): ServiceTrack | undefined {
@@ -83,7 +100,7 @@ export async function insertCustomer(data: Partial<Customer> & { name: string })
   const { data: row, error } = await supabase
     .from('customers')
     .insert({ ...customerToRow(data), name: data.name, source: 'app' })
-    .select('*')
+    .select(CUSTOMER_COLUMNS)
     .single();
   if (error) throw error;
   return rowToCustomer(row as CustomerRow);
@@ -110,7 +127,7 @@ export async function upsertCustomerByImportKey(
       { ...customerToRow(data), name: data.name, import_key: importKey, source: 'app' },
       { onConflict: 'import_key' },
     )
-    .select('*')
+    .select(CUSTOMER_COLUMNS)
     .single();
   if (error) throw error;
   return rowToCustomer(row as CustomerRow);
@@ -127,7 +144,7 @@ export function useCustomers() {
     const page = (i: number) =>
       supabase
         .from('customers')
-        .select('*')
+        .select(CUSTOMER_COLUMNS)
         .order('name', { ascending: true })
         .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1);
 

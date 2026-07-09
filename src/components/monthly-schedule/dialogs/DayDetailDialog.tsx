@@ -13,7 +13,7 @@ import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { Archive, GripVertical, Navigation, Pencil, Phone, Save, Undo2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "../../AddressAutocomplete";
 import { DayRouteMap } from "../../DayRouteMap";
@@ -80,9 +80,9 @@ export function DayDetailDialog({
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
   // Sync when source data changes
-  useMemo(() => {
+  useEffect(() => {
     setOrderedJobs([...filterJobs, ...dayJobs]);
-  }, [filterJobs.length, dayJobs.length]);
+  }, [filterJobs, dayJobs]);
 
   const completionColorMap: Record<string, string> = {
     done: "border-success bg-success/10",

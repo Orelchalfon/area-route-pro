@@ -60,6 +60,55 @@ export type InstRow = {
 
 export type RealtimeStatus = 'connecting' | 'live' | 'error' | 'closed';
 
+const MALFUNCTION_COLUMNS = [
+  'id',
+  'customer_name',
+  'phone',
+  'city',
+  'address',
+  'region',
+  'description',
+  'malfunction_date',
+  'status',
+  'priority',
+  'notes',
+  'sheet_row_id',
+  'source',
+  'technician_id',
+  'scheduled_date',
+  'scheduled_time',
+  'estimated_duration',
+  'completion_status',
+  'completion_notes',
+  'created_at',
+  'updated_at',
+].join(',');
+
+const INSTALLATION_COLUMNS = [
+  'id',
+  'customer_name',
+  'phone',
+  'city',
+  'address',
+  'region',
+  'product_type',
+  'installation_date',
+  'installation_time',
+  'status',
+  'priority',
+  'notes',
+  'sheet_row_id',
+  'source',
+  'technician_id',
+  'scheduled_date',
+  'scheduled_time',
+  'estimated_duration',
+  'completion_status',
+  'completion_notes',
+  'created_at',
+  'updated_at',
+].join(',');
+
 function malfToJobAndCustomer(row: MalfRow): { job: Job; customer: Customer } {
   const customer: Customer = {
     id: makeMalfunctionCustomerId(row.id),
@@ -146,8 +195,16 @@ export function useMalfunctionsInstallations() {
 
     try {
       const [{ data: malf, error: malfError }, { data: inst, error: instError }] = await Promise.all([
-        supabase.from('malfunctions').select('*').order('created_at', { ascending: false }),
-        supabase.from('installations').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('malfunctions')
+          .select(MALFUNCTION_COLUMNS)
+          .or('status.is.null,status.neq.archived')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('installations')
+          .select(INSTALLATION_COLUMNS)
+          .or('status.is.null,status.neq.archived')
+          .order('created_at', { ascending: false }),
       ]);
 
       if (malfError) throw malfError;
@@ -155,20 +212,16 @@ export function useMalfunctionsInstallations() {
 
       const allJobs: Job[] = [];
       const allCustomers: Customer[] = [];
-      // Hide archived (closed/deleted) rows. Filtered client-side, not via
-      // `.neq('status','archived')`, because that SQL form also drops rows with a NULL status.
-      (malf as MalfRow[] | null)?.filter(r => r.status !== 'archived').forEach(r => {
+      (malf as MalfRow[] | null)?.forEach(r => {
         const { job, customer } = malfToJobAndCustomer(r);
         allJobs.push(job);
         allCustomers.push(customer);
       });
-      (inst as InstRow[] | null)?.filter(r => r.status !== 'archived').forEach(r => {
+      (inst as InstRow[] | null)?.forEach(r => {
         const { job, customer } = instToJobAndCustomer(r);
         allJobs.push(job);
         allCustomers.push(customer);
       });
-      const latestInst = (inst as InstRow[] | null)?.slice().sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0];
-      console.log('[refresh] inst rows:', inst?.length, '| latest updated_at:', latestInst?.updated_at, '| name:', latestInst?.customer_name, '| address:', latestInst?.address);
       setJobs(allJobs);
       setCustomers(allCustomers);
       setLastSyncedAt(new Date().toISOString());

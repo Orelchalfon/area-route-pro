@@ -7,6 +7,7 @@ import {
   insertCustomer,
   updateCustomerRow,
   type CustomerRow,
+  CUSTOMER_COLUMNS,
 } from '@/hooks/useCustomers';
 
 const PAGE_SIZE = 100;
@@ -108,7 +109,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
     (async () => {
       let query = supabase
         .from('customers')
-        .select('*', { count: 'exact' })
+        .select(CUSTOMER_COLUMNS, { count: 'exact' })
         .order('name', { ascending: true })
         .range(0, PAGE_SIZE - 1);
       if (term) query = query.or(orFilter(term));
@@ -146,7 +147,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
     (async () => {
       let query = supabase
         .from('customers')
-        .select('*', { count: 'exact' })
+        .select(CUSTOMER_COLUMNS, { count: 'exact' })
         .order('name', { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
       if (term) query = query.or(orFilter(term));
@@ -179,7 +180,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
 
     let query = supabase
       .from('customers')
-      .select('*', { count: 'exact' })
+      .select(CUSTOMER_COLUMNS, { count: 'exact' })
       .order('name', { ascending: true })
       .range(0, upTo);
     if (curTerm) query = query.or(orFilter(curTerm));
@@ -272,7 +273,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
     while (more) {
       const { data, error: queryError } = await supabase
         .from('customers')
-        .select('*')
+        .select(CUSTOMER_COLUMNS)
         .is('service_track', null)
         .order('name', { ascending: true })
         .range(from, from + SIZE - 1);

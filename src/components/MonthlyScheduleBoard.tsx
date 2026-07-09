@@ -258,7 +258,7 @@ export function MonthlyScheduleBoard({
         j.createdAt.startsWith(`${year}-${String(month).padStart(2, "0")}`),
     );
     return [...merged, ...redistributed];
-  }, [month, year, jobs]);
+  }, [month, year, jobs, customersList]);
 
   // Generate filter jobs for a 2-week range around a given date (for the picker)
   const getFilterJobsInRange = useCallback(
@@ -308,7 +308,7 @@ export function MonthlyScheduleBoard({
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<
     Map<string, Job[]>
   >(new Map());
-  const [removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(
+  const [_removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(
     new Set(),
   );
   const [dayAreaOverrides, setDayAreaOverrides] = useState<
@@ -319,11 +319,11 @@ export function MonthlyScheduleBoard({
     [filterJobs, futureWorkingDays],
   );
 
-  const getDayAreas = (dateStr: string): string[] => {
+  const getDayAreas = useCallback((dateStr: string): string[] => {
     if (dayAreaOverrides.has(dateStr)) return dayAreaOverrides.get(dateStr)!;
     // No auto-determined areas — days start empty, areas are selected manually
     return [];
-  };
+  }, [dayAreaOverrides]);
 
   // Area selection is a non-destructive view filter: it only records which areas
   // are shown for the day. Nothing is unassigned, so jobs survive a refresh and
@@ -335,18 +335,26 @@ export function MonthlyScheduleBoard({
 
   // Unassigned filter jobs (not yet distributed to any day)
   // Manually assigned jobs (malfunction/installation) for this tech & month — exclude filter jobs which are managed separately
-  const manualJobs = jobs.filter(
-    (j) =>
-      j.type !== "filter_replacement" &&
-      j.technicianId === selectedTechId &&
-      j.scheduledDate &&
-      j.scheduledDate.startsWith(`${year}-${String(month).padStart(2, "0")}`),
+  const manualJobs = useMemo(
+    () =>
+      jobs.filter(
+        (j) =>
+          j.type !== "filter_replacement" &&
+          j.technicianId === selectedTechId &&
+          j.scheduledDate &&
+          j.scheduledDate.startsWith(`${year}-${String(month).padStart(2, "0")}`),
+      ),
+    [jobs, month, selectedTechId, year],
   );
 
   // Unassigned malfunction/installation jobs
-  const unassignedManualJobs = jobs.filter(
-    (j) =>
-      j.type !== "filter_replacement" && (!j.technicianId || !j.scheduledDate),
+  const unassignedManualJobs = useMemo(
+    () =>
+      jobs.filter(
+        (j) =>
+          j.type !== "filter_replacement" && (!j.technicianId || !j.scheduledDate),
+      ),
+    [jobs],
   );
 
   // Real ongoing-service ("שירות שוטף") backlog surfaced in the picker's 'שירות' tab.
@@ -383,9 +391,11 @@ export function MonthlyScheduleBoard({
       }));
   }, [ongoingServices]);
 
-  const getManualDayJobs = (dateStr: string) =>
-    manualJobs.filter((j) => j.scheduledDate === dateStr);
-  const getFilterDayJobs = (dateStr: string) => {
+  const getManualDayJobs = useCallback(
+    (dateStr: string) => manualJobs.filter((j) => j.scheduledDate === dateStr),
+    [manualJobs],
+  );
+  const getFilterDayJobs = useCallback((dateStr: string) => {
     const localJobs = extraFilterAssignments.get(dateStr) || [];
     const localIds = new Set(localJobs.map((j) => j.id));
     // Also include filter_replacement jobs from global state that were approved/assigned to this day
@@ -397,7 +407,7 @@ export function MonthlyScheduleBoard({
         !localIds.has(j.id),
     );
     return [...localJobs, ...globalFilterJobs];
-  };
+  }, [extraFilterAssignments, jobs, selectedTechId]);
 
   const handleFilterPickerMoveSelect = (
     jobIds: string[],
@@ -490,10 +500,9 @@ export function MonthlyScheduleBoard({
     },
     [
       futureWorkingDays,
-      filterDistribution,
-      extraFilterAssignments,
-      removedFromAutoIds,
-      manualJobs,
+      getDayAreas,
+      getFilterDayJobs,
+      getManualDayJobs,
     ],
   );
 

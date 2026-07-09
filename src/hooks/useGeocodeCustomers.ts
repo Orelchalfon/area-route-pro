@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Customer } from '@/types';
 
 // Persistent cache across renders/mounts
@@ -16,6 +16,10 @@ export function useGeocodeCustomers(
   const [coordsMap, setCoordsMap] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
   const runIdRef = useRef(0);
+  const customerSignature = useMemo(
+    () => customers.map(c => c ? `${c.id}:${c.lat}:${c.lng}:${c.address}:${c.city}` : '').join(','),
+    [customers],
+  );
 
   useEffect(() => {
     if (!isGoogleLoaded) return;
@@ -114,7 +118,7 @@ export function useGeocodeCustomers(
         runIdRef.current += 1;
       }
     };
-  }, [customers.map(c => c ? `${c.id}:${c.lat}:${c.lng}:${c.address}:${c.city}` : '').join(','), isGoogleLoaded]);
+  }, [customers, customerSignature, isGoogleLoaded]);
 
   return coordsMap;
 }
