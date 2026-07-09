@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Loader2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { technicians } from '@/data/technicians';
+import { ADMIN_USER_MIN_PASSWORD_LENGTH, validateAdminUserPassword } from '@/lib/adminUserValidation';
 
 type Role = 'admin' | 'employee';
 
@@ -36,9 +37,18 @@ export default function UsersPage() {
   const [role, setRole] = useState<Role>('employee');
   const [technicianId, setTechnicianId] = useState(technicians[0].id);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const passwordError = validateAdminUserPassword(password);
+    if (passwordError) {
+      toast.error('הסיסמה קצרה מדי', {
+        description: `יש להזין לפחות ${ADMIN_USER_MIN_PASSWORD_LENGTH} תווים`,
+      });
+      return;
+    }
+
     setSubmitting(true);
     const { error: createError } = await createUser(
       email.trim(),
@@ -90,17 +100,31 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-password">סיסמה</Label>
-                <Input
-                  id="new-password"
-                  type="text"
-                  autoComplete="off"
-                  dir="ltr"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  minLength={6}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">לפחות 6 תווים</p>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    dir="ltr"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    minLength={ADMIN_USER_MIN_PASSWORD_LENGTH}
+                    className="pe-10"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                    onClick={() => setShowPassword(value => !value)}
+                    aria-label={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+                    title={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">לפחות {ADMIN_USER_MIN_PASSWORD_LENGTH} תווים</p>
               </div>
               <div className="space-y-2">
                 <Label>תפקיד</Label>

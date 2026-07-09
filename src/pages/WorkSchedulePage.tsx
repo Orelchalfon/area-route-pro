@@ -18,12 +18,14 @@ export default function WorkSchedulePage() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [addTaskState, setAddTaskState] = useState<{ techId: string; dateStr: string } | null>(null);
 
-  const today = new Date();
-  const weekStart = startOfWeek(addDays(today, weekOffset * 7), { weekStartsOn: 0 });
+  const weekStart = useMemo(
+    () => startOfWeek(addDays(new Date(), weekOffset * 7), { weekStartsOn: 0 }),
+    [weekOffset],
+  );
 
   const days = useMemo(() => {
     return Array.from({ length: 14 }, (_, i) => addDays(weekStart, i));
-  }, [weekStart.toISOString()]);
+  }, [weekStart]);
 
   const approvedJobs = useMemo(() => {
     return jobs.filter(j =>

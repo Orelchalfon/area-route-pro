@@ -85,7 +85,11 @@ export function useJobs() {
     realtimeStatus,
     refresh: refreshDbJobs,
   } = useMalfunctionsInstallations();
-  const { jobs: scheduledFilterJobs, loaded: scheduledFilterLoaded } =
+  const {
+    jobs: scheduledFilterJobs,
+    loaded: scheduledFilterLoaded,
+    refresh: refreshScheduledFilterServices,
+  } =
     useScheduledFilterServices();
   const { approvedDayKeys, approveDay, unapproveDay } = useApprovedDays();
   const {
@@ -118,50 +122,47 @@ export function useJobs() {
   // `jobs` — not computed during render, which would go true a frame too early.
   const [boardReady, setBoardReady] = useState(false);
 
-  const persistDbJob = useCallback((jobId: string, data: JobSyncPatch) => {
+  const handlePersistFailure = useCallback(
+    (message: string, error: unknown) => {
+      console.error(message, error);
+      toast.error("שמירת השינוי נכשלה", {
+        description: "הנתונים יסונכרנו מחדש",
+      });
+      void refreshDbJobs();
+      void refreshScheduledFilterServices();
+    },
+    [refreshDbJobs, refreshScheduledFilterServices],
+  );
+
+  const persistDbJob = useCallback(async (jobId: string, data: JobSyncPatch) => {
     const ref = getDbJobRef(jobId);
     if (!ref) return;
 
     switch (ref.table) {
-      case "malfunctions":
-        supabase
+      case "malfunctions": {
+        const { error } = await supabase
           .from("malfunctions")
           .update(buildDbJobUpdatePatch(ref.table, data))
-          .eq("id", ref.dbId)
-          .then(({ error }) => {
-            if (error)
-              console.error(
-                `Failed to persist ${ref.table} job ${jobId}:`,
-                error,
-              );
-          });
+          .eq("id", ref.dbId);
+        if (error) throw error;
         break;
-      case "installations":
-        supabase
+      }
+      case "installations": {
+        const { error } = await supabase
           .from("installations")
           .update(buildDbJobUpdatePatch(ref.table, data))
-          .eq("id", ref.dbId)
-          .then(({ error }) => {
-            if (error)
-              console.error(
-                `Failed to persist ${ref.table} job ${jobId}:`,
-                error,
-              );
-          });
+          .eq("id", ref.dbId);
+        if (error) throw error;
         break;
-      case "ongoing_services":
-        supabase
+      }
+      case "ongoing_services": {
+        const { error } = await supabase
           .from("ongoing_services")
           .update(buildDbJobUpdatePatch(ref.table, data))
-          .eq("id", ref.dbId)
-          .then(({ error }) => {
-            if (error)
-              console.error(
-                `Failed to persist ${ref.table} job ${jobId}:`,
-                error,
-              );
-          });
+          .eq("id", ref.dbId);
+        if (error) throw error;
         break;
+      }
     }
   }, []);
 
@@ -169,13 +170,13 @@ export function useJobs() {
   // row, so persistDbJob no-ops for them. Their scheduling lives in scheduled_filter_services
   // keyed by job_key (= the synthetic job id), upserted here.
   const persistFilterServiceRow = useCallback(
-    (
+    async (
       job: Job,
       technicianId: string,
       scheduledDate: string,
       scheduledTime: string,
     ) => {
-      supabase
+      const { error } = await supabase
         .from("scheduled_filter_services")
         .upsert(
           {
@@ -192,14 +193,8 @@ export function useJobs() {
             updated_at: new Date().toISOString(),
           },
           { onConflict: "job_key" },
-        )
-        .then(({ error }) => {
-          if (error)
-            console.error(
-              `Failed to persist scheduled filter service ${job.id}:`,
-              error,
-            );
-        });
+        );
+      if (error) throw error;
     },
     [],
   );
@@ -209,8 +204,8 @@ export function useJobs() {
   // lives in scheduled_filter_services keyed by job_key (= the synthetic id); updating
   // it there lets the change reach the manager board via that table's realtime channel.
   const persistFilterServiceCompletion = useCallback(
-    (jobId: string, completionStatus: CompletionStatus, notes: string) => {
-      supabase
+    async (jobId: string, completionStatus: CompletionStatus, notes: string) => {
+      const { error } = await supabase
         .from("scheduled_filter_services")
         .update({
           status: "completed",
@@ -218,16 +213,42 @@ export function useJobs() {
           completion_notes: notes,
           updated_at: new Date().toISOString(),
         })
-        .eq("job_key", jobId)
-        .then(({ error }) => {
-          if (error)
-            console.error(
-              `Failed to persist filter completion ${jobId}:`,
-              error,
-            );
-        });
+        .eq("job_key", jobId);
+      if (error) throw error;
     },
     [],
+  );
+
+  const persistDbJobSafely = useCallback(
+    (jobId: string, data: JobSyncPatch) => {
+      void persistDbJob(jobId, data).catch((error) =>
+        handlePersistFailure(`Failed to persist job ${jobId}`, error),
+      );
+    },
+    [handlePersistFailure, persistDbJob],
+  );
+
+  const persistFilterServiceRowSafely = useCallback(
+    (
+      job: Job,
+      technicianId: string,
+      scheduledDate: string,
+      scheduledTime: string,
+    ) => {
+      void persistFilterServiceRow(job, technicianId, scheduledDate, scheduledTime).catch((error) =>
+        handlePersistFailure(`Failed to persist scheduled filter service ${job.id}`, error),
+      );
+    },
+    [handlePersistFailure, persistFilterServiceRow],
+  );
+
+  const persistFilterServiceCompletionSafely = useCallback(
+    (jobId: string, completionStatus: CompletionStatus, notes: string) => {
+      void persistFilterServiceCompletion(jobId, completionStatus, notes).catch((error) =>
+        handlePersistFailure(`Failed to persist filter completion ${jobId}`, error),
+      );
+    },
+    [handlePersistFailure, persistFilterServiceCompletion],
   );
 
   // Schedule a filter job to a day: persist to DB and reflect it in global jobs so it
@@ -239,7 +260,7 @@ export function useJobs() {
       scheduledDate: string,
       scheduledTime: string,
     ) => {
-      persistFilterServiceRow(job, technicianId, scheduledDate, scheduledTime);
+      persistFilterServiceRowSafely(job, technicianId, scheduledDate, scheduledTime);
       const scheduledJob: Job = {
         ...job,
         status: "confirmed",
@@ -252,24 +273,23 @@ export function useJobs() {
         return [...withoutSelf, scheduledJob];
       });
     },
-    [persistFilterServiceRow],
+    [persistFilterServiceRowSafely],
   );
 
   // Remove a scheduled filter job: delete the DB row and drop it from global jobs.
   const unassignFilterService = useCallback((jobId: string) => {
-    supabase
+    void supabase
       .from("scheduled_filter_services")
       .delete()
       .eq("job_key", jobId)
       .then(({ error }) => {
-        if (error)
-          console.error(
-            `Failed to remove scheduled filter service ${jobId}:`,
-            error,
-          );
+        if (error) throw error;
+      })
+      .catch((error) => {
+        handlePersistFailure(`Failed to remove scheduled filter service ${jobId}`, error);
       });
     setJobs((prev) => prev.filter((j) => j.id !== jobId));
-  }, []);
+  }, [handlePersistFailure]);
 
   // Load base customers: prefer the Supabase `customers` table (source of truth).
   // During the spreadsheet-retirement transition, fall back to the bundled
@@ -302,18 +322,6 @@ export function useJobs() {
 
   // Sync malfunctions + installations from DB (replaces previous CSV loaders)
   useEffect(() => {
-    console.log(
-      "[merge] dataLoaded:",
-      dataLoaded,
-      "dbLoaded:",
-      dbLoaded,
-      "dbJobs:",
-      dbJobs.length,
-      "dbCustomers:",
-      dbCustomers.length,
-      "lastSyncedAt:",
-      dbLastSyncedAt,
-    );
     if (!dataLoaded || !dbLoaded) return;
 
     setCustomersList((prev) => {
@@ -458,7 +466,7 @@ export function useJobs() {
 
   const updateJobStatus = (jobId: string, status: JobStatus) => {
     setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status } : j)));
-    persistDbJob(jobId, { status });
+    persistDbJobSafely(jobId, { status });
   };
 
   const approveSchedule = (jobIds: string[]) => {
@@ -495,14 +503,14 @@ export function useJobs() {
             j.id,
           );
           if (j.type === "filter_replacement") {
-            persistFilterServiceRow(
+            persistFilterServiceRowSafely(
               j,
               assignment.technicianId,
               assignment.scheduledDate,
               assignment.scheduledTime,
             );
           } else {
-            persistDbJob(j.id, {
+            persistDbJobSafely(j.id, {
               status: "confirmed",
               technicianId: assignment.technicianId,
               scheduledDate: assignment.scheduledDate,
@@ -533,14 +541,14 @@ export function useJobs() {
                 job.id,
               );
               if (job.type === "filter_replacement") {
-                persistFilterServiceRow(
+                persistFilterServiceRowSafely(
                   job,
                   assignment.technicianId,
                   assignment.scheduledDate,
                   assignment.scheduledTime,
                 );
               } else {
-                persistDbJob(job.id, {
+                persistDbJobSafely(job.id, {
                   status: "confirmed",
                   technicianId: assignment.technicianId,
                   scheduledDate: assignment.scheduledDate,
@@ -576,7 +584,7 @@ export function useJobs() {
           : j,
       ),
     );
-    persistDbJob(jobId, {
+    persistDbJobSafely(jobId, {
       status: "completed",
       completionNotes: notes,
       completionStatus: "done",
@@ -606,13 +614,13 @@ export function useJobs() {
         // Route by id: db-malf/inst/ongoing rows persist via persistDbJob; synthetic
         // filter-… jobs have no such row, so their completion goes to scheduled_filter_services.
         if (getDbJobRef(jobId)) {
-          persistDbJob(jobId, {
+          persistDbJobSafely(jobId, {
             status: "completed",
             completionStatus,
             completionNotes: notes,
           });
         } else if (isFilterJob(jobId)) {
-          persistFilterServiceCompletion(jobId, completionStatus, notes);
+          persistFilterServiceCompletionSafely(jobId, completionStatus, notes);
         }
       }
       return prev.map((j) =>
@@ -632,18 +640,17 @@ export function useJobs() {
   // filter-… ids). Used by closeJob/archiveJob so closed/deleted filter jobs don't reload
   // onto the board or the service list.
   const archiveFilterServiceRow = useCallback((jobId: string) => {
-    supabase
+    void supabase
       .from("scheduled_filter_services")
       .update({ status: "archived", updated_at: new Date().toISOString() })
       .eq("job_key", jobId)
       .then(({ error }) => {
-        if (error)
-          console.error(
-            `Failed to archive scheduled filter service ${jobId}:`,
-            error,
-          );
+        if (error) throw error;
+      })
+      .catch((error) => {
+        handlePersistFailure(`Failed to archive scheduled filter service ${jobId}`, error);
       });
-  }, []);
+  }, [handlePersistFailure]);
 
   const closeJob = (jobId: string) => {
     setJobs((prev) => {
@@ -660,7 +667,7 @@ export function useJobs() {
       if (isFilterJob(jobId)) {
         archiveFilterServiceRow(jobId);
       } else {
-        persistDbJob(jobId, { status: "archived" });
+        persistDbJobSafely(jobId, { status: "archived" });
       }
       setClosedJobs((old) => [...old, job]);
 
@@ -715,18 +722,20 @@ export function useJobs() {
       // scheduled_filter_services row instead: the job drops back into the auto-generated
       // unassigned pool and no longer renders on any day.
       if (isFilterJob(jobId)) {
-        supabase
+        void supabase
           .from("scheduled_filter_services")
           .delete()
           .eq("job_key", jobId)
           .then(({ error }) => {
-            if (error)
-              console.error(`Failed to return filter service ${jobId}:`, error);
+            if (error) throw error;
+          })
+          .catch((error) => {
+            handlePersistFailure(`Failed to return filter service ${jobId}`, error);
           });
         return prev.filter((j) => j.id !== jobId);
       }
 
-      persistDbJob(jobId, {
+      persistDbJobSafely(jobId, {
         status: "draft",
         technicianId: null,
         scheduledDate: null,
@@ -757,23 +766,23 @@ export function useJobs() {
       if (isFilterJob(jobId)) {
         archiveFilterServiceRow(jobId);
       } else {
-        persistDbJob(jobId, { status: "archived" });
+        persistDbJobSafely(jobId, { status: "archived" });
       }
       setJobs((prev) => prev.filter((j) => j.id !== jobId));
     },
-    [archiveFilterServiceRow, persistDbJob],
+    [archiveFilterServiceRow, persistDbJobSafely],
   );
 
   const completeFilterJob = (jobId: string) => {
     setJobs((prev) => {
       const job = prev.find((j) => j.id === jobId);
       if (!job || job.type !== "filter_replacement") {
-        persistDbJob(jobId, { status: "completed" });
+        persistDbJobSafely(jobId, { status: "completed" });
         return prev.map((j) =>
           j.id === jobId ? { ...j, status: "completed" as JobStatus } : j,
         );
       }
-      persistDbJob(jobId, { status: "completed" });
+      persistDbJobSafely(jobId, { status: "completed" });
       const updated = prev.map((j) =>
         j.id === jobId ? { ...j, status: "completed" as JobStatus } : j,
       );
@@ -816,7 +825,7 @@ export function useJobs() {
           : j,
       ),
     );
-    persistDbJob(jobId, { technicianId, scheduledDate, scheduledTime });
+    persistDbJobSafely(jobId, { technicianId, scheduledDate, scheduledTime });
   };
 
   const updateJob = (
@@ -838,7 +847,7 @@ export function useJobs() {
       prev.map((j) => (j.id === jobId ? { ...j, ...data } : j)),
     );
 
-    persistDbJob(jobId, data);
+    persistDbJobSafely(jobId, data);
   };
 
   const unassignJob = (jobId: string) => {
@@ -855,7 +864,7 @@ export function useJobs() {
           : j,
       ),
     );
-    persistDbJob(jobId, {
+    persistDbJobSafely(jobId, {
       technicianId: null,
       scheduledDate: null,
       scheduledTime: null,

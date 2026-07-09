@@ -51,6 +51,30 @@ type OngoingServiceRow = {
   source: string | null;
 };
 
+const ONGOING_SERVICE_COLUMNS = [
+  'id',
+  'service_date',
+  'task_description',
+  'location',
+  'is_done',
+  'status_label',
+  'customer_id',
+  'customer_name',
+  'phone',
+  'city',
+  'address',
+  'status',
+  'priority',
+  'technician_id',
+  'scheduled_date',
+  'scheduled_time',
+  'estimated_duration',
+  'completion_status',
+  'completion_notes',
+  'notes',
+  'source',
+].join(',');
+
 // Only rows created through the app's "פניה חדשה" flow (they carry a customer_id)
 // become schedulable jobs. Calendar/follow-up rows stay out of the board.
 function ongoingToJobAndCustomer(row: OngoingServiceRow): { job: Job; customer: Customer } {
@@ -107,20 +131,17 @@ export function useOngoingServices() {
     const page = (i: number) =>
       supabase
         .from('ongoing_services')
-        .select('*')
+        .select(ONGOING_SERVICE_COLUMNS)
+        .or('status.is.null,status.neq.archived')
         .order('service_date', { ascending: true })
         .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1);
-
-    // Hide archived (deleted) rows. Filtered client-side, not via
-    // `.neq('status','archived')`, because that SQL form also drops NULL-status rows.
-    const keep = (rows: OngoingServiceRow[] | null) =>
-      (rows ?? []).filter(r => r.status !== 'archived');
 
     // One cheap count, then fetch every page in parallel instead of awaiting each
     // 1,000-row page before requesting the next (~6 serial round-trips → ~2 deep).
     const { count, error: countError } = await supabase
       .from('ongoing_services')
-      .select('id', { count: 'exact', head: true });
+      .select('id', { count: 'exact', head: true })
+      .or('status.is.null,status.neq.archived');
 
     const allRows: OngoingServiceRow[] = [];
 
@@ -136,7 +157,7 @@ export function useOngoingServices() {
           break;
         }
         const rows = (data as OngoingServiceRow[] | null) ?? [];
-        allRows.push(...keep(rows));
+        allRows.push(...rows);
         from += PAGE_SIZE;
         hasMore = rows.length === PAGE_SIZE;
       }
@@ -150,7 +171,7 @@ export function useOngoingServices() {
           console.error('Error fetching ongoing services:', error);
           continue;
         }
-        allRows.push(...keep(data as OngoingServiceRow[] | null));
+        allRows.push(...((data as OngoingServiceRow[] | null) ?? []));
       }
     }
 

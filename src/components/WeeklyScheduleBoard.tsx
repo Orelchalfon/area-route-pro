@@ -262,7 +262,7 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onAssignJob, onUnassignJo
       offset++;
     }
     return days;
-  }, []);
+  }, [today]);
 
   const displayTechs = selectedTechId
     ? technicians.filter(t => t.id === selectedTechId)
