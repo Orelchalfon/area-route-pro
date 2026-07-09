@@ -52,7 +52,10 @@ export function DayApprovalDialog({
   }) => void;
 }) {
   const initialJobs = useMemo(
-    () => [...filterJobs, ...dayJobs],
+    () =>
+      [...filterJobs, ...dayJobs].sort((a, b) =>
+        (a.scheduledTime || "").localeCompare(b.scheduledTime || ""),
+      ),
     [filterJobs, dayJobs],
   );
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
@@ -75,7 +78,7 @@ export function DayApprovalDialog({
   // drag order. (Was a useMemo-as-side-effect keyed on lengths, which reset on every refresh.)
   const jobIdsKey = [...filterJobs, ...dayJobs].map((j) => j.id).join(",");
   useEffect(() => {
-    setOrderedJobs([...filterJobs, ...dayJobs]);
+    setOrderedJobs(initialJobs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobIdsKey]);
 
