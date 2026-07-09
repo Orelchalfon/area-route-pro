@@ -252,6 +252,8 @@ export default function ServiceCyclePage() {
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
             onUpdateService={updateOngoingService}
+            customersById={customersByRawId}
+            onUpdateCustomer={updateCustomer}
           />
         )}
       </div>

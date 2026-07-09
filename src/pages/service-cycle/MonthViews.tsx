@@ -28,7 +28,7 @@ import {
 import { CalendarDays, CheckCircle, Filter, Pencil, Phone, Trash2, UserCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { statusClass, statusText } from './status';
+import { STATUS_OPTIONS, statusClass, statusText } from './status';
 import { StatusEditPopover } from './StatusEditPopover';
 
 const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -59,7 +59,6 @@ export function MonthListView({
 }: MonthListViewProps) {
   const [editing, setEditing] = useState<OngoingService | null>(null);
   const [pendingDelete, setPendingDelete] = useState<OngoingService | null>(null);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const canManage = !!(onUpdateService || onArchiveService);
 
   const sorted = [...services].sort((a, b) => a.service_date.localeCompare(b.service_date));
@@ -163,39 +162,12 @@ export function MonthListView({
         </div>
       ))}
 
-      <ServiceLineEditDialog
-        service={editing}
-        open={!!editing}
-        onOpenChange={(open) => !open && setEditing(null)}
-        onSave={(patch) => {
-          if (editing) {
-            onUpdateService?.(editing.id, patch);
-            const linkedCustomer = editing.customer_id
-              ? customersById?.get(editing.customer_id)
-              : undefined;
-            if (
-              linkedCustomer &&
-              patch.phone.trim() !== (linkedCustomer.phone || "").trim()
-            ) {
-              onUpdateCustomer?.(linkedCustomer.id, { phone: patch.phone.trim() });
-            }
-          }
-          setEditing(null);
-        }}
-        linkedCustomer={
-          editing?.customer_id ? customersById?.get(editing.customer_id) : undefined
-        }
-        onEditCustomer={(customer) => {
-          setEditing(null);
-          setEditingCustomer(customer);
-        }}
-      />
-
-      <CustomerEditDialog
-        customer={editingCustomer}
-        open={!!editingCustomer}
-        onOpenChange={(open) => !open && setEditingCustomer(null)}
-        onUpdate={onUpdateCustomer}
+      <ServiceEditDialogs
+        editing={editing}
+        onCloseEdit={() => setEditing(null)}
+        onUpdateService={onUpdateService}
+        onUpdateCustomer={onUpdateCustomer}
+        customersById={customersById}
       />
 
       <AlertDialog
@@ -222,6 +194,62 @@ export function MonthListView({
   );
 }
 
+// Renders the service edit + customer edit dialogs for a controlled `editing` row. Shared by
+// the list and calendar views so both open the same modal (with an inline status selector) and
+// keep the "changed phone syncs back to the linked customer" behavior identical.
+function ServiceEditDialogs({
+  editing,
+  onCloseEdit,
+  onUpdateService,
+  onUpdateCustomer,
+  customersById,
+}: {
+  editing: OngoingService | null;
+  onCloseEdit: () => void;
+  onUpdateService?: MonthListViewProps['onUpdateService'];
+  onUpdateCustomer?: MonthListViewProps['onUpdateCustomer'];
+  customersById?: Map<string, Customer>;
+}) {
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const linkedCustomer = editing?.customer_id
+    ? customersById?.get(editing.customer_id)
+    : undefined;
+
+  return (
+    <>
+      <ServiceLineEditDialog
+        service={editing}
+        open={!!editing}
+        onOpenChange={(open) => !open && onCloseEdit()}
+        onSave={(patch) => {
+          if (editing) {
+            onUpdateService?.(editing.id, patch);
+            if (
+              linkedCustomer &&
+              patch.phone.trim() !== (linkedCustomer.phone || '').trim()
+            ) {
+              onUpdateCustomer?.(linkedCustomer.id, { phone: patch.phone.trim() });
+            }
+          }
+          onCloseEdit();
+        }}
+        linkedCustomer={linkedCustomer}
+        onEditCustomer={(customer) => {
+          onCloseEdit();
+          setEditingCustomer(customer);
+        }}
+      />
+
+      <CustomerEditDialog
+        customer={editingCustomer}
+        open={!!editingCustomer}
+        onOpenChange={(open) => !open && setEditingCustomer(null)}
+        onUpdate={onUpdateCustomer}
+      />
+    </>
+  );
+}
+
 function ServiceLineEditDialog({
   service,
   open,
@@ -233,11 +261,23 @@ function ServiceLineEditDialog({
   service: OngoingService | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (patch: { task_description: string; location: string; service_date: string; phone: string }) => void;
+  onSave: (patch: {
+    task_description: string;
+    location: string;
+    service_date: string;
+    phone: string;
+    completion_status: CompletionStatus | null;
+  }) => void;
   linkedCustomer?: Customer;
   onEditCustomer: (customer: Customer) => void;
 }) {
-  const [form, setForm] = useState({ task_description: '', location: '', service_date: '', phone: '' });
+  const [form, setForm] = useState<{
+    task_description: string;
+    location: string;
+    service_date: string;
+    phone: string;
+    completion_status: CompletionStatus | null;
+  }>({ task_description: '', location: '', service_date: '', phone: '', completion_status: null });
 
   useEffect(() => {
     if (service) {
@@ -246,6 +286,7 @@ function ServiceLineEditDialog({
         location: service.location || '',
         service_date: service.service_date?.slice(0, 10) || '',
         phone: linkedCustomer?.phone || service.phone || '',
+        completion_status: service.completion_status ?? null,
       });
     }
   }, [linkedCustomer?.phone, service]);
@@ -292,6 +333,39 @@ function ServiceLineEditDialog({
               onChange={e => setForm(f => ({ ...f, service_date: e.target.value }))}
             />
           </div>
+          <div className="space-y-2">
+            <Label>סטטוס</Label>
+            <div className="flex flex-wrap gap-2">
+              {STATUS_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={form.completion_status === opt.value}
+                  onClick={() => setForm(f => ({ ...f, completion_status: opt.value }))}
+                  className={cn(
+                    'flex items-center gap-2 rounded-md border px-3 min-h-[40px] text-sm transition-colors cursor-pointer',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+                    form.completion_status === opt.value
+                      ? 'border-primary bg-primary/10 font-medium'
+                      : 'border-border hover:bg-muted/60',
+                  )}>
+                  <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', opt.dot)} aria-hidden />
+                  {opt.label}
+                </button>
+              ))}
+              {form.completion_status && (
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, completion_status: null }))}
+                  className={cn(
+                    'rounded-md border border-border px-3 min-h-[40px] text-sm text-muted-foreground transition-colors cursor-pointer hover:bg-muted/60',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+                  )}>
+                  נקה סטטוס
+                </button>
+              )}
+            </div>
+          </div>
           {linkedCustomer && (
             <Button
               variant="outline"
@@ -308,6 +382,7 @@ function ServiceLineEditDialog({
               onSave({
                 ...form,
                 phone: form.phone.trim(),
+                completion_status: form.completion_status,
               })
             }>
             שמור שינויים
@@ -318,14 +393,14 @@ function ServiceLineEditDialog({
   );
 }
 
-// One service inside a calendar day cell. Editable (opens the status popover) when
-// an update handler is provided; otherwise a plain read-only chip.
+// One service inside a calendar day cell. Editable (opens the full edit modal) when an
+// onEdit handler is provided; otherwise a plain read-only chip.
 function CalendarServiceChip({
   service: s,
-  onUpdateService,
+  onEdit,
 }: {
   service: OngoingService;
-  onUpdateService?: MonthListViewProps['onUpdateService'];
+  onEdit?: (service: OngoingService) => void;
 }) {
   const isDone = s.completion_status === 'done' || s.is_done;
   const title = `${s.task_description} — ${s.location}${s.phone ? ` — ${s.phone}` : ''} — ${statusText(s)}`;
@@ -336,15 +411,15 @@ function CalendarServiceChip({
   const inner = (
     <>
       {isDone ? (
-        <CheckCircle className="w-2.5 h-2.5 flex-shrink-0" />
+        <CheckCircle className="w-2.5 h-2.5 shrink-0" />
       ) : (
-        <Filter className="w-2.5 h-2.5 flex-shrink-0" />
+        <Filter className="w-2.5 h-2.5 shrink-0" />
       )}
       <span className="truncate">{s.task_description}</span>
     </>
   );
 
-  if (!onUpdateService) {
+  if (!onEdit) {
     return (
       <div className={base} title={title}>
         {inner}
@@ -353,19 +428,18 @@ function CalendarServiceChip({
   }
 
   return (
-    <StatusEditPopover service={s} onUpdateService={onUpdateService} align="start">
-      <button
-        type="button"
-        title={title}
-        aria-label={`עדכן סטטוס — ${s.task_description}`}
-        className={cn(
-          base,
-          'cursor-pointer text-right hover:brightness-95 motion-safe:active:scale-[0.98] transition-all',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
-        )}>
-        {inner}
-      </button>
-    </StatusEditPopover>
+    <button
+      type="button"
+      title={title}
+      aria-label={`ערוך שירות — ${s.task_description}`}
+      onClick={() => onEdit(s)}
+      className={cn(
+        base,
+        'cursor-pointer text-right hover:brightness-95 motion-safe:active:scale-[0.98] transition-all',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+      )}>
+      {inner}
+    </button>
   );
 }
 
@@ -374,12 +448,18 @@ export function MonthCalendarView({
   selectedMonth,
   selectedYear,
   onUpdateService,
+  customersById,
+  onUpdateCustomer,
 }: {
   services: OngoingService[];
   selectedMonth: number;
   selectedYear: number;
   onUpdateService?: MonthListViewProps['onUpdateService'];
+  customersById?: Map<string, Customer>;
+  onUpdateCustomer?: MonthListViewProps['onUpdateCustomer'];
 }) {
+  // Clicking a chip opens the same full edit modal the list view uses.
+  const [editing, setEditing] = useState<OngoingService | null>(null);
   // Days with more than 4 services collapse to keep the grid compact; the manager can
   // expand a day inline so every service stays reachable/editable.
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
@@ -445,7 +525,7 @@ export function MonthCalendarView({
                     <CalendarServiceChip
                       key={s.id}
                       service={s}
-                      onUpdateService={onUpdateService}
+                      onEdit={onUpdateService ? setEditing : undefined}
                     />
                   ))}
                   {dayServices.length > 4 && (
@@ -463,6 +543,14 @@ export function MonthCalendarView({
           );
         })}
       </div>
+
+      <ServiceEditDialogs
+        editing={editing}
+        onCloseEdit={() => setEditing(null)}
+        onUpdateService={onUpdateService}
+        onUpdateCustomer={onUpdateCustomer}
+        customersById={customersById}
+      />
     </div>
   );
 }

@@ -1,5 +1,17 @@
 import { CompletionStatus } from "@/types";
 
+// Manager-editable completion states for a service-cycle row. Shared by the status
+// popover (list view) and the edit modal so the choices look/behave identically.
+export const STATUS_OPTIONS: {
+  value: CompletionStatus;
+  label: string;
+  dot: string;
+}[] = [
+  { value: "done", label: "בוצע", dot: "bg-green-500" },
+  { value: "need_return", label: "צריך לחזור", dot: "bg-amber-500" },
+  { value: "not_done", label: "לא בוצע", dot: "bg-red-500" },
+];
+
 // Status shown on the service-cycle pill. Technician completion (completion_status)
 // takes precedence when present; otherwise fall back to the calendar-synced
 // is_done / status_label pair.

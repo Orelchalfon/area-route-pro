@@ -9,15 +9,7 @@ import { CompletionStatus } from "@/types";
 import { Check } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { toast } from "sonner";
-
-// Manager-editable completion states for a service-cycle row. Shared by the list
-// and calendar views so the control looks and behaves identically in both.
-const STATUS_OPTIONS: { value: CompletionStatus; label: string; dot: string }[] =
-  [
-    { value: "done", label: "בוצע", dot: "bg-green-500" },
-    { value: "need_return", label: "צריך לחזור", dot: "bg-amber-500" },
-    { value: "not_done", label: "לא בוצע", dot: "bg-red-500" },
-  ];
+import { STATUS_OPTIONS } from "./status";
 
 const optionRowClass =
   "w-full min-h-[40px] text-right text-sm px-2 py-2 rounded-md transition-colors " +
