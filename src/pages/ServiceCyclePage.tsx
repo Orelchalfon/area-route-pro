@@ -16,7 +16,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { ClientSearchResults } from "./service-cycle/ClientSearchResults";
 import { MonthCalendarView, MonthListView } from "./service-cycle/MonthViews";
 import { isServiceDone } from "./service-cycle/status";
@@ -57,6 +57,10 @@ export default function ServiceCyclePage() {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("annual");
   const [searchQuery, setSearchQuery] = useState("");
+  // The input value stays bound to `searchQuery` (instant), but the heavy view switch +
+  // filtering read the deferred value, so typing the first character never blocks on rendering
+  // the results list.
+  const deferredQuery = useDeferredValue(searchQuery);
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
 
@@ -64,7 +68,7 @@ export default function ServiceCyclePage() {
   // all years. Ongoing services have no structured client/phone/address — only task_description
   // + location — so those are the only fields matched there.
   const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     if (!q) return { ongoing: [], jobs: [], total: 0 };
 
     const matches = (...fields: (string | null | undefined)[]) =>
@@ -101,7 +105,7 @@ export default function ServiceCyclePage() {
       jobs: jobMatches,
       total: ongoing.length + jobMatches.length,
     };
-  }, [searchQuery, services, jobs, customersList]);
+  }, [deferredQuery, services, jobs, customersList]);
 
   // Group services by month
   const servicesByMonth = useMemo(() => {
@@ -133,7 +137,7 @@ export default function ServiceCyclePage() {
     setViewMode(mode);
   };
 
-  const isSearching = searchQuery.trim().length > 0;
+  const isSearching = deferredQuery.trim().length > 0;
 
   const searchBar = (
     <div className='relative w-full sm:max-w-sm'>
@@ -313,7 +317,12 @@ export default function ServiceCyclePage() {
       {searchBar}
 
       {isSearching ? (
-        <ClientSearchResults results={searchResults} />
+        <ClientSearchResults
+          results={searchResults}
+          onUpdateService={updateOngoingService}
+          onUpdateCustomer={updateCustomer}
+          customersById={customersByRawId}
+        />
       ) : (
         <>
           <div className='grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3'>

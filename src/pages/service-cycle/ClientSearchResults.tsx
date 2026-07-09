@@ -2,8 +2,13 @@ import { cn } from '@/lib/utils';
 import { Customer, Job, JOB_TYPE_CONFIG } from '@/types';
 import { OngoingService } from '@/hooks/useOngoingServices';
 import { format } from 'date-fns';
-import { AlertTriangle, CheckCircle, Filter, Search, Wrench } from 'lucide-react';
-import { type ReactNode } from 'react';
+import { AlertTriangle, CheckCircle, Filter, Pencil, Search, Wrench } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import {
+  ServiceEditDialogs,
+  type UpdateCustomerFn,
+  type UpdateServiceFn,
+} from './ServiceEditDialogs';
 import { statusClass, statusText } from './status';
 
 export type JobResult = { job: Job; customer: Customer | undefined };
@@ -23,9 +28,20 @@ function jobDate(job: Job) {
   return job.scheduledDate || job.createdAt;
 }
 
-export function ClientSearchResults({ results }: { results: SearchResults }) {
+export function ClientSearchResults({
+  results,
+  onUpdateService,
+  onUpdateCustomer,
+  customersById,
+}: {
+  results: SearchResults;
+  onUpdateService?: UpdateServiceFn;
+  onUpdateCustomer?: UpdateCustomerFn;
+  customersById?: Map<string, Customer>;
+}) {
   const malfunctions = results.jobs.filter(r => r.job.type === 'malfunction');
   const installations = results.jobs.filter(r => r.job.type === 'installation');
+  const [editing, setEditing] = useState<OngoingService | null>(null);
 
   if (results.total === 0) {
     return (
@@ -38,26 +54,45 @@ export function ClientSearchResults({ results }: { results: SearchResults }) {
 
   return (
     <div className="space-y-6">
-      {/* Ongoing services */}
+      {/* Ongoing services — editable (opens the shared edit modal) when a handler is provided */}
       <ResultSection title="שירות שוטף" count={results.ongoing.length} icon={<Filter className="w-4 h-4 text-primary" />}>
-        {results.ongoing.map(s => (
-          <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
-            <span className="text-xs text-muted-foreground w-24 flex-shrink-0">
-              {format(new Date(s.service_date), 'dd/MM/yyyy')}
-            </span>
-            <span className="text-sm font-medium text-foreground flex-1">{s.task_description}</span>
-            {s.phone && (
-              <span className="text-xs text-muted-foreground" dir="ltr">{s.phone}</span>
-            )}
-            {s.location && (
-              <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
-            )}
-            <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
-              {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
-              {statusText(s)}
-            </span>
-          </div>
-        ))}
+        {results.ongoing.map(s => {
+          const rowInner = (
+            <>
+              <span className="text-xs text-muted-foreground w-24 flex-shrink-0">
+                {format(new Date(s.service_date), 'dd/MM/yyyy')}
+              </span>
+              <span className="text-sm font-medium text-foreground flex-1 text-start">{s.task_description}</span>
+              {s.phone && (
+                <span className="text-xs text-muted-foreground" dir="ltr">{s.phone}</span>
+              )}
+              {s.location && (
+                <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
+              )}
+              <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
+                {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
+                {statusText(s)}
+              </span>
+              {onUpdateService && (
+                <Pencil className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" aria-hidden />
+              )}
+            </>
+          );
+          return onUpdateService ? (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setEditing(s)}
+              aria-label={`ערוך שירות — ${s.task_description}`}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-start hover:bg-muted/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-inset">
+              {rowInner}
+            </button>
+          ) : (
+            <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
+              {rowInner}
+            </div>
+          );
+        })}
       </ResultSection>
 
       {/* Malfunctions */}
@@ -69,6 +104,14 @@ export function ClientSearchResults({ results }: { results: SearchResults }) {
       <ResultSection title="התקנות" count={installations.length} icon={<Wrench className="w-4 h-4 text-secondary" />}>
         {installations.map(r => <JobRow key={r.job.id} {...r} />)}
       </ResultSection>
+
+      <ServiceEditDialogs
+        editing={editing}
+        onCloseEdit={() => setEditing(null)}
+        onUpdateService={onUpdateService}
+        onUpdateCustomer={onUpdateCustomer}
+        customersById={customersById}
+      />
     </div>
   );
 }
