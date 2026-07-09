@@ -345,9 +345,13 @@ export function useJobs() {
   useEffect(() => {
     if (!scheduledFilterLoaded) return;
     setJobs((prev) => {
-      const loadedIds = new Set(scheduledFilterJobs.map((j) => j.id));
+      // scheduled_filter_services is only for synthetic filter-… jobs. Ignore any row
+      // whose job_key is a real DB id (e.g. a stale db-ongoing-* row left by the old
+      // approve path) so it can't hijack the ongoing_services-sourced job of the same id.
+      const filterOnly = scheduledFilterJobs.filter((j) => isFilterJob(j.id));
+      const loadedIds = new Set(filterOnly.map((j) => j.id));
       const withoutLoaded = prev.filter((j) => !loadedIds.has(j.id));
-      return [...withoutLoaded, ...scheduledFilterJobs];
+      return [...withoutLoaded, ...filterOnly];
     });
   }, [scheduledFilterLoaded, scheduledFilterJobs]);
 
@@ -502,20 +506,24 @@ export function useJobs() {
             `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`,
             j.id,
           );
-          if (j.type === "filter_replacement") {
-            persistFilterServiceRowSafely(
-              j,
-              assignment.technicianId,
-              assignment.scheduledDate,
-              assignment.scheduledTime,
-            );
-          } else {
+          // Route by id, not by type: db-ongoing-* rows are typed "filter_replacement"
+          // yet live in the ongoing_services table, so routing on type wrongly sent them
+          // to scheduled_filter_services and their real row never got status:'confirmed'
+          // (the ongoing merge then reverted them to 'draft' → dropped from the tech view).
+          if (getDbJobRef(j.id)) {
             persistDbJobSafely(j.id, {
               status: "confirmed",
               technicianId: assignment.technicianId,
               scheduledDate: assignment.scheduledDate,
               scheduledTime: assignment.scheduledTime,
             });
+          } else if (isFilterJob(j.id)) {
+            persistFilterServiceRowSafely(
+              j,
+              assignment.technicianId,
+              assignment.scheduledDate,
+              assignment.scheduledTime,
+            );
           }
           return {
             ...j,
@@ -540,20 +548,22 @@ export function useJobs() {
                 `שובץ לתאריך ${assignment.scheduledDate} בשעה ${assignment.scheduledTime}`,
                 job.id,
               );
-              if (job.type === "filter_replacement") {
-                persistFilterServiceRowSafely(
-                  job,
-                  assignment.technicianId,
-                  assignment.scheduledDate,
-                  assignment.scheduledTime,
-                );
-              } else {
+              // Route by id (see the update loop above): db-ongoing-* must persist to
+              // ongoing_services, not scheduled_filter_services, despite its type.
+              if (getDbJobRef(job.id)) {
                 persistDbJobSafely(job.id, {
                   status: "confirmed",
                   technicianId: assignment.technicianId,
                   scheduledDate: assignment.scheduledDate,
                   scheduledTime: assignment.scheduledTime,
                 });
+              } else if (isFilterJob(job.id)) {
+                persistFilterServiceRowSafely(
+                  job,
+                  assignment.technicianId,
+                  assignment.scheduledDate,
+                  assignment.scheduledTime,
+                );
               }
               updated.push({
                 ...job,
