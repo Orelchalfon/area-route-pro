@@ -7,7 +7,7 @@ import { technicians } from '@/data/technicians';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
-import { Calendar, CheckCircle2, Clock, LayoutDashboard, XCircle, RotateCcw, Pencil, MessageCircle } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, LayoutDashboard, Lock, XCircle, RotateCcw, Pencil, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, addWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -25,7 +25,7 @@ interface TechnicianViewProps {
 
 export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianViewProps) {
   const { isAdmin, technicianId } = useAuth();
-  const { customersList, approvedDayKeys } = useJobsContext();
+  const { customersList, approvedDayKeys, lockedDayKeys } = useJobsContext();
   // Employees only see a day's jobs once the manager approves it (realtime); admins
   // browsing keep the full view for planning.
   const dayApproved = (j: Job) =>
@@ -33,6 +33,12 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
     (!!j.technicianId &&
       !!j.scheduledDate &&
       approvedDayKeys.has(approvedDayKey(j.technicianId, j.scheduledDate)));
+  // Once a manager locks a day (after reviewing it), the technician can no longer
+  // report new completions or edit existing ones for that day.
+  const dayLocked = (j: Job) =>
+    !!j.technicianId &&
+    !!j.scheduledDate &&
+    lockedDayKeys.has(approvedDayKey(j.technicianId, j.scheduledDate));
   const [selectedTech, setSelectedTech] = useState(technicians[0].id);
   // Admins may browse any technician; employees are locked to their own.
   const activeTechId = isAdmin ? selectedTech : technicianId;
@@ -228,35 +234,42 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                     </Button>
                   </div>
                 )}
-                {/* 3 action buttons */}
-                <div className="flex gap-2 mt-2 px-1">
-                  <Button
-                    size="sm"
-                    className="flex-1 h-11 bg-success hover:bg-success/90 text-success-foreground"
-                    onClick={() => openCompletionDialog(job.id, 'done')}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
-                    בוצע
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-11 border-destructive text-destructive hover:bg-destructive/10"
-                    onClick={() => openCompletionDialog(job.id, 'not_done')}
-                  >
-                    <XCircle className="w-3.5 h-3.5 ml-1" />
-                    לא בוצע
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-11 border-warning text-warning hover:bg-warning/10"
-                    onClick={() => openCompletionDialog(job.id, 'need_return')}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 ml-1" />
-                    צריך לחזור
-                  </Button>
-                </div>
+                {/* 3 action buttons — hidden once the manager locks the day */}
+                {dayLocked(job) ? (
+                  <div className="flex items-center gap-1.5 mt-2 px-1 text-sm text-muted-foreground">
+                    <Lock className="w-3.5 h-3.5" />
+                    יום זה נעול לעריכה על ידי המנהל
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-2 px-1">
+                    <Button
+                      size="sm"
+                      className="flex-1 h-11 bg-success hover:bg-success/90 text-success-foreground"
+                      onClick={() => openCompletionDialog(job.id, 'done')}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
+                      בוצע
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-11 border-destructive text-destructive hover:bg-destructive/10"
+                      onClick={() => openCompletionDialog(job.id, 'not_done')}
+                    >
+                      <XCircle className="w-3.5 h-3.5 ml-1" />
+                      לא בוצע
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-11 border-warning text-warning hover:bg-warning/10"
+                      onClick={() => openCompletionDialog(job.id, 'need_return')}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 ml-1" />
+                      צריך לחזור
+                    </Button>
+                  </div>
+                )}
               </div>
               );
             })}
@@ -285,10 +298,17 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                       {statusLabel}
                       {job.completionNotes && <span className="text-muted-foreground"> — {job.completionNotes}</span>}
                     </div>
-                    <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={() => openEditDialog(job)}>
-                      <Pencil className="w-3.5 h-3.5 ml-1" />
-                      עריכה
-                    </Button>
+                    {dayLocked(job) ? (
+                      <div className="flex items-center gap-1 h-7 px-2 text-xs text-muted-foreground">
+                        <Lock className="w-3.5 h-3.5" />
+                        נעול
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={() => openEditDialog(job)}>
+                        <Pencil className="w-3.5 h-3.5 ml-1" />
+                        עריכה
+                      </Button>
+                    )}
                   </div>
                 </div>
               );

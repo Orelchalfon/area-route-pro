@@ -6,6 +6,7 @@ type ApprovedDayRow = {
   technician_id: string;
   service_date: string;
   approved_at: string;
+  locked: boolean;
 };
 
 // Per-day schedule approval, persisted in approved_schedule_days (see
@@ -16,12 +17,13 @@ export const approvedDayKey = (technicianId: string, dateStr: string) =>
 
 export function useApprovedDays() {
   const [approvedDayKeys, setApprovedDayKeys] = useState<Set<string>>(new Set());
+  const [lockedDayKeys, setLockedDayKeys] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
       .from('approved_schedule_days')
-      .select('id,technician_id,service_date,approved_at');
+      .select('id,technician_id,service_date,approved_at,locked');
 
     if (error) {
       console.error('Error fetching approved schedule days:', error);
@@ -32,6 +34,13 @@ export function useApprovedDays() {
     const rows = (data as ApprovedDayRow[] | null) ?? [];
     setApprovedDayKeys(
       new Set(rows.map((r) => approvedDayKey(r.technician_id, r.service_date))),
+    );
+    setLockedDayKeys(
+      new Set(
+        rows
+          .filter((r) => r.locked)
+          .map((r) => approvedDayKey(r.technician_id, r.service_date)),
+      ),
     );
     setLoaded(true);
   }, []);
@@ -68,11 +77,17 @@ export function useApprovedDays() {
       });
   }, []);
 
-  // Revoke a day's approval.
+  // Revoke a day's approval. Deleting the row also clears any lock on it.
   const unapproveDay = useCallback((technicianId: string, dateStr: string) => {
+    const key = approvedDayKey(technicianId, dateStr);
     setApprovedDayKeys((prev) => {
       const next = new Set(prev);
-      next.delete(approvedDayKey(technicianId, dateStr));
+      next.delete(key);
+      return next;
+    });
+    setLockedDayKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
       return next;
     });
     supabase
@@ -85,5 +100,49 @@ export function useApprovedDays() {
       });
   }, []);
 
-  return { approvedDayKeys, approvedDaysLoaded: loaded, approveDay, unapproveDay };
+  // Lock/unlock an already-approved day so the technician can no longer edit
+  // their completion report for it. The row always exists by the time this is
+  // called, since a day must be approved (and thus have a row) before it can
+  // be locked. Real enforcement lives in Supabase RLS triggers, not here.
+  const setDayLocked = useCallback(
+    (technicianId: string, dateStr: string, locked: boolean) => {
+      const key = approvedDayKey(technicianId, dateStr);
+      setLockedDayKeys((prev) => {
+        const next = new Set(prev);
+        if (locked) next.add(key);
+        else next.delete(key);
+        return next;
+      });
+      supabase
+        .from('approved_schedule_days')
+        .update({ locked })
+        .eq('technician_id', technicianId)
+        .eq('service_date', dateStr)
+        .then(({ error }) => {
+          if (error) console.error('Failed to persist day lock:', error);
+        });
+    },
+    [],
+  );
+
+  const lockDay = useCallback(
+    (technicianId: string, dateStr: string) =>
+      setDayLocked(technicianId, dateStr, true),
+    [setDayLocked],
+  );
+  const unlockDay = useCallback(
+    (technicianId: string, dateStr: string) =>
+      setDayLocked(technicianId, dateStr, false),
+    [setDayLocked],
+  );
+
+  return {
+    approvedDayKeys,
+    lockedDayKeys,
+    approvedDaysLoaded: loaded,
+    approveDay,
+    unapproveDay,
+    lockDay,
+    unlockDay,
+  };
 }

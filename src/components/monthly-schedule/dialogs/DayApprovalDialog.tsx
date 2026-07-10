@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,7 +22,15 @@ import { normalizeIsraeliPhone, whatsappUrl } from "@/lib/whatsapp";
 import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
-import { CheckCircle, Clock, GripVertical, MessageCircle, RotateCcw } from "lucide-react";
+import {
+  CheckCircle,
+  Clock,
+  GripVertical,
+  Lock,
+  LockOpen,
+  MessageCircle,
+  RotateCcw,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CustomerInfoPopover } from "../../CustomerInfoPopover";
@@ -32,6 +50,8 @@ export function DayApprovalDialog({
   onApprove,
   onUnapprove,
   approvedDays,
+  isLocked,
+  onToggleLock,
   onAddJob,
 }: {
   open: boolean;
@@ -40,8 +60,10 @@ export function DayApprovalDialog({
   dayJobs: Job[];
   filterJobs: Job[];
   onApprove: (jobIds: string[], dateStr: string) => void;
-  onUnapprove: (dateStr: string) => void;
+  onUnapprove: (dateStr: string, resetCompletions: boolean) => void;
   approvedDays: Set<string>;
+  isLocked: boolean;
+  onToggleLock: () => void;
   onAddJob?: (data: {
     type: JobType;
     customerId: string;
@@ -59,6 +81,7 @@ export function DayApprovalDialog({
     [filterJobs, dayJobs],
   );
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
+  const [confirmUnapproveOpen, setConfirmUnapproveOpen] = useState(false);
   const { customersList: customers, markJobCompletion } = useJobsContext();
   const {
     dragIdx,
@@ -281,12 +304,21 @@ export function DayApprovalDialog({
                     </div>
                     <Button
                       variant='outline'
+                      className='w-full gap-2'
+                      onClick={onToggleLock}>
+                      {isLocked ? (
+                        <Lock className='w-4 h-4' />
+                      ) : (
+                        <LockOpen className='w-4 h-4' />
+                      )}
+                      {isLocked
+                        ? "בטל נעילה — אפשר לטכנאי לערוך"
+                        : "נעל יום — מנע עריכה מהטכנאי"}
+                    </Button>
+                    <Button
+                      variant='outline'
                       className='w-full gap-2 border-destructive text-destructive hover:bg-destructive/10'
-                      onClick={() => {
-                        onUnapprove(dateStr);
-                        toast.success("האישור בוטל — ניתן לערוך את היום");
-                        onClose();
-                      }}>
+                      onClick={() => setConfirmUnapproveOpen(true)}>
                       <RotateCcw className='w-4 h-4' />
                       בטל אישור יום
                     </Button>
@@ -297,6 +329,42 @@ export function DayApprovalDialog({
           </div>
         )}
       </DialogContent>
+
+      <AlertDialog
+        open={confirmUnapproveOpen}
+        onOpenChange={setConfirmUnapproveOpen}>
+        <AlertDialogContent dir='rtl'>
+          <AlertDialogHeader>
+            <AlertDialogTitle className='text-right'>
+              לאפס גם את דיווחי ההשלמה?
+            </AlertDialogTitle>
+            <AlertDialogDescription className='text-right'>
+              ביטול האישור יחזיר את היום לעריכה. האם לאפס גם את הדיווחים
+              ("בוצע"/"לא בוצע") שהטכנאי כבר סימן, כך שהמשימות יחזרו למצב פתוח?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <Button
+              variant='outline'
+              onClick={() => {
+                onUnapprove(dateStr, false);
+                setConfirmUnapproveOpen(false);
+                onClose();
+              }}>
+              לא, רק בטל אישור
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                onUnapprove(dateStr, true);
+                setConfirmUnapproveOpen(false);
+                onClose();
+              }}>
+              כן, אפס גם דיווחים
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

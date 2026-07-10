@@ -12,6 +12,14 @@ import { CheckCircle, ListPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+function monthsLabel(months: number): string {
+  if (months === 2) return "חודשיים";
+  if (months === 6) return "חצי שנה";
+  if (months === 12) return "שנה";
+  if (months === 48) return "4 שנים";
+  return `${months} חודשים`;
+}
+
 // Follow-up tasks popover for installation jobs
 export function FollowUpTasksPopover({
   job,
@@ -35,9 +43,19 @@ export function FollowUpTasksPopover({
   const customer = customers.find((c) => c.id === job.customerId);
 
   const FOLLOW_UP_OPTIONS = [
-    { id: "annual_filter", label: "החלפת פילטר שנתי", monthsFromNow: 12 },
-    { id: "external_filter", label: "החלפת פילטר חוץ", monthsFromNow: 6 },
-    { id: "siliphos", label: "החלפת סיליפוס", monthsFromNow: 6 },
+    { id: "mehadar_filter", label: "להחליף פילטר מהדר", monthsFromNow: 12 },
+    { id: "tamad_filter", label: "להחליף פילטר תמד", monthsFromNow: 12 },
+    { id: "osmosis", label: "להחליף אוסמוזה", monthsFromNow: 12 },
+    { id: "external_filter", label: "להחליף פילטר חוץ", monthsFromNow: 6 },
+    { id: "siliphos", label: "להחליף סיליפוס", monthsFromNow: 6 },
+    { id: "service_visit", label: "ביקור שירות", monthsFromNow: 2 },
+    { id: "minibar_filter", label: "פילטר מיני בר", monthsFromNow: 12 },
+    { id: "bb_filter", label: "פילטר BB", monthsFromNow: 6 },
+    { id: "electric_osmosis", label: "אוסמוזה חשמלית", monthsFromNow: 12 },
+    { id: "bb20_filter", label: "פילטר BB 20", monthsFromNow: 6 },
+    { id: "external_siliphos_combo", label: "חוץ+ סיליפוס", monthsFromNow: 6 },
+    { id: "contract_renewal", label: "חידוש חוזה שירות", monthsFromNow: 12 },
+    { id: "resin_replacement", label: "החלפת שרף", monthsFromNow: 48 },
   ];
 
   const toggleOption = (id: string) => {
@@ -108,7 +126,7 @@ export function FollowUpTasksPopover({
               <div>
                 <span className='font-medium'>{option.label}</span>
                 <span className='text-muted-foreground mr-1'>
-                  ({option.monthsFromNow === 12 ? "שנה" : "חצי שנה"} מהיום)
+                  ({monthsLabel(option.monthsFromNow)} מהיום)
                 </span>
               </div>
             </label>

@@ -47,6 +47,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Lock,
+  LockOpen,
   MapPin,
   Plus,
   Trash2,
@@ -129,8 +131,12 @@ export function MonthlyScheduleBoard({
     ongoingServices,
     boardReady,
     approvedDayKeys,
+    lockedDayKeys,
     approveDay,
     unapproveDay,
+    lockDay,
+    unlockDay,
+    resetDayCompletions,
   } = useJobsContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(
@@ -176,6 +182,18 @@ export function MonthlyScheduleBoard({
     return set;
   }, [approvedDayKeys, selectedTechId]);
 
+  // Locked days for the selected technician — same derivation as approvedDays.
+  // A locked day blocks the technician's own completion-report edits (enforced
+  // both client-side in TechnicianView and via Supabase RLS triggers).
+  const lockedDays = useMemo(() => {
+    const prefix = `${selectedTechId}|`;
+    const set = new Set<string>();
+    lockedDayKeys.forEach((k) => {
+      if (k.startsWith(prefix)) set.add(k.slice(prefix.length));
+    });
+    return set;
+  }, [lockedDayKeys, selectedTechId]);
+
   const handleApproveDay = (jobIds: string[], dateStr: string) => {
     // Calculate time ranges for assignments
     const filterDayJobs = getFilterDayJobs(dateStr);
@@ -206,9 +224,24 @@ export function MonthlyScheduleBoard({
     approveDay(selectedTechId, dateStr);
   };
 
-  const handleUnapproveDay = (dateStr: string) => {
+  const handleUnapproveDay = (dateStr: string, resetCompletions: boolean) => {
     unapproveDay(selectedTechId, dateStr);
-    toast.success("האישור בוטל — ניתן לערוך את היום");
+    if (resetCompletions) {
+      resetDayCompletions(selectedTechId, dateStr);
+      toast.success("האישור בוטל ודיווחי ההשלמה אופסו");
+    } else {
+      toast.success("האישור בוטל — ניתן לערוך את היום");
+    }
+  };
+
+  const handleToggleLock = (dateStr: string) => {
+    if (lockedDays.has(dateStr)) {
+      unlockDay(selectedTechId, dateStr);
+      toast.success("היום שוחרר — הטכנאי יכול לערוך שוב");
+    } else {
+      lockDay(selectedTechId, dateStr);
+      toast.success("היום ננעל — הטכנאי לא יוכל לערוך יותר");
+    }
   };
 
   const month = currentMonth.getMonth() + 1; // 1-12
@@ -953,6 +986,7 @@ export function MonthlyScheduleBoard({
                   dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
                 const maxShow = isWeekView ? 20 : 2;
                 const isDayApproved = approvedDays.has(dateStr);
+                const isDayLocked = lockedDays.has(dateStr);
                 const hasJobs = dayFilterJobs.length + dayManualJobs.length > 0;
 
                 return (
@@ -1012,6 +1046,25 @@ export function MonthlyScheduleBoard({
                               />
                             </button>
                           )}
+                        {/* Lock / unlock — only shown once the day is approved. Locking
+                            blocks the technician's own completion-report edits (client-side
+                            here in TechnicianView, and enforced in Supabase RLS triggers). */}
+                        {!isWeekend && inCurrentMonth && hasJobs && isDayApproved && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleLock(dateStr);
+                            }}
+                            className='p-0.5 rounded hover:bg-primary/20 transition-colors'
+                            title={isDayLocked ? "היום נעול — לחץ לשחרור" : "נעל יום — מנע עריכה מהטכנאי"}
+                            aria-label={isDayLocked ? "היום נעול — לחץ לשחרור" : "נעל יום — מנע עריכה מהטכנאי"}>
+                            {isDayLocked ? (
+                              <Lock className='w-3 h-3 text-primary' />
+                            ) : (
+                              <LockOpen className='w-3 h-3 text-muted-foreground hover:text-primary' />
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -1283,6 +1336,8 @@ export function MonthlyScheduleBoard({
           onApprove={handleApproveDay}
           onUnapprove={handleUnapproveDay}
           approvedDays={approvedDays}
+          isLocked={lockedDays.has(approvalState.dateStr)}
+          onToggleLock={() => handleToggleLock(approvalState.dateStr)}
           onAddJob={onAddJob}
         />
       )}

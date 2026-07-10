@@ -348,18 +348,21 @@ export type Database = {
         Row: {
           approved_at: string
           id: string
+          locked: boolean
           service_date: string
           technician_id: string
         }
         Insert: {
           approved_at?: string
           id?: string
+          locked?: boolean
           service_date: string
           technician_id: string
         }
         Update: {
           approved_at?: string
           id?: string
+          locked?: boolean
           service_date?: string
           technician_id?: string
         }

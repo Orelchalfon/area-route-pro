@@ -91,7 +91,8 @@ export function useJobs() {
     refresh: refreshScheduledFilterServices,
   } =
     useScheduledFilterServices();
-  const { approvedDayKeys, approveDay, unapproveDay } = useApprovedDays();
+  const { approvedDayKeys, lockedDayKeys, approveDay, unapproveDay, lockDay, unlockDay } =
+    useApprovedDays();
   const {
     jobs: ongoingJobs,
     customers: ongoingCustomers,
@@ -226,6 +227,31 @@ export function useJobs() {
       );
     },
     [handlePersistFailure, persistDbJob],
+  );
+
+  // Undo a technician's completion report for a synthetic filter job (filter-…),
+  // mirroring persistFilterServiceCompletion in reverse: back to 'confirmed' with
+  // the completion fields cleared, without touching the assignment itself.
+  const persistFilterServiceReset = useCallback(async (jobId: string) => {
+    const { error } = await supabase
+      .from("scheduled_filter_services")
+      .update({
+        status: "confirmed",
+        completion_status: null,
+        completion_notes: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("job_key", jobId);
+    if (error) throw error;
+  }, []);
+
+  const persistFilterServiceResetSafely = useCallback(
+    (jobId: string) => {
+      void persistFilterServiceReset(jobId).catch((error) =>
+        handlePersistFailure(`Failed to reset filter completion ${jobId}`, error),
+      );
+    },
+    [handlePersistFailure, persistFilterServiceReset],
   );
 
   const persistFilterServiceRowSafely = useCallback(
@@ -640,6 +666,49 @@ export function useJobs() {
               status: "completed" as JobStatus,
               completionStatus,
               completionNotes: notes,
+            }
+          : j,
+      );
+    });
+  };
+
+  // Undo every technician completion report for a technician's day, e.g. when a
+  // manager cancels day approval and chooses to reset it. Unlike returnJob, this
+  // keeps the job assigned (technicianId/scheduledDate/scheduledTime untouched) —
+  // only the completion report itself is cleared, back to 'confirmed'.
+  const resetDayCompletions = (technicianId: string, dateStr: string) => {
+    setJobs((prev) => {
+      const dayJobs = prev.filter(
+        (j) =>
+          j.technicianId === technicianId &&
+          j.scheduledDate === dateStr &&
+          j.completionStatus,
+      );
+      dayJobs.forEach((job) => {
+        addLog(
+          job.customerId,
+          "איפוס דיווח",
+          "אישור היום בוטל — הדיווח אופס",
+          job.id,
+        );
+        if (getDbJobRef(job.id)) {
+          persistDbJobSafely(job.id, {
+            status: "confirmed",
+            completionStatus: null,
+            completionNotes: null,
+          });
+        } else if (isFilterJob(job.id)) {
+          persistFilterServiceResetSafely(job.id);
+        }
+      });
+      const dayJobIds = new Set(dayJobs.map((j) => j.id));
+      return prev.map((j) =>
+        dayJobIds.has(j.id)
+          ? {
+              ...j,
+              status: "confirmed" as JobStatus,
+              completionStatus: undefined,
+              completionNotes: undefined,
             }
           : j,
       );
@@ -1182,10 +1251,14 @@ export function useJobs() {
     approveSchedule,
     approveDaySchedule,
     approvedDayKeys,
+    lockedDayKeys,
     approveDay,
     unapproveDay,
+    lockDay,
+    unlockDay,
     completeJob,
     markJobCompletion,
+    resetDayCompletions,
     closeJob,
     returnJob,
     archiveJob,
