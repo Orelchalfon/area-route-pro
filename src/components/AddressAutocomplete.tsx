@@ -55,6 +55,9 @@ function AddressAutocompleteLoaded({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const onChangeRef = useRef(onChange);
   const onPlaceSelectRef = useRef(onPlaceSelect);
+  // The input text captured at the moment Enter is pressed — before the widget can
+  // overwrite it with a street-level prediction that lacks the house number.
+  const lastTypedRef = useRef('');
 
   // Keep refs up to date without re-triggering the effect
   onChangeRef.current = onChange;
@@ -67,8 +70,9 @@ function AddressAutocompleteLoaded({
 
   useEffect(() => {
     if (!isLoaded || !inputRef.current || autocompleteRef.current) return;
+    const input = inputRef.current;
 
-    const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
+    const autocomplete = new google.maps.places.Autocomplete(input, {
       componentRestrictions: { country: 'il' },
       fields: ['place_id', 'geometry', 'formatted_address', 'address_components'],
     });
@@ -79,7 +83,15 @@ function AddressAutocompleteLoaded({
 
       const lat = place.geometry.location.lat();
       const lng = place.geometry.location.lng();
-      const address = place.formatted_address || '';
+      const formatted = place.formatted_address || '';
+
+      // Enter often selects a street-level prediction that drops the house number the
+      // user typed. If so, keep the typed text (it has the number); otherwise use
+      // Google's formatted address. City/coords always come from Google.
+      const typed = lastTypedRef.current;
+      const houseNum = typed.match(/\d+/)?.[0];
+      const address = houseNum && !formatted.includes(houseNum) ? typed : formatted;
+      lastTypedRef.current = '';
 
       // Extract city from address_components
       let city = '';
@@ -95,6 +107,32 @@ function AddressAutocompleteLoaded({
     });
 
     autocompleteRef.current = autocomplete;
+
+    // Enter: stash the current (pre-overwrite) input value so place_changed can keep the
+    // house number, and stop the event bubbling to the surrounding Radix dialog (which
+    // would otherwise treat Enter as a submit/close). Capture phase so we run first.
+    const handleEnter = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        lastTypedRef.current = input.value;
+        e.stopPropagation();
+      }
+    };
+    input.addEventListener('keydown', handleEnter, true);
+
+    // Clicking a suggestion in the portalled `.pac-container` (rendered on <body>) is
+    // seen by Radix's bubble-phase document pointerdown listener as an "outside" click,
+    // closing the dialog before the selection resolves. A capture-phase listener that
+    // stops propagation for pac-container targets runs first and prevents the dismiss.
+    const stopPacDismiss = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.('.pac-container')) e.stopPropagation();
+    };
+    document.addEventListener('pointerdown', stopPacDismiss, true);
+
+    return () => {
+      input.removeEventListener('keydown', handleEnter, true);
+      document.removeEventListener('pointerdown', stopPacDismiss, true);
+    };
   }, [isLoaded]);
 
   return (

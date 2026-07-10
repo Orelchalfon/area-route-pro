@@ -15,7 +15,23 @@ function isStandalone() {
 }
 
 function isIos() {
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const ua = window.navigator.userAgent;
+  if (/iphone|ipad|ipod/i.test(ua)) return true;
+  // iPadOS 13+ Safari reports a desktop Mac UA by default; detect it via touch support.
+  return (
+    window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1
+  );
+}
+
+// On iOS, "Add to Home Screen" only exists in real Safari — not in in-app webviews
+// (WhatsApp/Gmail/Instagram/…) or third-party iOS browsers (Chrome/Firefox use CriOS/FxiOS).
+function isIosSafari() {
+  if (!isIos()) return false;
+  const ua = window.navigator.userAgent;
+  const inAppOrOtherBrowser = /CriOS|FxiOS|EdgiOS|FBAN|FBAV|Instagram|Line|Twitter|GSA/i.test(
+    ua,
+  );
+  return /Safari/i.test(ua) && !inAppOrOtherBrowser;
 }
 
 /**
@@ -57,6 +73,7 @@ export function useInstallPrompt() {
   return {
     installed,
     isIos: isIos(),
+    isIosSafari: isIosSafari(),
     canInstall: deferred !== null,
     promptInstall,
   };

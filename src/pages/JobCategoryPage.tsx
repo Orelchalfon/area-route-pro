@@ -1,4 +1,4 @@
-import { CustomerEditDialog } from "@/components/CustomerEditDialog";
+import { JobEditDialog } from "@/components/JobEditDialog";
 import { OpenJobDialog } from "@/components/OpenJobDialog";
 import {
   AlertDialog,
@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
-import { Customer, Job, JobType } from "@/types";
+import { Job, JobType } from "@/types";
 import {
   CheckCircle2,
   Clock,
@@ -51,7 +51,6 @@ export default function JobCategoryPage({
     jobs,
     customersList,
     addJob,
-    updateCustomer,
     archiveJob,
     unassignJob,
     dbSyncStatus,
@@ -82,7 +81,7 @@ export default function JobCategoryPage({
 
   // Shared row actions (edit customer / archive job) — owned here so both the
   // table and the by-area views drive the same dialogs.
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Job | null>(null);
   const pendingDeleteName = pendingDelete
     ? customersList.find((c) => c.id === pendingDelete.customerId)?.name
@@ -134,7 +133,7 @@ export default function JobCategoryPage({
       <JobsTable
         jobs={jobsToRender}
         showAssignment={showAssignment}
-        onEditCustomer={setEditingCustomer}
+        onEditJob={setEditingJob}
         onDeleteJob={setPendingDelete}
         onUnassignJob={showAssignment ? handleUnassignJob : undefined}
       />
@@ -142,7 +141,7 @@ export default function JobCategoryPage({
       <JobsByArea
         jobs={jobsToRender}
         showAssignment={showAssignment}
-        onEditCustomer={setEditingCustomer}
+        onEditJob={setEditingJob}
         onDeleteJob={setPendingDelete}
         onUnassignJob={showAssignment ? handleUnassignJob : undefined}
       />
@@ -252,11 +251,10 @@ export default function JobCategoryPage({
         </div>
       )}
 
-      <CustomerEditDialog
-        customer={editingCustomer}
-        open={!!editingCustomer}
-        onOpenChange={(open) => !open && setEditingCustomer(null)}
-        onUpdate={updateCustomer}
+      <JobEditDialog
+        job={editingJob}
+        open={!!editingJob}
+        onOpenChange={(open) => !open && setEditingJob(null)}
       />
 
       <AlertDialog

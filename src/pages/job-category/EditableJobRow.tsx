@@ -9,7 +9,7 @@ export function EditableJobRow({
   customer,
   tech,
   showAssignment,
-  onEditCustomer,
+  onEditJob,
   onDeleteJob,
   onUnassignJob,
 }: {
@@ -17,7 +17,7 @@ export function EditableJobRow({
   customer: Customer | undefined;
   tech: { name: string } | undefined;
   showAssignment?: boolean;
-  onEditCustomer: (customer: Customer) => void;
+  onEditJob: (job: Job) => void;
   onDeleteJob: (job: Job) => void;
   onUnassignJob?: (jobId: string) => void;
 }) {
@@ -52,8 +52,7 @@ export function EditableJobRow({
       <TableCell>
         <JobRowActions
           job={job}
-          customer={customer}
-          onEditCustomer={onEditCustomer}
+          onEditJob={onEditJob}
           onDeleteJob={onDeleteJob}
           onUnassignJob={onUnassignJob}
         />

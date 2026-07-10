@@ -125,89 +125,102 @@ export function useOngoingServices() {
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped on every fetchAll. Background page appends check they're still the current
+  // generation before setState, so a newer refresh's results are never clobbered by a
+  // slower in-flight one that started earlier.
+  const fetchGenerationRef = useRef(0);
 
   const fetchAll = useCallback(async () => {
     const PAGE_SIZE = 1000;
+    const generation = ++fetchGenerationRef.current;
+
     const page = (i: number) =>
       supabase
         .from('ongoing_services')
         .select(ONGOING_SERVICE_COLUMNS)
         .or('status.is.null,status.neq.archived')
-        .order('service_date', { ascending: true })
+        // Newest first: the picker window (last 6 months + 2 weeks) and current/future
+        // scheduled jobs land on page 0, so the board's relevant rows paint immediately
+        // instead of waiting behind years of old calendar rows.
+        .order('service_date', { ascending: false })
         .range(i * PAGE_SIZE, i * PAGE_SIZE + PAGE_SIZE - 1);
 
-    // One cheap count, then fetch every page in parallel instead of awaiting each
-    // 1,000-row page before requesting the next (~6 serial round-trips → ~2 deep).
-    const { count, error: countError } = await supabase
-      .from('ongoing_services')
-      .select('id', { count: 'exact', head: true })
-      .or('status.is.null,status.neq.archived');
+    // Derive and publish state from the rows accumulated so far. Reused for the first
+    // paint and for each background page append so the mapping stays identical.
+    const applyRows = (rows: OngoingServiceRow[]) => {
+      if (generation !== fetchGenerationRef.current) return;
 
-    const allRows: OngoingServiceRow[] = [];
-
-    if (countError || count == null) {
-      // Fallback: paginate sequentially if the count is unavailable. Page-size check
-      // uses the raw row count so paging isn't cut short by the archived filter.
-      let from = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const { data, error } = await page(from / PAGE_SIZE);
-        if (error) {
-          console.error('Error fetching ongoing services:', error);
-          break;
-        }
-        const rows = (data as OngoingServiceRow[] | null) ?? [];
-        allRows.push(...rows);
-        from += PAGE_SIZE;
-        hasMore = rows.length === PAGE_SIZE;
-      }
-    } else {
-      const pageCount = Math.max(1, Math.ceil(count / PAGE_SIZE));
-      const results = await Promise.all(
-        Array.from({ length: pageCount }, (_, i) => page(i)),
+      setServices(
+        rows.map(r => ({
+          id: r.id,
+          service_date: r.service_date,
+          task_description: r.task_description,
+          location: r.location || '',
+          is_done: r.is_done,
+          status_label: r.status_label,
+          completion_status: mapCompletionStatus(r.completion_status) ?? null,
+          customer_id: r.customer_id,
+          scheduled_date: r.scheduled_date,
+          phone: r.phone,
+        })),
       );
-      for (const { data, error } of results) {
-        if (error) {
-          console.error('Error fetching ongoing services:', error);
-          continue;
-        }
-        allRows.push(...((data as OngoingServiceRow[] | null) ?? []));
+
+      // Rows become schedulable board jobs when they either originate from the app
+      // (customer_id) OR have been scheduled onto a day (scheduled_date/technician_id).
+      // Unscheduled calendar rows stay OUT of `jobs` — they surface in the monthly
+      // picker's 'שירות' pool (built from `services`) and only become jobs once scheduled.
+      const reqJobs: Job[] = [];
+      const reqCustomers: Customer[] = [];
+      rows
+        .filter(r => r.customer_id || r.scheduled_date || r.technician_id)
+        .forEach(r => {
+          const { job, customer } = ongoingToJobAndCustomer(r);
+          reqJobs.push(job);
+          reqCustomers.push(customer);
+        });
+      setJobs(reqJobs);
+      setCustomers(reqCustomers);
+    };
+
+    // Page 0 first: paint the most-relevant rows and flip loaded after one round-trip
+    // (no serial exact-count query — it was expensive on this large table and blocked
+    // first paint). Remaining pages, if any, stream in below and append progressively.
+    const { data: firstData, error: firstError } = await page(0);
+    if (firstError) {
+      console.error('Error fetching ongoing services:', firstError);
+      if (generation === fetchGenerationRef.current) {
+        setLoading(false);
+        setLoaded(true);
       }
+      return;
     }
 
-    setServices(
-      allRows.map(r => ({
-        id: r.id,
-        service_date: r.service_date,
-        task_description: r.task_description,
-        location: r.location || '',
-        is_done: r.is_done,
-        status_label: r.status_label,
-        completion_status: mapCompletionStatus(r.completion_status) ?? null,
-        customer_id: r.customer_id,
-        scheduled_date: r.scheduled_date,
-        phone: r.phone,
-      })),
-    );
+    const allRows: OngoingServiceRow[] = [
+      ...((firstData as OngoingServiceRow[] | null) ?? []),
+    ];
+    applyRows(allRows);
+    if (generation === fetchGenerationRef.current) {
+      setLoading(false);
+      setLoaded(true);
+    }
 
-    // Rows become schedulable board jobs when they either originate from the app
-    // (customer_id) OR have been scheduled onto a day (scheduled_date/technician_id).
-    // Unscheduled calendar rows stay OUT of `jobs` — they surface in the monthly
-    // picker's 'שירות' pool (built from `services`) and only become jobs once scheduled.
-    const reqJobs: Job[] = [];
-    const reqCustomers: Customer[] = [];
-    allRows
-      .filter(r => r.customer_id || r.scheduled_date || r.technician_id)
-      .forEach(r => {
-        const { job, customer } = ongoingToJobAndCustomer(r);
-        reqJobs.push(job);
-        reqCustomers.push(customer);
-      });
-    setJobs(reqJobs);
-    setCustomers(reqCustomers);
-
-    setLoading(false);
-    setLoaded(true);
+    // Background: fetch the rest sequentially, appending as each page arrives. A page
+    // shorter than PAGE_SIZE means we've reached the end.
+    let i = 1;
+    let hasMore = allRows.length === PAGE_SIZE;
+    while (hasMore) {
+      if (generation !== fetchGenerationRef.current) return;
+      const { data, error } = await page(i);
+      if (error) {
+        console.error('Error fetching ongoing services:', error);
+        break;
+      }
+      const rows = (data as OngoingServiceRow[] | null) ?? [];
+      allRows.push(...rows);
+      applyRows(allRows);
+      i += 1;
+      hasMore = rows.length === PAGE_SIZE;
+    }
   }, []);
 
   useEffect(() => {

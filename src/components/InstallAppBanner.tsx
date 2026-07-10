@@ -3,25 +3,30 @@ import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { Download, Share, X } from 'lucide-react';
 import { useState } from 'react';
 
-const DISMISS_KEY = 'install-banner-dismissed';
+// Snooze (not permanent) so an accidental ✕ doesn't hide the install hint forever.
+const DISMISS_UNTIL_KEY = 'install-banner-dismissed-until';
+const SNOOZE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function isSnoozed() {
+  const until = Number(localStorage.getItem(DISMISS_UNTIL_KEY));
+  return Number.isFinite(until) && until > Date.now();
+}
 
 /**
  * Slim banner inviting the user to install the PWA. Shown to logged-in users on
- * installable contexts (Android/desktop Chromium) or iOS Safari (manual A2HS).
- * Hidden once installed or dismissed.
+ * installable contexts (Android/desktop Chromium) or iOS (manual A2HS via Safari).
+ * Hidden once installed; dismissing snoozes it rather than hiding it permanently.
  */
 export function InstallAppBanner() {
-  const { installed, isIos, canInstall, promptInstall } = useInstallPrompt();
-  const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem(DISMISS_KEY) === '1',
-  );
+  const { installed, isIos, isIosSafari, canInstall, promptInstall } = useInstallPrompt();
+  const [dismissed, setDismissed] = useState(isSnoozed);
 
-  // Nothing to offer: already installed, dismissed, or no install path available.
+  // Nothing to offer: already installed, snoozed, or no install path available.
   if (installed || dismissed) return null;
   if (!canInstall && !isIos) return null;
 
   const dismiss = () => {
-    localStorage.setItem(DISMISS_KEY, '1');
+    localStorage.setItem(DISMISS_UNTIL_KEY, String(Date.now() + SNOOZE_MS));
     setDismissed(true);
   };
 
@@ -40,6 +45,10 @@ export function InstallAppBanner() {
               התקן
             </Button>
           </>
+        ) : isIos && !isIosSafari ? (
+          <span className='flex-1 text-foreground'>
+            להתקנת האפליקציה, פתחו את האתר בדפדפן Safari
+          </span>
         ) : (
           <span className='flex-1 text-foreground'>
             להתקנה: הקש על

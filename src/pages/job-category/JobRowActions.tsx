@@ -1,16 +1,14 @@
-import { Customer, Job } from "@/types";
+import { Job } from "@/types";
 import { Pencil, Trash2, Undo2 } from "lucide-react";
 
 export function JobRowActions({
   job,
-  customer,
-  onEditCustomer,
+  onEditJob,
   onDeleteJob,
   onUnassignJob,
 }: {
   job: Job;
-  customer: Customer | undefined;
-  onEditCustomer: (customer: Customer) => void;
+  onEditJob: (job: Job) => void;
   onDeleteJob: (job: Job) => void;
   onUnassignJob?: (jobId: string) => void;
 }) {
@@ -26,11 +24,10 @@ export function JobRowActions({
         </button>
       )}
       <button
-        onClick={() => customer && onEditCustomer(customer)}
-        disabled={!customer}
-        className='p-1.5 rounded hover:bg-muted/50 transition-colors disabled:opacity-40'
-        aria-label='ערוך לקוח'
-        title='ערוך לקוח'>
+        onClick={() => onEditJob(job)}
+        className='p-1.5 rounded hover:bg-muted/50 transition-colors'
+        aria-label='ערוך פנייה'
+        title='ערוך פנייה'>
         <Pencil className='w-3.5 h-3.5 text-muted-foreground' />
       </button>
       <button

@@ -88,7 +88,6 @@ export function DayApprovalDialog({
   );
   const totalMinutes = orderedJobs.reduce((s, j) => s + j.estimatedDuration, 0);
   const endMinutes = 10 * 60 + totalMinutes;
-  const overTime = endMinutes > 17 * 60;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -131,11 +130,6 @@ export function DayApprovalDialog({
                   10:00 – {String(Math.floor(endMinutes / 60)).padStart(2, "0")}
                   :{String(endMinutes % 60).padStart(2, "0")}
                 </span>
-                {overTime && (
-                  <span className='text-destructive font-medium'>
-                    ⚠ חריגה מ-17:00
-                  </span>
-                )}
               </div>
 
               {/* Scrollable timeline */}
