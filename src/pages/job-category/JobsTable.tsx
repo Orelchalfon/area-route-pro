@@ -35,13 +35,13 @@ interface Row {
 export function JobsTable({
   jobs,
   showAssignment,
-  onEditCustomer,
+  onEditJob,
   onDeleteJob,
   onUnassignJob,
 }: {
   jobs: Job[];
   showAssignment?: boolean;
-  onEditCustomer: (customer: Customer) => void;
+  onEditJob: (job: Job) => void;
   onDeleteJob: (job: Job) => void;
   onUnassignJob?: (jobId: string) => void;
 }) {
@@ -176,7 +176,7 @@ export function JobsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map(({ job, customer, techName, name, city, area }) => {
+            {rows.map(({ job, techName, name, city, area }) => {
               const openedLabel =
                 job.openedDate ?? formatHebrewDate(job.createdAt);
               return (
@@ -211,8 +211,7 @@ export function JobsTable({
                   <TableCell>
                     <JobRowActions
                       job={job}
-                      customer={customer}
-                      onEditCustomer={onEditCustomer}
+                      onEditJob={onEditJob}
                       onDeleteJob={onDeleteJob}
                       onUnassignJob={showAssignment ? onUnassignJob : undefined}
                     />

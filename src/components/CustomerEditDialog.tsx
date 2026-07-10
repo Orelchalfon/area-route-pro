@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Customer } from '@/types';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,9 @@ const emptyForm = { name: '', phone: '', address: '', city: '', email: '', produ
 
 export function CustomerEditDialog({ customer, open, onOpenChange, onUpdate }: CustomerEditDialogProps) {
   const [editData, setEditData] = useState(emptyForm);
+  // Coords captured from a Google Places pick. Only sent on save when present, so
+  // manual address edits fall through to shouldResetStoredCoords (drops stale coords).
+  const [pendingCoords, setPendingCoords] = useState<{ lat: number; lng: number; placeId?: string } | null>(null);
 
   // Sync the single form instance to whichever customer is being edited.
   useEffect(() => {
@@ -31,12 +35,18 @@ export function CustomerEditDialog({ customer, open, onOpenChange, onUpdate }: C
         product: customer.product,
         notes: customer.notes || '',
       });
+      setPendingCoords(null);
     }
   }, [customer]);
 
   const handleSave = () => {
     if (customer && onUpdate) {
-      onUpdate(customer.id, editData);
+      onUpdate(customer.id, {
+        ...editData,
+        ...(pendingCoords
+          ? { lat: pendingCoords.lat, lng: pendingCoords.lng, placeId: pendingCoords.placeId }
+          : {}),
+      });
     }
     onOpenChange(false);
   };
@@ -61,11 +71,28 @@ export function CustomerEditDialog({ customer, open, onOpenChange, onUpdate }: C
           </div>
           <div className="space-y-2">
             <Label>כתובת</Label>
-            <Input value={editData.address} onChange={e => setEditData(d => ({ ...d, address: e.target.value }))} />
+            <AddressAutocomplete
+              value={editData.address}
+              onChange={val => {
+                setEditData(d => ({ ...d, address: val }));
+                setPendingCoords(null);
+              }}
+              onPlaceSelect={place => {
+                setEditData(d => ({ ...d, address: place.address, city: place.city }));
+                setPendingCoords({ lat: place.lat, lng: place.lng, placeId: place.placeId });
+              }}
+              placeholder="הקלד כתובת..."
+            />
           </div>
           <div className="space-y-2">
             <Label>עיר</Label>
-            <Input value={editData.city} onChange={e => setEditData(d => ({ ...d, city: e.target.value }))} />
+            <Input
+              value={editData.city}
+              onChange={e => {
+                setEditData(d => ({ ...d, city: e.target.value }));
+                setPendingCoords(null);
+              }}
+            />
           </div>
           <div className="space-y-2">
             <Label>מייל</Label>

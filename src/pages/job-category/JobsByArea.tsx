@@ -13,20 +13,20 @@ import {
 import { useJobsContext } from "@/contexts/JobsContext";
 import { technicians } from "@/data/technicians";
 import { groupJobsByArea } from "@/lib/areas";
-import { Customer, Job } from "@/types";
+import { Job } from "@/types";
 import { CheckCircle2, ChevronDown, MapPin } from "lucide-react";
 import { EditableJobRow } from "./EditableJobRow";
 
 export function JobsByArea({
   jobs,
   showAssignment,
-  onEditCustomer,
+  onEditJob,
   onDeleteJob,
   onUnassignJob,
 }: {
   jobs: Job[];
   showAssignment?: boolean;
-  onEditCustomer: (customer: Customer) => void;
+  onEditJob: (job: Job) => void;
   onDeleteJob: (job: Job) => void;
   onUnassignJob?: (jobId: string) => void;
 }) {
@@ -97,7 +97,7 @@ export function JobsByArea({
                             customer={customer}
                             tech={tech}
                             showAssignment={showAssignment}
-                            onEditCustomer={onEditCustomer}
+                            onEditJob={onEditJob}
                             onDeleteJob={onDeleteJob}
                             onUnassignJob={
                               showAssignment ? onUnassignJob : undefined

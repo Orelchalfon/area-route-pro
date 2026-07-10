@@ -1,3 +1,4 @@
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { CustomerEditDialog } from '@/components/CustomerEditDialog';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -138,9 +139,11 @@ function ServiceLineEditDialog({
           </div>
           <div className="space-y-2">
             <Label>מיקום</Label>
-            <Input
+            <AddressAutocomplete
               value={form.location}
-              onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+              onChange={val => setForm(f => ({ ...f, location: val }))}
+              onPlaceSelect={place => setForm(f => ({ ...f, location: place.address }))}
+              placeholder="הקלד כתובת..."
             />
           </div>
           <div className="space-y-2">
