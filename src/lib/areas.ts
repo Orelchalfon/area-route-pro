@@ -1,4 +1,7 @@
 import { Job } from '@/types';
+import { SETTLEMENT_AREA, SETTLEMENT_SUB_AREA, type SubArea } from '@/lib/generated/settlementAreas';
+
+export type { SubArea };
 
 // Areas (אזורים) the app imposes on top of the per-city data. The source sheets
 // lay rows out by hand-entered region columns that are unreliable (e.g. חיפה under
@@ -108,6 +111,22 @@ export function normalizeCity(city: string): string {
   return CITY_ALIASES[cleaned] ?? cleaned;
 }
 
+// keep in sync with scripts/generate_settlement_areas.mjs normalizeCityName
+/** Normalize a city string into the key format used by the generated settlement maps. */
+export function normalizeCityName(name: string): string {
+  let s = String(name ?? '');
+  s = s.normalize('NFC');
+  // Drop trailing/any parenthetical qualifiers, e.g. "נהלל (מושב)" -> "נהלל".
+  s = s.replace(/[（(][^）)]*[）)]/g, ' ');
+  // Unify maqaf/hyphen variants to a plain hyphen.
+  s = s.replace(/־/g, '-');
+  // Strip geresh/gershayim variants.
+  s = s.replace(/[׳״'"`]/g, '');
+  // Collapse whitespace.
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
+}
+
 /** Resolve a (possibly messy) city string to its area, or the fallback bucket. */
 export function areaForCity(city: string): AreaOrUnassigned {
   const normalized = normalizeCity(city);
@@ -115,6 +134,11 @@ export function areaForCity(city: string): AreaOrUnassigned {
 
   const direct = CITY_AREA[normalized];
   if (direct) return direct;
+
+  // Generated settlement data (CBS-derived), covering the long tail of cities
+  // not curated in CITY_AREA above.
+  const settlementHit = SETTLEMENT_AREA[normalizeCityName(normalized)];
+  if (settlementHit) return settlementHit;
 
   // Compound free-text entries: match a known multi-word city contained in the string.
   for (const key of SUBSTRING_KEYS) {
@@ -126,6 +150,13 @@ export function areaForCity(city: string): AreaOrUnassigned {
     if (hit) return hit;
   }
   return UNASSIGNED_AREA;
+}
+
+/** Best-effort sub-area lookup from the generated settlement data. Never throws. */
+export function getSubArea(city: string): SubArea | undefined {
+  const normalized = normalizeCity(city);
+  if (!normalized) return undefined;
+  return SETTLEMENT_SUB_AREA[normalizeCityName(normalized)];
 }
 
 export interface CityGroup {

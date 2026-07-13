@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PLAN: Full Israeli settlement → area resolution, CBS-backed
+  Repo: tal-hermon (area-route) | Owner: talhermon | Status: ready to execute
+  Execution target: Claude Code. Read CLAUDE.md first; its conventions override defaults.
+-->
+<task id="settlement-areas" version="2.0">
+
+  <summary>
+    Replace the hand-curated CITY_AREA map as the primary lookup with generated,
+    exhaustive coverage of all ~1,300 Israeli settlements (city / moshav / kibbutz /
+    community settlement / village), resolved to the app's five business areas.
+    Additionally emit a sub-area layer (גוש דן, השרון, שפלה, ...) as metadata for
+    future within-area route clustering. Build-time generation only — zero runtime
+    network calls, zero new runtime dependencies.
+  </summary>
+
+  <architecture_decision>
+    <decision>Two-tier region model.</decision>
+    <tier-1 name="Area" role="operational">
+      The existing union 'צפון' | 'מרכז' | 'שומרון' | 'ירושלים' | 'דרום'.
+      Drives scheduling, UI sections, and day-planning. UNCHANGED — five zones map
+      to workday-sized territories from the technicians' base (אבני חפץ).
+    </tier-1>
+    <tier-2 name="SubArea" role="metadata">
+      Finer geographic region (גוש דן, השרון, לב השרון, שפלה, עמק חפר, עמק יזרעאל,
+      הגליל, הכרמל, הנגב, ...). Consumed in a later phase for within-area job
+      sorting / route clustering. NOT part of the scheduling contract in this task.
+    </tier-2>
+    <rationale>
+      Splitting the operational level into 10-15 fine regions would fragment
+      day-planning for a two-technician team; keeping Area stable also avoids
+      touching AREA_ORDER, AreaOrUnassigned, and every component that renders
+      area sections. The CBS source carries נפה/מועצה אזורית anyway, so tier-2
+      is free to capture now and cheap to activate later.
+    </rationale>
+    <resolution_order>
+      1. CITY_AREA (manual business overrides — e.g. מודיעין → 'ירושלים')
+      2. SETTLEMENT_AREA (generated, CBS-derived)
+      3. UNASSIGNED_AREA (existing fallback bucket)
+    </resolution_order>
+  </architecture_decision>
+
+  <data_source>
+    <primary>
+      data.gov.il dataset "citiesandsettelments" (רשימת ישובים בישראל), CKAN
+      datastore API: GET https://data.gov.il/api/3/action/datastore_search
+      with resource_id discovered from https://data.gov.il/dataset/citiesandsettelments
+      (prefer the English-headers resource). Paginate via limit/offset until
+      records exhausted; assert total matches result.total.
+    </primary>
+    <fallback>
+      CBS bycode workbook:
+      https://www.cbs.gov.il/he/publications/doclib/2019/ishuvim/bycode2021.xlsx
+      (use the newest year available). Only if the datastore API is unreachable.
+    </fallback>
+    <fields>
+      settlement name (Hebrew), settlement code (סמל יישוב), district (מחוז),
+      sub-district (נפה), regional council (מועצה אזורית), municipal status.
+    </fields>
+    <provenance>
+      Commit the raw snapshot (scripts/data/settlements.json) with a fetched-at
+      timestamp and source URL in a sibling metadata block, so generation is
+      reproducible offline and diffs are reviewable.
+    </provenance>
+  </data_source>
+
+  <deliverables>
+
+    <file path="scripts/fetch_settlements.mjs" type="new">
+      Node ≥20, native fetch, no new deps. Paginated download of the full
+      settlement list → scripts/data/settlements.json (pretty-printed, stable
+      key order so git diffs stay minimal). Fail loudly on schema drift:
+      validate expected field names on the first page before proceeding.
+    </file>
+
+    <file path="scripts/generate_settlement_areas.mjs" type="new">
+      <mapping name="district → Area">
+        מחוז הצפון, מחוז חיפה                → 'צפון'
+        מחוז תל אביב, מחוז המרכז             → 'מרכז'
+        אזור יהודה והשומרון                  → 'שומרון'
+        מחוז ירושלים                          → 'ירושלים'
+        מחוז הדרום                            → 'דרום'
+      </mapping>
+      <mapping name="נפה / מועצה אזורית → SubArea">
+        Lookup table, most-specific wins (regional council before נפה):
+        נפת תל אביב                                    → 'גוש דן'
+        נפת פתח תקווה, נפת רמלה, נפת רחובות            → 'שפלה ומרכז'
+        נפת השרון; מ.א. לב השרון, עמק חפר, חוף השרון   → 'השרון'
+        נפת חיפה, נפת חדרה                             → 'חוף הכרמל וחדרה'
+        נפות עכו/יזרעאל/צפת/כנרת/גולן                  → 'גליל ועמקים'
+        נפת ירושלים; מ.א. מטה יהודה                    → 'הרי ירושלים'
+        נפות אשקלון/באר שבע                            → 'נגב ודרום'
+        יהודה ושומרון: split by regional council
+        (שומרון/בנימין → 'שומרון'; גוש עציון/הר חברון → 'גוש עציון')
+        Unmapped rows → sub-area omitted (never guessed). Log a summary of
+        unmapped districts/councils at the end of generation.
+      </mapping>
+      <normalization>
+        Single normalizeCityName implementation shared with runtime (see
+        areas.ts step): NFC-normalize, trim, collapse internal whitespace,
+        strip geresh/gershayim variants (׳ ״ ' " `), unify maqaf/hyphen (־ -),
+        drop parenthetical qualifiers — e.g. "נהלל (מושב)" → "נהלל".
+        Emit known spelling variants as duplicate keys (פתח תקווה / פתח תקוה,
+        קרית / קריית). On duplicate settlement names in the source resolving to
+        DIFFERENT areas, fail the build with a report — never pick silently.
+      </normalization>
+      <output path="src/lib/generated/settlementAreas.ts">
+        Header: "GENERATED FILE — do not edit. Regenerate: pnpm generate:areas".
+        export const SETTLEMENT_AREA: Record&lt;string, Area&gt;
+        export const SETTLEMENT_SUB_AREA: Record&lt;string, SubArea&gt;
+        export const SUB_AREAS: readonly SubArea[]  // render order, north → south
+        export type SubArea = (typeof SUB_AREAS)[number]
+        Keys pre-normalized. Sorted alphabetically for stable diffs.
+      </output>
+      <package_json>Add script: "generate:areas": "node scripts/fetch_settlements.mjs &amp;&amp; node scripts/generate_settlement_areas.mjs"</package_json>
+    </file>
+
+    <file path="src/lib/areas.ts" type="modify">
+      1. Add and export normalizeCityName(name: string): string — identical
+         rules to the generator (keep one canonical implementation; the
+         generator may import it via a small shared module if trivial,
+         otherwise duplicate with a cross-referencing comment + parity test).
+      2. Area resolution becomes: normalize → CITY_AREA → SETTLEMENT_AREA →
+         UNASSIGNED_AREA.
+      3. Add getSubArea(city: string): SubArea | undefined (normalize →
+         SETTLEMENT_SUB_AREA). No UI consumes it yet.
+      4. PRESERVE every existing export name, the Area union, AREAS order,
+         AREA_ORDER, UNASSIGNED_AREA — downstream components and useJobs
+         depend on them. KEEP all existing CITY_AREA entries: they are
+         deliberate business overrides, not redundancy.
+    </file>
+
+    <file path="src/lib/areas.test.ts" type="modify">
+      <case>Each settlement type resolves: city (חיפה→צפון), moshav
+        (כפר תבור→צפון), kibbutz (ניר עם→דרום), community settlement
+        (אלון שבות→ירושלים per override policy, else CBS district).</case>
+      <case>Override precedence: מודיעין → 'ירושלים' (CITY_AREA) even though
+        CBS puts it in מחוז המרכז.</case>
+      <case>Normalization: 'פתח תקוה', ' פתח  תקווה ', with geresh variants —
+        all resolve to 'מרכז'.</case>
+      <case>Parity: normalizeCityName(runtime) output === generated keys for a
+        sample of 20 raw source names.</case>
+      <case>Unknown settlement → UNASSIGNED_AREA; getSubArea returns undefined
+        rather than throwing.</case>
+      <case>Sub-area sanity: תל אביב→'גוש דן', רעננה→'השרון', רחובות→'שפלה ומרכז'.</case>
+    </file>
+
+  </deliverables>
+
+  <constraints>
+    <c>Follow CLAUDE.md: pnpm only, strict TS, path alias @/, RTL-safe UI (no change expected here), Hebrew UI text / English identifiers.</c>
+    <c>Area derives from settlement NAME only — never trust source-sheet region columns.</c>
+    <c>No runtime network calls for area resolution; no new runtime dependencies.</c>
+    <c>Do not touch useJobs hook ordering, JobsProvider, or Supabase sync (dbJobSync.ts).</c>
+    <c>Bundle budget: generated module ≤ ~80KB raw (~1,300 entries × 2 maps is well under; verify in build output).</c>
+  </constraints>
+
+  <acceptance_criteria>
+    <ac>pnpm lint and pnpm test pass; pnpm build succeeds.</ac>
+    <ac>pnpm generate:areas is idempotent: second run produces zero git diff.</ac>
+    <ac>Every settlement in the CBS snapshot resolves to exactly one Area; generation fails (non-zero exit) on ambiguity or unmapped district.</ac>
+    <ac>Spot-check 10 settlements spanning all five areas against real geography.</ac>
+    <ac>Manual QA: JobCategoryPage area sections render identically for existing customers (no regressions from normalization).</ac>
+  </acceptance_criteria>
+
+  <rollback>
+    Single-commit revert restores prior behavior: CITY_AREA path is untouched,
+    generated file is additive, and the fallback chain degrades to exactly the
+    old lookup if the generated module is removed.
+  </rollback>
+
+  <out_of_scope>
+    UI for sub-areas (badges, within-area sorting), splitting 'מרכז' into
+    separate scheduling zones, geocoding/coordinates enrichment. Each is a
+    follow-up; the generator's mapping tables are the only touch-point.
+  </out_of_scope>
+
+</task>
