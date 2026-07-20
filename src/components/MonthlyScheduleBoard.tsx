@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useJobsContext } from "@/contexts/JobsContext";
+import { getSubArea } from "@/lib/areas";
 import { technicians } from "@/data/technicians";
 import {
   isOngoingJob,
@@ -518,10 +519,13 @@ export function MonthlyScheduleBoard({
         )
         .map((d) => format(d, "yyyy-MM-dd"));
 
-      // First: find a day that already has jobs in the same area
-      for (const dateStr of candidates) {
-        const area = getDayAreas(dateStr);
-        if (area.includes(jobCity)) return dateStr;
+      // First: find a day whose selected areas include this city's sub-area.
+      const jobSubArea = getSubArea(jobCity);
+      if (jobSubArea) {
+        for (const dateStr of candidates) {
+          const area = getDayAreas(dateStr);
+          if (area.includes(jobSubArea)) return dateStr;
+        }
       }
       // Fallback: find any day with capacity (fewer than 15 total jobs)
       for (const dateStr of candidates) {

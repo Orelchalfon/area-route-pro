@@ -43,6 +43,15 @@ function expandVariants(name) {
   else if (name.startsWith('קרית')) variants.add('קריית' + name.slice('קרית'.length));
   if (name.includes('תקווה')) variants.add(name.replace(/תקווה/g, 'תקוה'));
   if (name.includes('תקוה')) variants.add(name.replace(/תקוה/g, 'תקווה'));
+  // Municipal double-names: CBS joins amalgamated cities with a SPACED hyphen
+  // (e.g. "תל אביב - יפו"), while app data uses the short form ("תל אביב").
+  // Key by the leading segment too. Restricted to " - " on purpose: tight hyphens
+  // are Arabic/compound village names ("אל-סייד", "ערערה-בנגב") whose lead is
+  // meaningless or collides across areas. Any collision still trips the guard below.
+  if (name.includes(' - ')) {
+    const lead = name.split(' - ')[0].trim();
+    if (lead && lead !== name) variants.add(lead);
+  }
   return [...variants];
 }
 

@@ -23,16 +23,17 @@ describe("jobMatchesAreas", () => {
     expect(jobMatchesAreas(jobIn("עיר דמיונית"), [])).toBe(true);
   });
 
-  it("matches a mapped city to its region", () => {
+  it("matches a city to its CBS sub-area", () => {
     expect(jobMatchesAreas(jobIn("אבני חפץ"), ["שומרון"])).toBe(true);
-    expect(jobMatchesAreas(jobIn("חיפה"), ["צפון רחוק"])).toBe(true);
+    expect(jobMatchesAreas(jobIn("חיפה"), ["חוף הכרמל וחדרה"])).toBe(true);
+    expect(jobMatchesAreas(jobIn("תל אביב"), ["גוש דן"])).toBe(true);
   });
 
-  it("does not match a mapped city against a different region", () => {
-    expect(jobMatchesAreas(jobIn("אבני חפץ"), ["דרום רחוק"])).toBe(false);
+  it("does not match a city against a different sub-area", () => {
+    expect(jobMatchesAreas(jobIn("אבני חפץ"), ["נגב ודרום"])).toBe(false);
   });
 
-  it("surfaces an unmapped city only under the unassigned bucket", () => {
+  it("surfaces a city with no sub-area only under the unassigned bucket", () => {
     expect(jobMatchesAreas(jobIn("עיר דמיונית"), [UNASSIGNED_REGION])).toBe(
       true,
     );

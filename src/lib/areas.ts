@@ -162,6 +162,8 @@ export function getSubArea(city: string): SubArea | undefined {
 export interface CityGroup {
   city: string;
   jobs: Job[];
+  /** CBS-derived sub-area for the city, when known (metadata for UI labels). */
+  subArea?: SubArea;
 }
 
 export interface AreaGroup {
@@ -200,7 +202,11 @@ export function groupJobsByArea(jobs: Job[]): AreaGroup[] {
     if (!cities) continue;
     const cityGroups: CityGroup[] = [...cities.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([city, cityJobs]) => ({ city, jobs: [...cityJobs].sort(byDateTime) }));
+      .map(([city, cityJobs]) => ({
+        city,
+        jobs: [...cityJobs].sort(byDateTime),
+        subArea: getSubArea(city),
+      }));
     const count = cityGroups.reduce((sum, g) => sum + g.jobs.length, 0);
     result.push({ area, count, cities: cityGroups });
   }

@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { technicians } from "@/data/technicians";
-import { areaForCity } from "@/lib/areas";
+import { areaForCity, getSubArea } from "@/lib/areas";
 import { formatHebrewDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { Customer, Job, STATUS_CONFIG } from "@/types";

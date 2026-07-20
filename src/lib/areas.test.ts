@@ -100,15 +100,13 @@ describe('normalizeCityName / SETTLEMENT_AREA parity', () => {
 describe('getSubArea', () => {
   it('looks up a known sub-area from the generated settlement data', () => {
     expect(getSubArea('רחובות')).toBe('שפלה ומרכז');
-    // Ra'anana's CBS מועצה/נפה classification lands it in 'שפלה ומרכז' in the
-    // generated data, not the intuitively-expected 'השרון'. Asserting actual
-    // behavior; flagged for the manager.
+    // Ra'anana's CBS נפה is פתח תקווה, so it lands in 'שפלה ומרכז' — not the
+    // intuitively-expected 'השרון'. Asserting the real CBS classification.
     expect(getSubArea('רעננה')).toBe('שפלה ומרכז');
-    // 'תל אביב' has no sub-area entry: the generated key for the city is
-    // 'תל אביב - יפו' (the CBS settlement name), so a plain 'תל אביב' lookup
-    // misses and returns undefined rather than the expected 'גוש דן'. Asserting
-    // actual behavior; flagged for the manager.
-    expect(getSubArea('תל אביב')).toBeUndefined();
+    // 'תל אביב' resolves via the generated double-name variant key
+    // ('תל אביב - יפו' also emits 'תל אביב').
+    expect(getSubArea('תל אביב')).toBe('גוש דן');
+    expect(getSubArea('חיפה')).toBe('חוף הכרמל וחדרה');
   });
 
   it('never throws and returns undefined for an unknown settlement', () => {
@@ -134,5 +132,16 @@ describe('groupJobsByArea', () => {
     expect(north.count).toBe(2);
     expect(north.cities[0]).toMatchObject({ city: 'חיפה' });
     expect(north.cities[0].jobs).toHaveLength(2);
+  });
+
+  it('tags each city group with its CBS sub-area when known', () => {
+    const groups = groupJobsByArea([
+      job('1', 'חיפה'),
+      job('2', 'עיר דמיונית'),
+    ]);
+    const north = groups.find((g) => g.area === 'צפון')!;
+    expect(north.cities[0].subArea).toBe('חוף הכרמל וחדרה');
+    const other = groups.find((g) => g.area === UNASSIGNED_AREA)!;
+    expect(other.cities[0].subArea).toBeUndefined();
   });
 });

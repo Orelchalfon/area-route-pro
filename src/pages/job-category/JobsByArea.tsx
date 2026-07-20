@@ -53,7 +53,7 @@ export function JobsByArea({
             <span className='text-sm font-medium text-primary/70'>({count})</span>
           </CollapsibleTrigger>
           <CollapsibleContent className='space-y-4 pr-2'>
-            {cities.map(({ city, jobs: cityJobs }) => (
+            {cities.map(({ city, jobs: cityJobs, subArea }) => (
               <div
                 key={city}
                 className='bg-card rounded-xl shadow-card border border-border overflow-hidden'>
@@ -63,6 +63,11 @@ export function JobsByArea({
                   <span className='text-xs text-muted-foreground'>
                     ({cityJobs.length})
                   </span>
+                  {subArea && (
+                    <span className='text-xs text-muted-foreground'>
+                      · {subArea}
+                    </span>
+                  )}
                 </div>
                 <div className='overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0'>
                   <Table className='min-w-[720px]'>
