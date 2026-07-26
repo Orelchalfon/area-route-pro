@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
-import { GOOGLE_MAPS_LIBRARIES } from '@/lib/googleMapsConfig';
+import { GOOGLE_MAPS_LOADER_OPTIONS } from '@/lib/googleMapsConfig';
 import { JOB_TYPE_CONFIG, JobType, Customer } from '@/types';
 import { useDirectionsRoute } from '@/hooks/useDirectionsRoute';
 import { useGeocodeCustomers } from '@/hooks/useGeocodeCustomers';
@@ -38,7 +38,7 @@ const mapOptions: google.maps.MapOptions = {
 };
 
 export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
-  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: GOOGLE_MAPS_LIBRARIES });
+  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey, ...GOOGLE_MAPS_LOADER_OPTIONS });
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const lastPositionSignatureRef = useRef('');

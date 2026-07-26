@@ -70,6 +70,41 @@ describe('normalizeCity', () => {
     expect(normalizeCity('  תל   אביב ')).toBe('תל אביב');
     expect(normalizeCity('רמת השרן')).toBe('רמת השרון');
   });
+
+  it('maps Latin/English localities to their Hebrew canonical name', () => {
+    expect(normalizeCity("Modi'in Makabim-Re'ut")).toBe('מודיעין');
+    expect(normalizeCity('Haifa')).toBe('חיפה');
+    expect(normalizeCity('TEL AVIV-YAFO')).toBe('תל אביב');
+  });
+});
+
+describe('city resolution robustness (address-bearing rows must not fall to UNASSIGNED)', () => {
+  it('resolves an English/Latin locality to its real area', () => {
+    // Regression: customers whose city was saved as Google's English locality
+    // (e.g. "Modi'in Makabim-Re'ut") were dropping into UNASSIGNED_AREA despite a
+    // full address. They must land in their real area instead.
+    expect(areaForCity("Modi'in Makabim-Re'ut")).toBe('ירושלים');
+    expect(areaForCity('Haifa')).toBe('צפון');
+    expect(areaForCity("Modi'in Makabim-Re'ut")).not.toBe(UNASSIGNED_AREA);
+  });
+
+  it('resolves a sub-area for a Latin locality', () => {
+    expect(getSubArea('Haifa')).toBe('חוף הכרמל וחדרה');
+  });
+
+  it('tolerates spaced vs hyphenated multi-part names (CBS joins with a hyphen)', () => {
+    // Spaced input, hyphenated CBS key — resolved via the hyphen/space fallback.
+    expect(getSubArea('מודיעין מכבים רעות')).toBe('שפלה ומרכז');
+  });
+
+  it('resolves a Hebrew spelling variant via alias (בורגתא → בורגתה)', () => {
+    expect(areaForCity('בורגתא')).toBe('מרכז');
+  });
+
+  it('still returns UNASSIGNED_AREA only for a genuinely empty city', () => {
+    expect(areaForCity('')).toBe(UNASSIGNED_AREA);
+    expect(areaForCity('   ')).toBe(UNASSIGNED_AREA);
+  });
 });
 
 describe('normalizeCityName / SETTLEMENT_AREA parity', () => {

@@ -72,6 +72,12 @@ export const CITY_AREA: Record<string, Area> = {
   // ירושלים — Jerusalem + Modiin + Judea foothills
   'ירושלים': 'ירושלים',
   'מודיעין': 'ירושלים',
+  // Modi'in-Maccabim-Re'ut: CBS files it under מרכז/שפלה, but operationally it's the
+  // same Modi'in area the manager works as 'ירושלים' (business override, like מודיעין
+  // above). Both the spaced and hyphenated Hebrew forms are pinned so the hyphen/space
+  // fallback below doesn't send it to CBS's מרכז.
+  'מודיעין מכבים רעות': 'ירושלים',
+  'מודיעין-מכבים-רעות': 'ירושלים',
   'מבשרת ציון': 'ירושלים',
   'צור הדסה': 'ירושלים',
   'אפרת': 'ירושלים',
@@ -97,7 +103,41 @@ const CITY_ALIASES: Record<string, string> = {
   'רמת השרן': 'רמת השרון',
   'ק.גת': 'קריית גת',
   'קיסירה': 'קיסריה',
+  // Hebrew spelling variants that don't match the CBS key (final א vs ה, etc.).
+  'בורגתא': 'בורגתה',
 };
+
+// Latin/English locality names → canonical Hebrew key. Addresses picked before the
+// Maps API was loaded in Hebrew stored Google's English `locality.long_name`
+// (e.g. "Modi'in Makabim-Re'ut"), which no Hebrew-keyed area map recognises. Keyed by
+// a punctuation-insensitive, lower-cased canonical form (see canonicalizeLatin). New
+// entries now store Hebrew (googleMapsConfig loads with language:'he'); this covers
+// rows saved earlier and is the runtime fallback for any that lack a placeId to
+// re-geocode. Extend as the discovery/backfill script surfaces more.
+const CITY_ALIASES_LATIN: Record<string, string> = {
+  'modiin makabim reut': 'מודיעין',
+  'modiin maccabim reut': 'מודיעין',
+  'modiin': 'מודיעין',
+  'tel aviv yafo': 'תל אביב',
+  'tel aviv': 'תל אביב',
+  'herzliya': 'הרצליה',
+  'haifa': 'חיפה',
+  'jerusalem': 'ירושלים',
+  'beer sheva': 'באר שבע',
+  'petah tikva': 'פתח תקווה',
+  'raanana': 'רעננה',
+  'kfar saba': 'כפר סבא',
+  'netanya': 'נתניה',
+  'rishon lezion': 'ראשון לציון',
+  'rehovot': 'רחובות',
+};
+
+/** Punctuation-insensitive, lower-cased canonical form of a Latin locality string. */
+function canonicalizeLatin(s: string): string {
+  // Drop apostrophe variants so "Modi'in" -> "modiin" (not "modi in"), then treat any
+  // other punctuation/whitespace run as a single separator.
+  return s.toLowerCase().replace(/['’`´]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
 
 // Multi-word keys, longest first, for substring matching of compound entries
 // like "סביוני הכרמל חיפה" or "נווה ים הרצליה".
@@ -105,10 +145,17 @@ const SUBSTRING_KEYS = Object.keys(CITY_AREA)
   .filter((c) => c.includes(' '))
   .sort((a, b) => b.length - a.length);
 
-/** Trim, collapse internal whitespace, and resolve known aliases. */
+/** Trim, collapse internal whitespace, and resolve known aliases (Hebrew + Latin). */
 export function normalizeCity(city: string): string {
   const cleaned = (city || '').replace(/\s+/g, ' ').trim();
-  return CITY_ALIASES[cleaned] ?? cleaned;
+  const hebrewAlias = CITY_ALIASES[cleaned];
+  if (hebrewAlias) return hebrewAlias;
+  // Latin/English localities (e.g. "Modi'in Makabim-Re'ut") → Hebrew canonical.
+  if (/[a-z]/i.test(cleaned)) {
+    const latinAlias = CITY_ALIASES_LATIN[canonicalizeLatin(cleaned)];
+    if (latinAlias) return latinAlias;
+  }
+  return cleaned;
 }
 
 // keep in sync with scripts/generate_settlement_areas.mjs normalizeCityName
@@ -127,6 +174,16 @@ export function normalizeCityName(name: string): string {
   return s;
 }
 
+/**
+ * Look a normalized city up in a generated settlement map, tolerating the CBS
+ * convention of joining multi-part names with a hyphen (e.g. "מודיעין-מכבים-רעות")
+ * while app data often uses spaces ("מודיעין מכבים רעות"), and vice versa.
+ */
+function lookupSettlement<T>(map: Record<string, T>, normalizedCity: string): T | undefined {
+  const key = normalizeCityName(normalizedCity);
+  return map[key] ?? map[key.replace(/ /g, '-')] ?? map[key.replace(/-/g, ' ')];
+}
+
 /** Resolve a (possibly messy) city string to its area, or the fallback bucket. */
 export function areaForCity(city: string): AreaOrUnassigned {
   const normalized = normalizeCity(city);
@@ -137,7 +194,7 @@ export function areaForCity(city: string): AreaOrUnassigned {
 
   // Generated settlement data (CBS-derived), covering the long tail of cities
   // not curated in CITY_AREA above.
-  const settlementHit = SETTLEMENT_AREA[normalizeCityName(normalized)];
+  const settlementHit = lookupSettlement(SETTLEMENT_AREA, normalized);
   if (settlementHit) return settlementHit;
 
   // Compound free-text entries: match a known multi-word city contained in the string.
@@ -156,7 +213,7 @@ export function areaForCity(city: string): AreaOrUnassigned {
 export function getSubArea(city: string): SubArea | undefined {
   const normalized = normalizeCity(city);
   if (!normalized) return undefined;
-  return SETTLEMENT_SUB_AREA[normalizeCityName(normalized)];
+  return lookupSettlement(SETTLEMENT_SUB_AREA, normalized);
 }
 
 export interface CityGroup {

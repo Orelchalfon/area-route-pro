@@ -6,7 +6,7 @@ import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { useDirectionsRoute } from '@/hooks/useDirectionsRoute';
 import { useGeocodeCustomers } from '@/hooks/useGeocodeCustomers';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
-import { GOOGLE_MAPS_LIBRARIES } from '@/lib/googleMapsConfig';
+import { GOOGLE_MAPS_LOADER_OPTIONS } from '@/lib/googleMapsConfig';
 import { AlertTriangle } from 'lucide-react';
 
 // Re-export for backward compatibility
@@ -127,7 +127,7 @@ function DayRouteMapInner({
   setActiveMarkerId: (id: string | null) => void;
   onLoad: (map: google.maps.Map) => void;
 }) {
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, libraries: GOOGLE_MAPS_LIBRARIES });
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, ...GOOGLE_MAPS_LOADER_OPTIONS });
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
 
   const customers = useMemo(() => jobsWithCoords.map(jc => jc.customer), [jobsWithCoords]);

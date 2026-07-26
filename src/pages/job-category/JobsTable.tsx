@@ -30,6 +30,7 @@ interface Row {
   name: string;
   city: string;
   area: string;
+  subArea?: string;
 }
 
 export function JobsTable({
@@ -64,6 +65,7 @@ export function JobsTable({
         name: customer?.name || "",
         city,
         area: city ? areaForCity(city) : "",
+        subArea: city ? getSubArea(city) : undefined,
       };
     });
 
@@ -176,7 +178,7 @@ export function JobsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map(({ job, techName, name, city, area }) => {
+            {rows.map(({ job, techName, name, city, area, subArea }) => {
               const openedLabel =
                 job.openedDate ?? formatHebrewDate(job.createdAt);
               return (
@@ -192,6 +194,11 @@ export function JobsTable({
                   <TableCell>{city || "—"}</TableCell>
                   <TableCell className='hidden md:table-cell text-muted-foreground'>
                     {area || "—"}
+                    {subArea && (
+                      <span className='block text-xs text-muted-foreground/70'>
+                        {subArea}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <PriorityBadge priority={job.priority} />
