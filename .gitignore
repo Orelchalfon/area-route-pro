@@ -34,7 +34,7 @@ current-blueprint.json
 scripts/_pop/
 scripts/_populate.mjs
 scripts/import/out/
-
+scripts/import/**/*
 # Customer PII — source data for one-time import only
 sheets/
 customers_import.csv
@@ -61,3 +61,4 @@ tal_hermon_make_blueprints/
 # Supabase local config (contains project IDs)
 supabase/config.toml
 supabase/.env.local
+*.csv
