@@ -1107,6 +1107,10 @@ export function useJobs() {
       newJob.id,
     );
     setJobs((prev) => [...prev, newJob]);
+    // Returned so callers can offer an undo. Note the id falls back to a local
+    // `j{timestamp}` when the insert above failed — callers must check the id
+    // actually names a DB row (isOngoingJob/isFilterJob) before offering to revert.
+    return newJob;
   };
 
   const addCustomer = (data: {

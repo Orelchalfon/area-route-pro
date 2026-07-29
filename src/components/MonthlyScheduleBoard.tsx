@@ -104,6 +104,7 @@ interface MonthlyScheduleBoardProps {
   onUnassignFilterService?: (jobId: string) => void;
   onCloseJob?: (jobId: string) => void;
   onReturnJob?: (jobId: string) => void;
+  // Returns the created job (when it came from addJob) so a caller can offer an undo.
   onAddJob?: (data: {
     type: JobType;
     customerId: string;
@@ -111,7 +112,7 @@ interface MonthlyScheduleBoardProps {
     scheduledDate: string;
     scheduledTime: string;
     notes: string;
-  }) => void;
+  }) => void | Promise<Job | undefined>;
 }
 
 // Stable empty default so days with no selection don't create a new Set each render.

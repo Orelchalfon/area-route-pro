@@ -64,6 +64,7 @@ export function DayApprovalDialog({
   approvedDays: Set<string>;
   isLocked: boolean;
   onToggleLock: () => void;
+  // Returns the created job (when it came from addJob) so a caller can offer an undo.
   onAddJob?: (data: {
     type: JobType;
     customerId: string;
@@ -71,7 +72,7 @@ export function DayApprovalDialog({
     scheduledDate: string;
     scheduledTime: string;
     notes: string;
-  }) => void;
+  }) => void | Promise<Job | undefined>;
 }) {
   const initialJobs = useMemo(
     () =>
@@ -270,7 +271,8 @@ export function DayApprovalDialog({
                                 "done",
                                 job.completionNotes || "",
                               );
-                              onAddJob(data);
+                              // Returned so the popover can offer to revert what it created.
+                              return onAddJob(data);
                             }}
                           />
                         </div>
