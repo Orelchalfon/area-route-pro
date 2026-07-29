@@ -105,11 +105,19 @@ export function FollowUpTasksPopover({
           משימות להמשך
         </Button>
       </PopoverTrigger>
-      <PopoverContent className='w-64 p-3' align='start' dir='rtl'>
-        <p className='text-xs font-semibold text-foreground mb-2'>
+      {/* Three bands: fixed header, scrolling option list, pinned footer. Capping the
+          list keeps the whole panel ~336px instead of ~630px, so it no longer blankets
+          the day-approval dialog behind it, and the confirm button sits outside the
+          scroll flow where it can never be pushed past the viewport edge. */}
+      <PopoverContent
+        className='w-64 p-0'
+        align='start'
+        collisionPadding={16}
+        dir='rtl'>
+        <p className='px-3 pt-3 pb-2 text-xs font-semibold text-foreground'>
           בחר משימות המשך:
         </p>
-        <div className='space-y-2'>
+        <div className='max-h-60 overflow-y-auto px-3 space-y-2'>
           {FOLLOW_UP_OPTIONS.map((option) => (
             <label
               key={option.id}
@@ -132,15 +140,18 @@ export function FollowUpTasksPopover({
             </label>
           ))}
         </div>
-        {selected.length > 0 && (
+        {/* Always rendered (disabled when empty) so the action is discoverable up front
+            and the panel doesn't jump in height on the first selection. */}
+        <div className='border-t border-border p-3'>
           <Button
             size='sm'
-            className='w-full mt-3 text-xs gap-1.5'
+            className='w-full text-xs gap-1.5'
+            disabled={selected.length === 0}
             onClick={handleConfirm}>
             <CheckCircle className='w-3 h-3' />
-            צור {selected.length} משימות
+            {selected.length > 0 ? `צור ${selected.length} משימות` : "בחר משימות"}
           </Button>
-        )}
+        </div>
       </PopoverContent>
     </Popover>
   );

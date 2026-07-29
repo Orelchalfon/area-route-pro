@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Job, JOB_TYPE_CONFIG } from '@/types';
 import { technicians } from '@/data/technicians';
 import { useJobsContext } from '@/contexts/JobsContext';
+import { AnimatedCount } from '@/components/AnimatedCount';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -340,7 +341,7 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onAssignJob, onUnassignJo
           <div key={s.label} className="bg-card rounded-lg shadow-card p-4 flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${s.color}`} />
             <div>
-              <p className="text-2xl font-bold text-card-foreground">{s.count}</p>
+              <AnimatedCount value={s.count} className="block text-2xl font-bold text-card-foreground" />
               <p className="text-xs text-muted-foreground">{s.label}</p>
             </div>
           </div>

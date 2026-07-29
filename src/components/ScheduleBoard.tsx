@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Job } from '@/types';
 import { technicians } from '@/data/technicians';
+import { AnimatedCount } from '@/components/AnimatedCount';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, MapPin, Clock, Filter } from 'lucide-react';
@@ -51,7 +52,7 @@ export function ScheduleBoard({ jobs, onApprove, onStatusChange }: ScheduleBoard
           <div key={s.label} className="bg-card rounded-lg shadow-card p-4 flex items-center gap-3">
             <s.icon className={`w-5 h-5 ${s.color}`} />
             <div>
-              <p className="text-2xl font-bold text-card-foreground">{s.count}</p>
+              <AnimatedCount value={s.count} className="block text-2xl font-bold text-card-foreground" />
               <p className="text-xs text-muted-foreground">{s.label}</p>
             </div>
           </div>

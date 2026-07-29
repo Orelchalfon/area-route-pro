@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { AnimatedCount } from "@/components/AnimatedCount";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -882,9 +883,10 @@ export function MonthlyScheduleBoard({
             <div className={`w-4 h-4 rounded-full ${s.color}`} />
             <div>
               {boardReady ? (
-                <p className='text-2xl font-bold text-card-foreground'>
-                  {s.count}
-                </p>
+                <AnimatedCount
+                  value={s.count}
+                  className='block text-2xl font-bold text-card-foreground'
+                />
               ) : (
                 <Skeleton className='h-7 w-10 mb-1' />
               )}

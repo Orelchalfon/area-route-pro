@@ -1,3 +1,4 @@
+import { AnimatedCount } from "@/components/AnimatedCount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -339,9 +340,10 @@ export default function ServiceCyclePage() {
                 <span className='text-sm font-semibold text-foreground'>
                   {MONTH_NAMES[stat.month - 1]}
                 </span>
-                <span className='text-2xl font-bold text-primary my-2'>
-                  {stat.total}
-                </span>
+                <AnimatedCount
+                  value={stat.total}
+                  className='text-2xl font-bold text-primary my-2'
+                />
                 <span className='text-xs text-muted-foreground mb-2'>
                   משימות
                 </span>
@@ -367,11 +369,13 @@ export default function ServiceCyclePage() {
 
           <div className='text-sm text-muted-foreground text-center'>
             סה״כ{" "}
-            {
-              services.filter(
-                (s) => new Date(s.service_date).getFullYear() === selectedYear,
-              ).length
-            }{" "}
+            <AnimatedCount
+              value={
+                services.filter(
+                  (s) => new Date(s.service_date).getFullYear() === selectedYear,
+                ).length
+              }
+            />{" "}
             משימות בשנת {selectedYear}
           </div>
         </>
