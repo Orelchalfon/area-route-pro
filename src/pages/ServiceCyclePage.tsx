@@ -42,7 +42,7 @@ type ViewMode = "annual" | "month-calendar" | "month-list";
 export default function ServiceCyclePage() {
   const { services, loading, updateOngoingService, archiveOngoingService } =
     useOngoingServices();
-  const { jobs, customersList, updateCustomer } = useJobsContext();
+  const { jobs, customersList, updateCustomer, archiveJob } = useJobsContext();
 
   // Linked-customer lookup by the raw customers UUID stored on ongoing_services rows
   // (customersList ids carry a db-cust- prefix).
@@ -322,6 +322,8 @@ export default function ServiceCyclePage() {
           results={searchResults}
           onUpdateService={updateOngoingService}
           onUpdateCustomer={updateCustomer}
+          onArchiveService={archiveOngoingService}
+          onArchiveJob={archiveJob}
           customersById={customersByRawId}
         />
       ) : (
