@@ -7,7 +7,7 @@ import { CheckCircle2, RotateCcw, XCircle } from 'lucide-react';
 const STATUS_OPTIONS = [
   { key: 'done' as CompletionStatus, label: 'בוצע', icon: CheckCircle2, cls: 'border-success text-success' },
   { key: 'not_done' as CompletionStatus, label: 'לא בוצע', icon: XCircle, cls: 'border-destructive text-destructive' },
-  { key: 'need_return' as CompletionStatus, label: 'צריך לחזור', icon: RotateCcw, cls: 'border-warning text-warning' },
+  { key: 'need_return' as CompletionStatus, label: 'צריך לחזור', icon: RotateCcw, cls: 'border-warning text-warning-strong' },
 ];
 
 export function EditReportDialog({

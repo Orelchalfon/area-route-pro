@@ -50,7 +50,7 @@ export function StatusEditPopover({
         className="w-48 p-1"
         // Keep clicks inside the menu from bubbling to the calendar cell / row.
         onClick={(e) => e.stopPropagation()}>
-        <p className="text-[11px] font-semibold text-muted-foreground px-2 py-1.5">
+        <p className="text-xs font-semibold text-muted-foreground px-2 py-1.5">
           עדכן סטטוס
         </p>
         {STATUS_OPTIONS.map((opt) => (

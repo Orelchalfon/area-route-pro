@@ -29,7 +29,7 @@ export function CustomerHistoryDialog({ customer, logs, open, onOpenChange }: Cu
                 <div key={log.id} className="border border-border rounded-lg p-3 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-foreground">{log.action}</span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {new Date(log.timestamp).toLocaleDateString('he-IL')} {new Date(log.timestamp).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>

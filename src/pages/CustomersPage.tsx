@@ -64,7 +64,7 @@ export default function CustomersPage() {
           <h2 className="text-2xl font-bold text-foreground">כרטיסי לקוחות</h2>
           <p className="text-sm text-muted-foreground mt-1" aria-live="polite">
             {loading ? 'טוען...' : `${customers.length} מתוך ${totalCount} לקוחות`}
-            {unassignedCount > 0 && <span className="text-warning ms-2">• {unassignedCount} ללא מסלול</span>}
+            {unassignedCount > 0 && <span className="text-warning-strong ms-2">• {unassignedCount} ללא מסלול</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">

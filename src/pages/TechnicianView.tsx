@@ -262,7 +262,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1 h-11 border-warning text-warning hover:bg-warning/10"
+                      className="flex-1 h-11 border-warning text-warning-strong hover:bg-warning/10"
                       onClick={() => openCompletionDialog(job.id, 'need_return')}
                     >
                       <RotateCcw className="w-3.5 h-3.5 ml-1" />

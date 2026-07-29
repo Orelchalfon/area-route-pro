@@ -313,16 +313,16 @@ function IncrementalJobList({
                     {customer?.name || "—"}
                   </span>
                   {isOngoing ? (
-                    <span className='inline-flex shrink-0 items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-warning/15 text-warning'>
+                    <span className='inline-flex shrink-0 items-center px-1.5 py-0.5 text-xs font-medium rounded-full bg-warning/15 text-warning-strong'>
                       לא בוצע
                     </span>
                   ) : (
                     <span
-                      className={`inline-flex shrink-0 items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
+                      className={`inline-flex shrink-0 items-center px-1.5 py-0.5 text-xs font-medium rounded-full ${
                         job.priority === "high"
                           ? "bg-destructive/15 text-destructive"
                           : job.priority === "medium"
-                            ? "bg-warning/15 text-warning"
+                            ? "bg-warning/15 text-warning-strong"
                             : "bg-info/15 text-info"
                       }`}>
                       {job.priority === "high"

@@ -19,7 +19,7 @@ function StatusBadge({ status }: { status?: CompletionStatus }) {
     return <Badge className="bg-success/15 text-success border-success/30 gap-1"><CheckCircle className="w-3 h-3" />הושלם</Badge>;
   }
   if (status === 'need_return') {
-    return <Badge className="bg-warning/15 text-warning border-warning/30 gap-1"><RotateCcw className="w-3 h-3" />ממתין לחזרה</Badge>;
+    return <Badge className="bg-warning/15 text-warning-strong border-warning/30 gap-1"><RotateCcw className="w-3 h-3" />ממתין לחזרה</Badge>;
   }
   return <Badge className="bg-destructive/15 text-destructive border-destructive/30 gap-1"><XCircle className="w-3 h-3" />לא בוצע</Badge>;
 }
@@ -70,7 +70,7 @@ export function DailyReportCard({ job, customer, nextDate }: DailyReportCardProp
           </div>
         )}
         {job.completionStatus !== 'done' && (
-          <div className="flex items-center gap-1.5 text-warning">
+          <div className="flex items-center gap-1.5 text-warning-strong">
             <RotateCcw className="w-3 h-3" />
             <span>{getOutcome()}</span>
           </div>

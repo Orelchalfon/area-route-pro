@@ -787,7 +787,7 @@ export function MonthlyScheduleBoard({
               setRemovedFromAutoIds(new Set());
               setDayAreaOverrides(new Map());
             }}>
-            <div className='w-5 h-5 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-[10px] ml-1.5'>
+            <div className='w-5 h-5 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-xs ml-1.5'>
               {tech.name[0]}
             </div>
             {tech.name}
@@ -1013,7 +1013,7 @@ export function MonthlyScheduleBoard({
                       </div>
                       <div className='flex items-center gap-1'>
                         {totalMinutes > 0 && !isWeekend && (
-                          <span className='text-[10px] text-muted-foreground'>
+                          <span className='text-xs text-muted-foreground'>
                             {Math.floor(totalMinutes / 60)}:
                             {String(totalMinutes % 60).padStart(2, "0")}
                           </span>
@@ -1081,7 +1081,7 @@ export function MonthlyScheduleBoard({
                         <Popover modal={false}>
                           <PopoverTrigger asChild>
                             <button
-                              className={`h-auto min-h-[20px] px-1.5 py-0.5 text-[10px] border-0 rounded w-full text-right flex items-center gap-0.5 flex-wrap ${
+                              className={`h-auto min-h-[20px] px-1.5 py-0.5 text-xs border-0 rounded w-full text-right flex items-center gap-0.5 flex-wrap ${
                                 dayAreas.length > 0
                                   ? "bg-info/10 text-info hover:bg-info/20"
                                   : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
@@ -1163,7 +1163,7 @@ export function MonthlyScheduleBoard({
                           />
                         ))}
                         {dayFilterJobs.length > maxShow && (
-                          <span className='text-[10px] text-info'>
+                          <span className='text-xs text-info'>
                             +{dayFilterJobs.length - maxShow} שירות
                           </span>
                         )}
@@ -1182,7 +1182,7 @@ export function MonthlyScheduleBoard({
                           />
                         ))}
                         {dayManualJobs.length > maxShow && (
-                          <span className='text-[10px] text-muted-foreground'>
+                          <span className='text-xs text-muted-foreground'>
                             +{dayManualJobs.length - maxShow} עוד
                           </span>
                         )}
@@ -1199,7 +1199,7 @@ export function MonthlyScheduleBoard({
                               }),
                             });
                           }}
-                          className='w-full text-[10px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-1 rounded border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors mt-1'
+                          className='w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-1 rounded border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors mt-1'
                           title='הוסף משימה'>
                           <Plus className='w-3 h-3' />
                         </button>

@@ -169,7 +169,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs: _closedJob
                             <td className="py-2 px-3">
                               <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
                                 item.mainIcon === 'close' ? 'bg-success/10 text-success' :
-                                item.mainIcon === 'return' ? 'bg-warning/10 text-warning' :
+                                item.mainIcon === 'return' ? 'bg-warning/10 text-warning-strong' :
                                 'bg-primary/10 text-primary'
                               }`}>
                                 {item.mainIcon === 'close' && <CheckCircle className="w-3 h-3" />}

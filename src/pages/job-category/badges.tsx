@@ -4,7 +4,7 @@ export function StatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
   const colorMap: Record<string, string> = {
     muted: "bg-muted text-muted-foreground",
-    warning: "bg-warning/15 text-warning",
+    warning: "bg-warning/15 text-warning-strong",
     info: "bg-info/15 text-info",
     secondary: "bg-secondary/15 text-secondary",
     success: "bg-success/15 text-success",
@@ -22,7 +22,7 @@ export function StatusBadge({ status }: { status: string }) {
 export function PriorityBadge({ priority }: { priority: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     high: { label: "גבוהה", cls: "bg-destructive/15 text-destructive" },
-    medium: { label: "בינונית", cls: "bg-warning/15 text-warning" },
+    medium: { label: "בינונית", cls: "bg-warning/15 text-warning-strong" },
     low: { label: "נמוכה", cls: "bg-info/15 text-info" },
   };
   const p = map[priority] || map.low;

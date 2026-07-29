@@ -342,21 +342,21 @@ export default function ServiceCyclePage() {
                 <span className='text-2xl font-bold text-primary my-2'>
                   {stat.total}
                 </span>
-                <span className='text-[11px] text-muted-foreground mb-2'>
+                <span className='text-xs text-muted-foreground mb-2'>
                   משימות
                 </span>
                 <div className='flex gap-1'>
                   <Button
                     size='sm'
                     variant='ghost'
-                    className='h-7 px-2 text-[10px]'
+                    className='h-7 px-2 text-xs'
                     onClick={() => goToMonth(stat.month, "month-list")}>
                     <List className='w-3 h-3 ml-0.5' /> רשימה
                   </Button>
                   <Button
                     size='sm'
                     variant='ghost'
-                    className='h-7 px-2 text-[10px]'
+                    className='h-7 px-2 text-xs'
                     onClick={() => goToMonth(stat.month, "month-calendar")}>
                     <CalendarDays className='w-3 h-3 ml-0.5' /> לוח
                   </Button>

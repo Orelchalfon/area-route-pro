@@ -49,11 +49,11 @@ function MiniJobCard({ job, onRemove }: { job: Job; onRemove?: () => void }) {
         <span className="text-muted-foreground">{typeIcons[job.type]}</span>
         <span className="font-medium text-xs text-card-foreground">{typeConfig.label}</span>
       </div>
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-0.5">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-0.5">
         <User className="w-3 h-3 shrink-0" />
         <span className="truncate">{customer?.name}</span>
       </div>
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
           <span>{job.scheduledTime || '—'}</span>
@@ -153,9 +153,9 @@ function AreaPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, dayLabe
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{customer?.name}</span>
-                  <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded-full ${
+                  <span className={`inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded-full ${
                     job.priority === 'high' ? 'bg-destructive/15 text-destructive' :
-                    job.priority === 'medium' ? 'bg-warning/15 text-warning' :
+                    job.priority === 'medium' ? 'bg-warning/15 text-warning-strong' :
                     'bg-info/15 text-info'
                   }`}>
                     {job.priority === 'high' ? 'גבוהה' : job.priority === 'medium' ? 'בינונית' : 'נמוכה'}
@@ -326,7 +326,7 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onAssignJob, onUnassignJo
         </Button>
         {technicians.slice(0, 2).map(tech => (
           <Button key={tech.id} variant={selectedTechId === tech.id ? 'default' : 'outline'} size="sm" onClick={() => setSelectedTechId(tech.id)}>
-            <div className="w-5 h-5 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-[10px] ml-1.5">
+            <div className="w-5 h-5 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-xs ml-1.5">
               {tech.name[0]}
             </div>
             {tech.name}
@@ -383,7 +383,7 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onAssignJob, onUnassignJo
                   {tech.name[0]}
                 </div>
                 <p className="text-xs font-medium text-card-foreground text-center leading-tight">{tech.name}</p>
-                <p className="text-[10px] text-muted-foreground">{tech.region}</p>
+                <p className="text-xs text-muted-foreground">{tech.region}</p>
               </div>
 
               {weekDays.map((day, i) => {
@@ -401,7 +401,7 @@ export function WeeklyScheduleBoard({ jobs, onApprove, onAssignJob, onUnassignJo
                     {/* Add button */}
                     <div className="mt-2 space-y-1">
                       {totalMin > 0 && (
-                        <p className="text-[10px] text-muted-foreground text-center">{Math.floor(totalMin / 60)} שע׳ {totalMin % 60} דק׳</p>
+                        <p className="text-xs text-muted-foreground text-center">{Math.floor(totalMin / 60)} שע׳ {totalMin % 60} דק׳</p>
                       )}
                       <Button
                         variant="ghost"

@@ -13,7 +13,7 @@ export function ServiceTrackBadge({ track, className }: ServiceTrackBadgeProps) 
     <Badge
       variant="outline"
       className={cn(
-        'text-[10px] font-semibold border px-2 py-0.5',
+        'text-xs font-semibold border px-2 py-0.5',
         config.bgClass,
         config.textClass,
         className

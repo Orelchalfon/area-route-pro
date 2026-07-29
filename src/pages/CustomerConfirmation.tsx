@@ -46,7 +46,7 @@ export default function CustomerConfirmation() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
         <div className="max-w-md w-full text-center animate-slide-in">
           <div className="w-16 h-16 rounded-full bg-warning/15 flex items-center justify-center mx-auto mb-4">
-            <CalendarX className="w-8 h-8 text-warning" />
+            <CalendarX className="w-8 h-8 text-warning-strong" />
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">בקשת דחייה נשלחה</h1>
           <p className="text-muted-foreground">

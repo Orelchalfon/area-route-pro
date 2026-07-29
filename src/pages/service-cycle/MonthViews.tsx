@@ -117,7 +117,7 @@ export function MonthListView({
                       title="לחץ לעדכון סטטוס"
                       aria-label={`עדכן סטטוס — ${s.task_description}`}
                       className={cn(
-                        'text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0 cursor-pointer',
+                        'text-xs rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0 cursor-pointer',
                         'hover:opacity-80 motion-safe:active:scale-95 transition-all',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
                         statusClass(s),
@@ -127,7 +127,7 @@ export function MonthListView({
                     </button>
                   </StatusEditPopover>
                 ) : (
-                  <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
+                  <span className={cn('text-xs rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
                     {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
                     {statusText(s)}
                   </span>
@@ -202,7 +202,7 @@ function CalendarServiceChip({
   const isDone = s.completion_status === 'done' || s.is_done;
   const title = `${s.task_description} — ${s.location}${s.phone ? ` — ${s.phone}` : ''} — ${statusText(s)}`;
   const base = cn(
-    'flex items-center gap-1 px-1.5 min-h-[22px] w-full rounded text-[10px] border truncate',
+    'flex items-center gap-1 px-1.5 min-h-[22px] w-full rounded text-xs border truncate',
     statusClass(s),
   );
   const inner = (
@@ -330,7 +330,7 @@ export function MonthCalendarView({
                       type="button"
                       onClick={() => toggleExpand(dateStr)}
                       aria-expanded={isExpanded}
-                      className="w-full text-[9px] text-muted-foreground hover:text-foreground px-1 py-0.5 rounded text-right cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
+                      className="w-full text-xs text-muted-foreground hover:text-foreground px-1 py-0.5 rounded text-right cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60">
                       {isExpanded ? 'הצג פחות' : `+${dayServices.length - 4} עוד`}
                     </button>
                   )}

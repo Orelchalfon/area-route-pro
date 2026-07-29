@@ -136,14 +136,14 @@ export default function WorkSchedulePage() {
                         <CalendarDays className="w-4 h-4" />
                         <span>יום {DAY_NAMES[dayOfWeek]}</span>
                         <span className="text-muted-foreground">{format(day, 'd/M')}</span>
-                        {isToday && <Badge className="text-[10px] px-1.5 py-0">היום</Badge>}
+                        {isToday && <Badge className="text-xs px-1.5 py-0">היום</Badge>}
                       </span>
                       <span className="flex items-center gap-2">
                         {areas.length > 0 && (
                           <span className="flex items-center gap-1 flex-wrap justify-end">
                             <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
                             {areas.map(a => (
-                              <Badge key={a} variant="secondary" className="text-[10px] px-1.5">
+                              <Badge key={a} variant="secondary" className="text-xs px-1.5">
                                 {a}
                               </Badge>
                             ))}
@@ -173,7 +173,7 @@ export default function WorkSchedulePage() {
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-medium">{getCustomerName(job.customerId)}</span>
-                                <Badge variant="outline" className="text-[10px]">
+                                <Badge variant="outline" className="text-xs">
                                   {typeConf?.label || job.type}
                                 </Badge>
                               </div>

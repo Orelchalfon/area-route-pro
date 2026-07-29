@@ -38,7 +38,7 @@ export function ScheduleBoard({ jobs, onApprove, onStatusChange }: ScheduleBoard
 
   const stats = [
     { label: 'טיוטה', count: draftJobs.length, icon: Filter, color: 'text-muted-foreground' },
-    { label: 'ממתין', count: pendingJobs.length, icon: Clock, color: 'text-warning' },
+    { label: 'ממתין', count: pendingJobs.length, icon: Clock, color: 'text-warning-strong' },
     { label: 'מאושר', count: confirmedJobs.length, icon: CheckCircle, color: 'text-info' },
     { label: 'הושלם', count: completedJobs.length, icon: CheckCircle, color: 'text-success' },
   ];

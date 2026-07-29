@@ -22,7 +22,7 @@ export function MiniJobChip({
   const completionColorMap: Record<string, string> = {
     done: "bg-success/20 text-success border-success/40",
     not_done: "bg-destructive/20 text-destructive border-destructive/40",
-    need_return: "bg-warning/20 text-warning border-warning/40",
+    need_return: "bg-warning/20 text-warning-strong border-warning/40",
   };
   // Neutral default for jobs not yet reported by technician
   const chipColor = job.completionStatus

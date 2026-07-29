@@ -27,7 +27,7 @@ export function JobCard({ job, variant = 'manager', isNext }: JobCardProps) {
 
   const colorMap: Record<string, string> = {
     muted: 'bg-muted text-muted-foreground',
-    warning: 'bg-warning/15 text-warning',
+    warning: 'bg-warning/15 text-warning-strong',
     info: 'bg-info/15 text-info',
     secondary: 'bg-secondary/15 text-secondary',
     success: 'bg-success/15 text-success',
@@ -64,7 +64,7 @@ export function JobCard({ job, variant = 'manager', isNext }: JobCardProps) {
         </div>
         {variant === 'manager' && tech && (
           <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="w-3.5 h-3.5 rounded-full bg-secondary shrink-0 flex items-center justify-center text-[9px] text-secondary-foreground font-bold">
+            <span className="w-3.5 h-3.5 rounded-full bg-secondary shrink-0 flex items-center justify-center text-xs text-secondary-foreground font-bold">
               {tech.name[0]}
             </span>
             <span>{tech.name}</span>

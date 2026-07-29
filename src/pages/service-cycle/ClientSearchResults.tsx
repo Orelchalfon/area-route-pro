@@ -69,7 +69,7 @@ export function ClientSearchResults({
               {s.location && (
                 <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5">{s.location}</span>
               )}
-              <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
+              <span className={cn('text-xs rounded-full border px-2 py-0.5 flex items-center gap-1 flex-shrink-0', statusClass(s))}>
                 {(s.completion_status === 'done' || s.is_done) && <CheckCircle className="w-3 h-3" />}
                 {statusText(s)}
               </span>
@@ -143,14 +143,14 @@ function JobRow({ job, customer }: JobResult) {
         {customer?.phone && <span className="text-xs text-muted-foreground mr-2">{customer.phone}</span>}
         {job.notes && <p className="text-xs text-muted-foreground truncate">{job.notes}</p>}
       </div>
-      <span className="text-[11px] text-muted-foreground bg-muted/30 rounded px-2 py-0.5 flex-shrink-0">
+      <span className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-0.5 flex-shrink-0">
         {JOB_TYPE_CONFIG[job.type].label}
       </span>
       {addressParts && (
         <span className="text-xs text-muted-foreground hidden sm:inline">{addressParts}</span>
       )}
       {completion && (
-        <span className={cn('text-[11px] rounded-full border px-2 py-0.5 flex-shrink-0', completion.cls)}>
+        <span className={cn('text-xs rounded-full border px-2 py-0.5 flex-shrink-0', completion.cls)}>
           {completion.label}
         </span>
       )}

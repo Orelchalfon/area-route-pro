@@ -32,7 +32,7 @@ function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory }
               <History className="w-4 h-4 ml-1" />
               <span className="text-xs">היסטוריה</span>
               {logCount > 0 && (
-                <span className="mr-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full px-1.5 py-0.5">
+                <span className="mr-1 bg-primary/10 text-primary text-xs font-bold rounded-full px-1.5 py-0.5">
                   {logCount}
                 </span>
               )}
@@ -66,7 +66,7 @@ function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory }
           )}
           {customer.notes && (
             <div className="flex items-start gap-2 bg-muted/50 rounded-md px-2 py-1.5">
-              <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-accent" />
+              <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-accent-strong" />
               <span className="text-xs leading-relaxed">{customer.notes}</span>
             </div>
           )}

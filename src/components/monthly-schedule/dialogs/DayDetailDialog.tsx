@@ -205,7 +205,7 @@ export function DayDetailDialog({
                           </span>
                         </div>
                         {time && (
-                          <span className='text-[10px] font-mono text-muted-foreground shrink-0'>
+                          <span className='text-xs font-mono text-muted-foreground shrink-0'>
                             {time.startTime}–{time.endTime}
                           </span>
                         )}
@@ -443,7 +443,7 @@ export function DayDetailDialog({
                             <Button
                               size='sm'
                               variant='outline'
-                              className='flex-1 text-xs border-warning text-warning hover:bg-warning/10'
+                              className='flex-1 text-xs border-warning text-warning-strong hover:bg-warning/10'
                               onClick={() => {
                                 onReturnJob(job.id);
                                 toast.success(

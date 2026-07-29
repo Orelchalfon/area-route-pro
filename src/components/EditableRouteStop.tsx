@@ -137,7 +137,7 @@ export function EditableRouteStop({
               </>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground/60 mt-0.5 truncate">{customer?.address || job.location}</p>
+          <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">{customer?.address || job.location}</p>
         </div>
         {!isEditing && !readOnly && (
           <button
@@ -156,7 +156,7 @@ export function EditableRouteStop({
       {isEditing && (
         <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
           <div>
-            <label className="text-[11px] text-muted-foreground">כתובת</label>
+            <label className="text-xs text-muted-foreground">כתובת</label>
             <AddressAutocomplete
               value={form.location}
               onChange={val => {
@@ -169,7 +169,7 @@ export function EditableRouteStop({
             />
           </div>
           <div>
-            <label className="text-[11px] text-muted-foreground">עיר</label>
+            <label className="text-xs text-muted-foreground">עיר</label>
             <Input
               value={form.city}
               onChange={e => {
@@ -180,7 +180,7 @@ export function EditableRouteStop({
             />
           </div>
           <div>
-            <label className="text-[11px] text-muted-foreground">הערות</label>
+            <label className="text-xs text-muted-foreground">הערות</label>
             <Input
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
@@ -188,7 +188,7 @@ export function EditableRouteStop({
             />
           </div>
           <div>
-            <label className="text-[11px] text-muted-foreground">משך (דקות)</label>
+            <label className="text-xs text-muted-foreground">משך (דקות)</label>
             <Input
               type="number"
               value={form.estimatedDuration}

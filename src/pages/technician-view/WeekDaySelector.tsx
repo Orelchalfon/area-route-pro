@@ -50,10 +50,10 @@ export function WeekDaySelector({
                     : 'bg-card border-border text-muted-foreground hover:bg-muted/50'
                 }`}
               >
-                <div className="text-[11px] font-medium">{day.shortLabel}</div>
+                <div className="text-xs font-medium">{day.shortLabel}</div>
                 <div className="text-sm font-bold">{day.dayNum}</div>
                 {dayJobCount > 0 && (
-                  <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                  <div className={`text-xs mt-0.5 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                     {dayJobCount} משימות
                   </div>
                 )}

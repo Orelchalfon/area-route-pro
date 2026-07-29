@@ -50,7 +50,7 @@ export function CustomerInfoPopover({ customer, children }: CustomerInfoPopoverP
           )}
           {customer.notes && (
             <div className="flex items-start gap-2 bg-muted/50 rounded-md px-2 py-1.5">
-              <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-accent" />
+              <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-accent-strong" />
               <span className="text-xs leading-relaxed">{customer.notes}</span>
             </div>
           )}
