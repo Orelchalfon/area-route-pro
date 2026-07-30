@@ -60,15 +60,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   } = useInstallPrompt();
 
   // Install entry inside the drawer. Unlike the banner it is never snoozed, so it stays
-  // reachable even if the user dismissed the banner or the install event was never fired.
-  const handleInstallClick = async () => {
-    setOpen(false);
+  // reachable even if the user dismissed the banner or the install event never fired.
+  const handleInstallClick = () => {
     if (canInstall) {
-      const outcome = await promptInstall();
-      if (outcome === "accepted") return;
-      // Cancelled the native dialog — leave it at that rather than nagging with steps.
+      // Fire synchronously: Chrome only honours prompt() inside the tap's user-activation
+      // window, so nothing may be awaited (or closed) before it. The drawer closes once
+      // the user has answered the native dialog.
+      void promptInstall().finally(() => setOpen(false));
       return;
     }
+    setOpen(false);
     setShowInstallSteps(true);
   };
 
@@ -160,7 +161,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       variant='ghost'
                       size='sm'
                       className='text-sm h-11 w-full justify-start text-muted-foreground'
-                      onClick={() => void handleInstallClick()}>
+                      onClick={handleInstallClick}>
                       <Download className='w-4 h-4 ml-1.5' />
                       התקן אפליקציה
                     </Button>

@@ -70,15 +70,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let active = true;
     void (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('role, technician_id')
-        .eq('id', userId)
-        .single();
+      let role: AppRole | null = null;
+      let technician: string | null = null;
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('role, technician_id')
+          .eq('id', userId)
+          .single();
+        role = (data?.role as AppRole) ?? null;
+        technician = data?.technician_id ?? null;
+      } catch (err) {
+        // Network failure — fall through with no role rather than stranding the user on
+        // the spinner. They get employee-level access and can retry by reloading.
+        console.error('Failed to load profile:', err);
+      }
       if (!active) return;
-      setRole((data?.role as AppRole) ?? null);
-      setTechnicianId(data?.technician_id ?? null);
-      // Set even when the query failed, so `loading` can never latch on forever.
+      setRole(role);
+      setTechnicianId(technician);
+      // Marked loaded even on failure, so `loading` can never latch on forever.
       setLoadedProfileUserId(userId);
     })();
 
