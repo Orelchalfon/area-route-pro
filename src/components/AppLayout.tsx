@@ -1,5 +1,6 @@
 import logo from "@/assets/logo.png";
 import { InstallAppBanner } from "@/components/InstallAppBanner";
+import { InstallInstructionsDialog } from "@/components/InstallInstructionsDialog";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,10 +10,12 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import {
   AlertTriangle,
   CalendarDays,
   Contact,
+  Download,
   Filter,
   LayoutDashboard,
   LogOut,
@@ -47,6 +50,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { signOut, isAdmin } = useAuth();
   const visibleNavItems = navItems.filter((item) => isAdmin || !item.adminOnly);
   const [open, setOpen] = useState(false);
+  const [showInstallSteps, setShowInstallSteps] = useState(false);
+  const {
+    installed,
+    canInstall,
+    canOfferInstall,
+    platform,
+    promptInstall,
+  } = useInstallPrompt();
+
+  // Install entry inside the drawer. Unlike the banner it is never snoozed, so it stays
+  // reachable even if the user dismissed the banner or the install event was never fired.
+  const handleInstallClick = async () => {
+    setOpen(false);
+    if (canInstall) {
+      const outcome = await promptInstall();
+      if (outcome === "accepted") return;
+      // Cancelled the native dialog — leave it at that rather than nagging with steps.
+      return;
+    }
+    setShowInstallSteps(true);
+  };
 
   // Shared nav links; `mobile` makes them full-width, ≥44px-tall touch targets.
   const NavLinks = ({
@@ -131,6 +155,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   className='w-72 flex flex-col gap-1'>
                   <SheetTitle className='text-right mb-2'>תפריט</SheetTitle>
                   <NavLinks mobile onNavigate={() => setOpen(false)} />
+                  {!installed && canOfferInstall && (
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      className='text-sm h-11 w-full justify-start text-muted-foreground'
+                      onClick={() => void handleInstallClick()}>
+                      <Download className='w-4 h-4 ml-1.5' />
+                      התקן אפליקציה
+                    </Button>
+                  )}
                 </SheetContent>
               </Sheet>
             </div>
@@ -139,6 +173,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </header>
       <InstallAppBanner />
       <NotificationPermissionPrompt />
+      <InstallInstructionsDialog
+        open={showInstallSteps}
+        onOpenChange={setShowInstallSteps}
+        platform={platform}
+      />
       <main className='w-full px-4 sm:px-6 lg:px-10 py-5'>{children}</main>
     </div>
   );

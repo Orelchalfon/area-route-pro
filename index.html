@@ -15,6 +15,18 @@
     <meta name="apple-mobile-web-app-title" content="טל חרמון" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
+    <!-- Chrome fires `beforeinstallprompt` once per page load, and it can fire before
+         React mounts (the install banner lives behind an async auth check). Stash it
+         here — before the bundle loads — so the event can never be missed. -->
+    <script>
+      window.__deferredInstallPrompt = null;
+      window.addEventListener("beforeinstallprompt", function (e) {
+        e.preventDefault(); // suppress Chrome's mini-infobar; the app drives its own UI
+        window.__deferredInstallPrompt = e;
+        window.dispatchEvent(new Event("installpromptavailable"));
+      });
+    </script>
+
     <!-- Fonts: preconnect + non-blocking load so they don't block first paint. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

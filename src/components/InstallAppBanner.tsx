@@ -1,6 +1,7 @@
+import { InstallInstructionsDialog } from '@/components/InstallInstructionsDialog';
 import { Button } from '@/components/ui/button';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
-import { Download, Share, X } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import { useState } from 'react';
 
 // Snooze (not permanent) so an accidental ✕ doesn't hide the install hint forever.
@@ -13,17 +14,19 @@ function isSnoozed() {
 }
 
 /**
- * Slim banner inviting the user to install the PWA. Shown to logged-in users on
- * installable contexts (Android/desktop Chromium) or iOS (manual A2HS via Safari).
- * Hidden once installed; dismissing snoozes it rather than hiding it permanently.
+ * Slim banner inviting the user to install the PWA. Shown to logged-in users wherever an
+ * install path exists: the native prompt on Chromium, manual instructions on iOS or on
+ * Chromium when no install event was captured. Hidden once installed; dismissing snoozes
+ * it (and the drawer entry in AppLayout stays available regardless).
  */
 export function InstallAppBanner() {
-  const { installed, isIos, isIosSafari, canInstall, promptInstall } = useInstallPrompt();
+  const { installed, canInstall, canOfferInstall, platform, promptInstall } =
+    useInstallPrompt();
   const [dismissed, setDismissed] = useState(isSnoozed);
+  const [showInstructions, setShowInstructions] = useState(false);
 
-  // Nothing to offer: already installed, snoozed, or no install path available.
-  if (installed || dismissed) return null;
-  if (!canInstall && !isIos) return null;
+  // Nothing to offer: already installed, snoozed, or no install path on this browser.
+  if (installed || dismissed || !canOfferInstall) return null;
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_UNTIL_KEY, String(Date.now() + SNOOZE_MS));
@@ -31,38 +34,44 @@ export function InstallAppBanner() {
   };
 
   return (
-    <div
-      dir='rtl'
-      className='bg-primary/10 border-b border-primary/20 px-4 py-2.5 text-sm'>
-      <div className='flex items-center gap-2 max-w-3xl mx-auto'>
-        <Download className='w-4 h-4 text-primary shrink-0' />
-        {canInstall ? (
-          <>
-            <span className='flex-1 text-foreground'>
-              התקן את האפליקציה לגישה מהירה מהמסך הראשי
-            </span>
-            <Button size='sm' className='h-8' onClick={() => void promptInstall()}>
+    <>
+      <div
+        dir='rtl'
+        className='bg-primary/10 border-b border-primary/20 px-4 py-2.5 text-sm'>
+        <div className='flex items-center gap-2 max-w-3xl mx-auto'>
+          <Download className='w-4 h-4 text-primary shrink-0' />
+          <span className='flex-1 text-foreground text-start'>
+            התקן את האפליקציה לגישה מהירה מהמסך הראשי
+          </span>
+          {/* Chromium with a captured event installs in one tap; everywhere else we open
+              step-by-step instructions, since the install can't be triggered in code. */}
+          {canInstall ? (
+            <Button size='sm' className='h-8 shrink-0' onClick={() => void promptInstall()}>
               התקן
             </Button>
-          </>
-        ) : isIos && !isIosSafari ? (
-          <span className='flex-1 text-foreground'>
-            להתקנת האפליקציה, פתחו את האתר בדפדפן Safari
-          </span>
-        ) : (
-          <span className='flex-1 text-foreground'>
-            להתקנה: הקש על
-            <Share className='inline w-3.5 h-3.5 mx-1' />
-            ואז "הוסף למסך הבית"
-          </span>
-        )}
-        <button
-          onClick={dismiss}
-          aria-label='סגור'
-          className='text-muted-foreground hover:text-foreground p-1 shrink-0'>
-          <X className='w-4 h-4' />
-        </button>
+          ) : (
+            <Button
+              size='sm'
+              variant='outline'
+              className='h-8 shrink-0'
+              onClick={() => setShowInstructions(true)}>
+              איך מתקינים?
+            </Button>
+          )}
+          <button
+            onClick={dismiss}
+            aria-label='סגור'
+            className='text-muted-foreground hover:text-foreground p-1 shrink-0'>
+            <X className='w-4 h-4' />
+          </button>
+        </div>
       </div>
-    </div>
+
+      <InstallInstructionsDialog
+        open={showInstructions}
+        onOpenChange={setShowInstructions}
+        platform={platform}
+      />
+    </>
   );
 }
