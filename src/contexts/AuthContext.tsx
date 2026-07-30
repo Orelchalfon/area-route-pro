@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -19,66 +19,77 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  // Whether the initial session lookup has finished. Distinguishes "not known yet"
+  // from "known to be signed out" — without it the guards would bounce to /login.
+  const [sessionResolved, setSessionResolved] = useState(false);
   const [role, setRole] = useState<AppRole | null>(null);
   const [technicianId, setTechnicianId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  // The user id whose profile is currently loaded. Used to ignore background
-  // token refreshes (which fire on tab/window focus): those keep the same user,
-  // so we must NOT flip `loading` or reload the profile — otherwise RequireAuth
-  // briefly swaps to its spinner and remounts the whole app, wiping page state.
-  const loadedUserIdRef = useRef<string | null>(null);
+  // The user id whose profile is currently loaded. Used to ignore background token
+  // refreshes (which fire on tab/window focus): those keep the same user, so we must
+  // NOT reload the profile or flip `loading` — otherwise RequireAuth briefly swaps to
+  // its spinner and remounts the whole app, wiping page state.
+  const [loadedProfileUserId, setLoadedProfileUserId] = useState<string | null>(null);
 
+  const userId = session?.user?.id ?? null;
+
+  // The auth listener must stay SYNCHRONOUS. supabase-js holds an internal auth lock
+  // while it dispatches these callbacks, so awaiting any Supabase call from inside one
+  // deadlocks: the query waits for the lock the callback still holds. That is exactly
+  // what left the app stuck on the spinner right after sign-in (a reload "fixed" it
+  // because getSession() then resolved outside the lock). Profile loading therefore
+  // lives in its own effect below, keyed on the user id.
   useEffect(() => {
-    let active = true;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setSessionResolved(true);
+    });
 
-    // Load the caller's profile (role + technician). Keeps `loading` true until
-    // both the session and (when logged in) the profile have resolved, so route
-    // guards never flash the wrong view.
-    const loadProfile = async (nextSession: Session | null) => {
-      if (!nextSession?.user) {
-        if (!active) return;
-        setRole(null);
-        setTechnicianId(null);
-        loadedUserIdRef.current = null;
-        setLoading(false);
-        return;
-      }
+    // Covers the case where no auth event fires (e.g. no stored session at all).
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setSessionResolved(true);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load the caller's profile (role + technician) whenever the signed-in user changes.
+  useEffect(() => {
+    if (!sessionResolved) return;
+
+    if (!userId) {
+      setRole(null);
+      setTechnicianId(null);
+      setLoadedProfileUserId(null);
+      return;
+    }
+    // Same user as the loaded profile — a token refresh, nothing to do.
+    if (loadedProfileUserId === userId) return;
+
+    let active = true;
+    void (async () => {
       const { data } = await supabase
         .from('profiles')
         .select('role, technician_id')
-        .eq('id', nextSession.user.id)
+        .eq('id', userId)
         .single();
       if (!active) return;
       setRole((data?.role as AppRole) ?? null);
       setTechnicianId(data?.technician_id ?? null);
-      loadedUserIdRef.current = nextSession.user.id;
-      setLoading(false);
-    };
-
-    // Subscribe first so we don't miss auth events that fire during init.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      // Always keep the session fresh (a re-render is fine — it does not remount).
-      setSession(nextSession);
-      // Only (re)load the profile + show the loading gate when the *user* actually
-      // changes (sign in / out / different user). Same-user token refreshes on tab
-      // focus become no-ops for the React tree, so page state survives.
-      const nextUserId = nextSession?.user?.id ?? null;
-      if (nextUserId !== loadedUserIdRef.current) {
-        setLoading(true);
-        void loadProfile(nextSession);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      void loadProfile(data.session);
-    });
+      // Set even when the query failed, so `loading` can never latch on forever.
+      setLoadedProfileUserId(userId);
+    })();
 
     return () => {
       active = false;
-      subscription.unsubscribe();
     };
-  }, []);
+  }, [sessionResolved, userId, loadedProfileUserId]);
+
+  // Keep the guards on their spinner until the session and (when signed in) the profile
+  // have both resolved, so they never flash the wrong view.
+  const loading = !sessionResolved || (userId !== null && loadedProfileUserId !== userId);
 
   const signIn: AuthContextType['signIn'] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });

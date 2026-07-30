@@ -7,3 +7,12 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(self)
+
+# The service worker must never be served from a stale CDN copy, or installs and push
+# fixes stay invisible until the old worker expires.
+/sw.js
+  Cache-Control: no-cache
+
+# Manifest changes (icons, name, display mode) gate installability — keep it fresh too.
+/site.webmanifest
+  Cache-Control: no-cache
