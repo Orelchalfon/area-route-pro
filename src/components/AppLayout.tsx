@@ -29,7 +29,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 const navItems = [
-  { to: "/", label: "לוח בקרה", icon: LayoutDashboard, adminOnly: false },
+  // Admin-only: technicians have no dashboard, "/" just redirects them to /daily-route.
+  { to: "/", label: "לוח בקרה", icon: LayoutDashboard, adminOnly: true },
   { to: "/malfunctions", label: "תקלות", icon: AlertTriangle, adminOnly: true },
   { to: "/installations", label: "התקנות", icon: Wrench, adminOnly: true },
   { to: "/service", label: "שירות שוטף", icon: Filter, adminOnly: true },

@@ -2,19 +2,19 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { AppLayout } from "./components/AppLayout";
 import { RequireAuth } from "./components/RequireAuth";
 import { RequireAdmin } from "./components/RequireAdmin";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { JobsProvider } from "./contexts/JobsContext";
 import LoginPage from "./pages/LoginPage";
 
 // Heavy routes (maps, drag-drop, calendars, charts) are split to keep the
 // initial mobile bundle small.
-const Dashboard = lazy(() => import("./pages/Dashboard"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const JobCategoryPage = lazy(() => import("./pages/JobCategoryPage"));
 const TechnicianPage = lazy(() => import("./pages/TechnicianPage"));
 const ServiceCyclePage = lazy(() => import("./pages/ServiceCyclePage"));
@@ -32,6 +32,15 @@ const RouteFallback = () => (
     <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
   </div>
 );
+
+// Technicians have no dashboard — "/" is just the door to their daily route.
+// Kept outside the lazy boundary so employees never fetch the admin board chunk.
+// No loading guard needed: RequireAuth already waits for the profile (and therefore
+// the role) to resolve before rendering any of this.
+const HomeRoute = () => {
+  const { isAdmin } = useAuth();
+  return isAdmin ? <AdminDashboard /> : <Navigate to="/daily-route" replace />;
+};
 
 const App = () => ( 
   <QueryClientProvider client={queryClient}>
@@ -54,7 +63,7 @@ const App = () => (
                     <AppLayout>
                       <Suspense fallback={<RouteFallback />}>
                       <Routes>
-                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/" element={<HomeRoute />} />
                         <Route path="/daily-route" element={<DailyRoutePage />} />
                         <Route path="/malfunctions" element={<RequireAdmin><JobCategoryPage category="malfunctions" /></RequireAdmin>} />
                         <Route path="/installations" element={<RequireAdmin><JobCategoryPage category="installations" /></RequireAdmin>} />

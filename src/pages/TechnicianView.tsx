@@ -7,7 +7,7 @@ import { technicians } from '@/data/technicians';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
 import { Button } from '@/components/ui/button';
-import { Calendar, CheckCircle2, Clock, LayoutDashboard, Lock, XCircle, RotateCcw, Pencil, MessageCircle } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, Map as MapIcon, Lock, XCircle, RotateCcw, Pencil, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, addWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -139,7 +139,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </div>
           <div className="flex gap-1">
             <Button size="sm" variant="ghost" className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" asChild>
-              <Link to="/"><LayoutDashboard className="w-4 h-4" /></Link>
+              <Link to="/daily-route" aria-label="מסלול יומי"><MapIcon className="w-4 h-4" /></Link>
             </Button>
           </div>
         </div>

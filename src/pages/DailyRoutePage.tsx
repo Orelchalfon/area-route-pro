@@ -143,6 +143,21 @@ export default function DailyRoutePage() {
 
   const completedCount = todayJobs.filter(j => j.completionStatus === 'done').length;
 
+  // This page is the technician's landing view, so an account with no technician mapped
+  // must say so — otherwise it silently matches nothing and looks like an empty day.
+  // Placed below every hook: this file must stay hook-order stable.
+  if (!isAdmin && !technicianId) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6" dir="rtl">
+        <div className="text-center text-muted-foreground">
+          <MapPin className="w-12 h-12 mx-auto mb-3 opacity-40" />
+          <p className="font-medium">לא שויך טכנאי לחשבון זה</p>
+          <p className="text-sm">פנה למנהל המערכת כדי לשייך אותך לטכנאי</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div dir="rtl" className="space-y-4">
       <div className="flex items-center justify-between">
@@ -194,7 +209,11 @@ export default function DailyRoutePage() {
         <div className="text-center py-16 bg-card rounded-xl border border-border">
           <MapPin className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
           <p className="text-lg font-medium text-muted-foreground">אין משימות משובצות להיום</p>
-          <p className="text-sm text-muted-foreground/60 mt-1">שבץ משימות בלוח הבקרה ואשר את היום כדי לראות מסלול</p>
+          <p className="text-sm text-muted-foreground/60 mt-1">
+            {isAdmin
+              ? 'שבץ משימות בלוח הבקרה ואשר את היום כדי לראות מסלול'
+              : 'טרם אושר לוח זמנים ליום זה'}
+          </p>
         </div>
       ) : plannerMode ? (
         /* ============ PLANNER MODE ============ */
