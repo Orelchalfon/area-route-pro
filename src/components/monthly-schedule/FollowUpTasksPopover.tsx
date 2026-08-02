@@ -179,7 +179,7 @@ export function FollowUpTasksPopover({
           <p className='px-3 pt-3 pb-2 text-xs font-semibold text-foreground'>
             בחר משימות המשך:
           </p>
-          <div className='max-h-60 overflow-y-auto px-3 space-y-2'>
+          <div className='max-h-60 overflow-y-auto overscroll-contain px-3 space-y-2'>
             {/* Already-created follow-ups live inside the scroll band on purpose — putting
                 them above it would re-inflate the panel and undo the height cap. */}
             {existingFollowUps.length > 0 && (

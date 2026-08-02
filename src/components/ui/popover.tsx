@@ -21,6 +21,16 @@ const PopoverContent = React.forwardRef<
         className,
       )}
       {...props}
+      onWheel={(e) => {
+        props.onWheel?.(e);
+        // Radix Dialog wraps its content in react-remove-scroll, which listens for `wheel`
+        // on `document` and preventDefaults anything outside its shards. Portalled popover
+        // content is not a shard, so without this every wheel over a popover opened inside
+        // a dialog is cancelled and its list only scrolls by dragging the scrollbar.
+        // The listener is bubble-phase on `document`, so stopping here (React delegates to
+        // the portal container, `document.body`) gets there first.
+        e.stopPropagation();
+      }}
     />
   </PopoverPrimitive.Portal>
 ));
