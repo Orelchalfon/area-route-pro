@@ -67,6 +67,32 @@ export function distributeFilterJobs(
   return distribution;
 }
 
+export const DAY_START_MINUTES = 10 * 60; // 10:00
+
+/**
+ * First free minute after the day's existing stops — where an appended job starts.
+ *
+ * MUST agree with calculateTimeRanges: for a day whose times were written by the route
+ * save (10:00 + cumulative durations), the max end computed here is exactly the start
+ * calculateTimeRanges derives for a stop placed last. That agreement is what lets a job
+ * be appended to an approved day with a single write, leaving every existing stop's time
+ * untouched, without the approval dialog then reporting the day as unsaved.
+ */
+export function nextFreeMinutes(dayJobs: Job[]): number {
+  let end = DAY_START_MINUTES;
+  dayJobs.forEach((job) => {
+    const [h, m] = (job.scheduledTime || "").split(":").map(Number);
+    if (Number.isFinite(h) && Number.isFinite(m)) {
+      end = Math.max(end, h * 60 + m + job.estimatedDuration);
+    }
+  });
+  return end;
+}
+
+export function minutesToTime(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
 export function calculateTimeRanges(
   allJobs: Job[],
 ): { job: Job; startTime: string; endTime: string }[] {
