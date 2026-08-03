@@ -61,6 +61,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DAY_HEADERS, MONTH_NAMES } from "./monthly-schedule/constants";
+import { arrivalStateFor } from "@/hooks/useArrivalConfirmations";
 import { AddToApprovedDayDialog } from "./monthly-schedule/dialogs/AddToApprovedDayDialog";
 import { DayApprovalDialog } from "./monthly-schedule/dialogs/DayApprovalDialog";
 import { DayDetailDialog } from "./monthly-schedule/dialogs/DayDetailDialog";
@@ -144,6 +145,7 @@ export function MonthlyScheduleBoard({
     lockDay,
     unlockDay,
     resetDayCompletions,
+    arrivalConfirmations,
   } = useJobsContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTechId, setSelectedTechId] = useState<string>(
@@ -521,6 +523,20 @@ export function MonthlyScheduleBoard({
       );
     });
   };
+
+  // Customer-confirmation counts per day, for the badge on each day cell.
+  const dayJobCount = useCallback(
+    (dateStr: string) =>
+      getFilterDayJobs(dateStr).length + getManualDayJobs(dateStr).length,
+    [getFilterDayJobs, getManualDayJobs],
+  );
+  const confirmedArrivalCount = useCallback(
+    (dateStr: string) =>
+      [...getFilterDayJobs(dateStr), ...getManualDayJobs(dateStr)].filter(
+        (j) => arrivalStateFor(j, arrivalConfirmations.get(j.id)) === "confirmed",
+      ).length,
+    [getFilterDayJobs, getManualDayJobs, arrivalConfirmations],
+  );
 
   // --- Adding work to a day that is already approved ---------------------------
   // An approved day is live: the technician sees it and the customers have times. Every
@@ -1143,6 +1159,19 @@ export function MonthlyScheduleBoard({
                               />
                             </button>
                           )}
+                        {/* How many of the day's customers have confirmed the visit, so days
+                            still waiting on replies stand out at a glance. */}
+                        {!isWeekend && inCurrentMonth && hasJobs && isDayApproved && (
+                          <span
+                            className={`text-[10px] font-medium leading-none ${
+                              confirmedArrivalCount(dateStr) === dayJobCount(dateStr)
+                                ? "text-success"
+                                : "text-muted-foreground"
+                            }`}
+                            title={`${confirmedArrivalCount(dateStr)} מתוך ${dayJobCount(dateStr)} לקוחות אישרו הגעת טכנאי`}>
+                            ✓{confirmedArrivalCount(dateStr)}/{dayJobCount(dateStr)}
+                          </span>
+                        )}
                         {/* Lock / unlock — only shown once the day is approved. Locking
                             blocks the technician's own completion-report edits (client-side
                             here in TechnicianView, and enforced in Supabase RLS triggers). */}

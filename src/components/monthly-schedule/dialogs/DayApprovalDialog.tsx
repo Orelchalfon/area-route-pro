@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useJobsContext } from "@/contexts/JobsContext";
+import { arrivalStateFor } from "@/hooks/useArrivalConfirmations";
 import { getCustomerCoords } from "@/lib/customerCoords";
 import { isOngoingJob } from "@/lib/idConventions";
 import { optimizeStopOrder, type LatLng } from "@/lib/routeOptimizer";
@@ -27,6 +28,8 @@ import { he } from "date-fns/locale";
 import {
   AlertTriangle,
   CheckCircle,
+  CheckCircle2,
+  Circle,
   Clock,
   GripVertical,
   Lock,
@@ -108,7 +111,13 @@ export function DayApprovalDialog({
   // last auto-optimized for. Both are reset when the dialog moves to another day.
   const coordsSignatureRef = useRef("");
   const autoOptimizedKeyRef = useRef("");
-  const { customersList: customers, markJobCompletion } = useJobsContext();
+  const {
+    customersList: customers,
+    markJobCompletion,
+    arrivalConfirmations,
+    confirmArrival,
+    unconfirmArrival,
+  } = useJobsContext();
   const {
     dragIdx,
     overIdx,
@@ -261,6 +270,27 @@ export function DayApprovalDialog({
     ({ job, startTime }) => job.scheduledTime !== startTime,
   );
 
+  // Whether the customer agreed to this visit, judged against the slot currently ON SCREEN
+  // rather than the persisted one. That way an unsaved reorder immediately shows the affected
+  // customers as needing re-confirmation, and confirming during an unsaved reorder records the
+  // time the manager is actually looking at.
+  const arrivalStateOf = useCallback(
+    (job: Job, startTime: string) =>
+      arrivalStateFor(
+        { scheduledDate: dateStr, scheduledTime: startTime },
+        arrivalConfirmations.get(job.id),
+      ),
+    [dateStr, arrivalConfirmations],
+  );
+
+  const arrivalCounts = useMemo(() => {
+    const counts = { confirmed: 0, stale: 0, none: 0 };
+    timeRanges.forEach(({ job, startTime }) => {
+      counts[arrivalStateOf(job, startTime)] += 1;
+    });
+    return counts;
+  }, [timeRanges, arrivalStateOf]);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
@@ -303,6 +333,21 @@ export function DayApprovalDialog({
               {/* Summary */}
               <div className='flex items-center justify-between p-3 rounded-lg bg-muted/50 text-sm shrink-0'>
                 <span>{orderedJobs.length} משימות</span>
+                {/* All three states, not a "5/8" fraction: re-optimizing a fully confirmed day
+                    would send a fraction to 0/8, which reads as data loss rather than "these
+                    need re-confirming". */}
+                {isApproved && (
+                  <span className='flex items-center gap-2 text-xs'>
+                    <span className='text-success'>✓ {arrivalCounts.confirmed}</span>
+                    {arrivalCounts.stale > 0 && (
+                      <span className='text-warning'>⚠ {arrivalCounts.stale}</span>
+                    )}
+                    {arrivalCounts.none > 0 && (
+                      <span className='text-muted-foreground'>○ {arrivalCounts.none}</span>
+                    )}
+                    <span className='text-muted-foreground'>אישרו הגעה</span>
+                  </span>
+                )}
                 <span>
                   10:00 – {String(Math.floor(endMinutes / 60)).padStart(2, "0")}
                   :{String(endMinutes % 60).padStart(2, "0")}
@@ -428,6 +473,61 @@ export function DayApprovalDialog({
                               className='mt-2 w-full flex items-center justify-center gap-1.5 h-8 rounded-md bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-300'>
                               <MessageCircle className='w-3.5 h-3.5' />
                               תאם בוואטסאפ
+                            </button>
+                          );
+                        })()}
+                      {/* Did the customer actually agree? Recorded by the manager after the
+                          WhatsApp reply comes back. Deliberately NOT gated on having a phone —
+                          plenty of customers confirm by voice. One click either way. */}
+                      {isApproved &&
+                        (() => {
+                          const state = arrivalStateOf(job, startTime);
+                          const confirmation = arrivalConfirmations.get(job.id);
+                          const isConfirmed = state === "confirmed";
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isConfirmed) {
+                                  unconfirmArrival(job.id);
+                                  return;
+                                }
+                                confirmArrival(
+                                  job.id,
+                                  dateStr,
+                                  startTime,
+                                  job.technicianId,
+                                );
+                              }}
+                              title={
+                                isConfirmed && confirmation
+                                  ? `אושר ב-${new Date(confirmation.confirmedAt).toLocaleString("he-IL")} — לחץ לביטול`
+                                  : "סמן שהלקוח אישר את הגעת הטכנאי"
+                              }
+                              className={cn(
+                                "mt-1.5 w-full flex items-center justify-center gap-1.5 h-8 rounded-md border text-xs font-medium transition-colors",
+                                isConfirmed
+                                  ? "bg-success/10 border-success/30 text-success hover:bg-success/20"
+                                  : state === "stale"
+                                    ? "bg-warning/10 border-warning/30 text-warning hover:bg-warning/20"
+                                    : "border-border text-muted-foreground hover:bg-muted",
+                              )}>
+                              {isConfirmed ? (
+                                <>
+                                  <CheckCircle2 className='w-3.5 h-3.5' />
+                                  אושרה הגעת טכנאי
+                                </>
+                              ) : state === "stale" ? (
+                                <>
+                                  <AlertTriangle className='w-3.5 h-3.5' />
+                                  אושר ל-{confirmation?.scheduledTime} · המועד השתנה
+                                </>
+                              ) : (
+                                <>
+                                  <Circle className='w-3.5 h-3.5' />
+                                  סמן שהלקוח אישר
+                                </>
+                              )}
                             </button>
                           );
                         })()}

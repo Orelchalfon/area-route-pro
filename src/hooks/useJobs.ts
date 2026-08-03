@@ -1,5 +1,6 @@
 import { useActivityLogs } from "@/hooks/useActivityLogs";
 import { useApprovedDays } from "@/hooks/useApprovedDays";
+import { useArrivalConfirmations } from "@/hooks/useArrivalConfirmations";
 import {
   customerDbId,
   updateCustomerRow,
@@ -93,6 +94,8 @@ export function useJobs() {
     useScheduledFilterServices();
   const { approvedDayKeys, lockedDayKeys, approveDay, unapproveDay, lockDay, unlockDay } =
     useApprovedDays();
+  const { arrivalConfirmations, confirmArrival, unconfirmArrival } =
+    useArrivalConfirmations();
   const {
     jobs: ongoingJobs,
     customers: ongoingCustomers,
@@ -1260,6 +1263,9 @@ export function useJobs() {
     unapproveDay,
     lockDay,
     unlockDay,
+    arrivalConfirmations,
+    confirmArrival,
+    unconfirmArrival,
     completeJob,
     markJobCompletion,
     resetDayCompletions,

@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pencil, Save, X, Navigation, GripVertical, Filter, AlertTriangle, Wrench, Clock } from 'lucide-react';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
+import { ArrivalConfirmationBadge } from '@/components/ArrivalConfirmationBadge';
+import { useJobsContext } from '@/contexts/JobsContext';
+import { arrivalStateFor } from '@/hooks/useArrivalConfirmations';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { geocodeAddress } from '@/lib/geocodeAddress';
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
@@ -40,6 +43,7 @@ export function EditableRouteStop({
   dragHandleProps, isDragging, showTime, readOnly,
 }: EditableRouteStopProps) {
   const { fetchKey } = useGoogleMapsKey();
+  const { arrivalConfirmations } = useJobsContext();
   const isDone = job.completionStatus === 'done';
   const [form, setForm] = useState<EditForm>({
     location: job.location || customer?.address || '',
@@ -138,6 +142,14 @@ export function EditableRouteStop({
             )}
           </div>
           <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">{customer?.address || job.location}</p>
+          {/* Whether the customer confirmed this visit. Read-only everywhere on the route —
+              it is recorded by the manager in the day approval dialog. */}
+          {!isDone && (
+            <ArrivalConfirmationBadge
+              state={arrivalStateFor(job, arrivalConfirmations.get(job.id))}
+              className="mt-1"
+            />
+          )}
         </div>
         {!isEditing && !readOnly && (
           <button

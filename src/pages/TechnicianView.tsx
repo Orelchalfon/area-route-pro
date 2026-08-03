@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useJobsContext } from '@/contexts/JobsContext';
+import { ArrivalConfirmationBadge } from '@/components/ArrivalConfirmationBadge';
 import { approvedDayKey } from '@/hooks/useApprovedDays';
+import { arrivalStateFor } from '@/hooks/useArrivalConfirmations';
 import { technicians } from '@/data/technicians';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
@@ -25,7 +27,12 @@ interface TechnicianViewProps {
 
 export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianViewProps) {
   const { isAdmin, technicianId } = useAuth();
-  const { customersList, approvedDayKeys, lockedDayKeys } = useJobsContext();
+  const { customersList, approvedDayKeys, lockedDayKeys, arrivalConfirmations } =
+    useJobsContext();
+
+  // Judged against the job's persisted slot — this view has no unsaved reorder of its own.
+  const arrivalStateOf = (j: Job) =>
+    arrivalStateFor(j, arrivalConfirmations.get(j.id));
   // Employees only see a day's jobs once the manager approves it (realtime); admins
   // browsing keep the full view for planning.
   const dayApproved = (j: Job) =>
@@ -221,6 +228,11 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                   variant="technician"
                   isNext={idx === 0}
                 />
+                {/* Whether the customer confirmed this visit — read-only here; only the
+                    manager records it (and RLS has no employee write policy for it). */}
+                <div className="mt-1.5 px-1">
+                  <ArrivalConfirmationBadge state={arrivalStateOf(job)} />
+                </div>
                 {/* WhatsApp — pre-filled ETA message to the customer */}
                 {customer && waPhone && (
                   <div className="mt-2 px-1">

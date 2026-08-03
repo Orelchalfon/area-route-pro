@@ -368,6 +368,36 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_arrival_confirmations: {
+        Row: {
+          confirmed_at: string
+          confirmed_by: string
+          id: string
+          job_key: string
+          scheduled_time: string
+          service_date: string
+          technician_id: string | null
+        }
+        Insert: {
+          confirmed_at?: string
+          confirmed_by?: string
+          id?: string
+          job_key: string
+          scheduled_time: string
+          service_date: string
+          technician_id?: string | null
+        }
+        Update: {
+          confirmed_at?: string
+          confirmed_by?: string
+          id?: string
+          job_key?: string
+          scheduled_time?: string
+          service_date?: string
+          technician_id?: string | null
+        }
+        Relationships: []
+      }
       scheduled_filter_services: {
         Row: {
           city: string | null
