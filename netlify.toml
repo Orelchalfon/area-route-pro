@@ -1,9 +1,14 @@
+# Production build. The repo is pnpm (pnpm-lock.yaml + pnpm-workspace.yaml); the
+# command previously ran `npm run build`, which worked only because Netlify detects
+# the lockfile and installs with pnpm regardless. Use pnpm explicitly so the build
+# does not depend on that detection staying true.
 [build]
-  command = "npm run build"
+  command = "pnpm build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
+  PNPM_VERSION = "9"
 
 # SPA fallback: let React Router (BrowserRouter) handle client-side routes
 # so deep links / hard refreshes don't 404.
@@ -11,3 +16,33 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# ---------------------------------------------------------------------------
+# Environments
+#
+# Production (`main`) points at the live Supabase project. Those values live in
+# the Netlify UI (Site settings -> Environment variables) and are NOT duplicated
+# here, so that a change to this file can never silently repoint production.
+#
+# Branch deploys point at the SaaS-migration staging Supabase project instead.
+# This is the mechanism that lets every destructive migration be rehearsed
+# against a restore of real production data without touching the live database.
+#
+# VITE_SUPABASE_* are publishable client values (they ship in the JS bundle);
+# isolation is enforced by Supabase Auth + RLS, not by hiding them. They are
+# therefore safe to commit here once the staging project exists.
+#
+# TODO(phase-0): fill these in after standing up the staging project, then
+# delete this comment. Leaving them unset makes branch deploys fall back to the
+# production values inherited from the Netlify UI -- which is exactly the
+# accident this block exists to prevent, so do not merge the block half-done.
+# ---------------------------------------------------------------------------
+# [context.branch-deploy.environment]
+#   VITE_SUPABASE_URL = "https://<staging-ref>.supabase.co"
+#   VITE_SUPABASE_PUBLISHABLE_KEY = "<staging-publishable-anon-key>"
+#   VITE_VAPID_PUBLIC_KEY = "<staging-vapid-public-key>"
+
+# [context.deploy-preview.environment]
+#   VITE_SUPABASE_URL = "https://<staging-ref>.supabase.co"
+#   VITE_SUPABASE_PUBLISHABLE_KEY = "<staging-publishable-anon-key>"
+#   VITE_VAPID_PUBLIC_KEY = "<staging-vapid-public-key>"

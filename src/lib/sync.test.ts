@@ -2,7 +2,19 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { buildDbJobUpdatePatch, getDbJobRef } from './dbJobSync';
 import { getDbSyncStatus } from './dbSyncStatus';
 import { loadCustomersFromCSV } from './csvParser';
-import { buildReceiveFromMakeRow, SHEETS_SOURCE } from '../../supabase/functions/_shared/makePayload';
+
+// A `Make payload normalization` suite used to live in this file, importing
+// `buildReceiveFromMakeRow`/`SHEETS_SOURCE` from
+// supabase/functions/_shared/makePayload. That directory was deleted from the
+// repo, so the unresolved import crashed collection for the WHOLE file — taking
+// the 11 assertions below (dbJobSync, dbSyncStatus, csvParser) down with it,
+// none of which have anything to do with Make.
+//
+// Removed rather than resurrected: CLAUDE.md marks the Make pipeline vestigial
+// and "do not extend". Recover the deleted block with:
+//   git show b91cc4f~1:src/lib/sync.test.ts
+// If `supabase functions download` turns out to still return receive-from-make,
+// restore it into a colocated supabase/functions test instead of here.
 
 describe('db job sync mapping', () => {
   it('maps db job ids to their Supabase tables', () => {
@@ -66,52 +78,6 @@ describe('db job sync mapping', () => {
       technician_id: null,
       scheduled_date: null,
       scheduled_time: null,
-    });
-  });
-});
-
-describe('Make payload normalization', () => {
-  it('normalizes installation rows and marks them as sheets-sourced', () => {
-    const result = buildReceiveFromMakeRow({
-      type: 'installation',
-      action: 'upsert',
-      sheet_row_id: ' installations:12:center ',
-      sheet: { region: 'מרכז' },
-      data: {
-        customer_name: '  ישראל ישראלי ',
-        phone: ' 050-123 4567 ',
-        product_type: 'מערכת מים',
-        status: 'pending',
-      },
-    });
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.table).toBe('installations');
-      expect(result.row).toMatchObject({
-        sheet_row_id: 'installations:12:center',
-        customer_name: 'ישראל ישראלי',
-        phone: '0501234567',
-        product_type: 'מערכת מים',
-        region: 'מרכז',
-        source: SHEETS_SOURCE,
-      });
-    }
-  });
-
-  it('skips header or empty customer rows', () => {
-    const result = buildReceiveFromMakeRow({
-      type: 'malfunction',
-      action: 'upsert',
-      sheet_row_id: 'malfunctions:1:center',
-      data: { customer_name: 'שם' },
-    });
-
-    expect(result).toMatchObject({
-      ok: false,
-      status: 200,
-      skipped: true,
-      error: 'empty/header customer_name',
     });
   });
 });

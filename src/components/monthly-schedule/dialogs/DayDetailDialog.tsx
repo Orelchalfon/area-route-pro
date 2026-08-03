@@ -8,18 +8,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { isOngoingJob } from "@/lib/idConventions";
-import { cn } from "@/lib/utils";
 import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
-import { Archive, GripVertical, Navigation, Pencil, Phone, Save, Undo2, X } from "lucide-react";
+import { Archive, Navigation, Pencil, Phone, Save, Undo2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AddressAutocomplete } from "../../AddressAutocomplete";
 import { DayRouteMap } from "../../DayRouteMap";
 import { FollowUpTasksPopover } from "../FollowUpTasksPopover";
 import { typeColors, typeIcons } from "../constants";
-import { useDragReorder } from "../hooks/useDragReorder";
 import { useJobEditForm } from "../hooks/useJobEditForm";
 
 export function DayDetailDialog({
@@ -57,14 +55,6 @@ export function DayDetailDialog({
   );
   const [orderedJobs, setOrderedJobs] = useState<Job[]>(initialJobs);
   const { customersList: customers } = useJobsContext();
-  const {
-    dragIdx,
-    overIdx,
-    handleDragStart,
-    handleDragOver,
-    handleDragEnd,
-    handleDrop,
-  } = useDragReorder(setOrderedJobs);
   const {
     editingJobId,
     editForm,
@@ -114,11 +104,12 @@ export function DayDetailDialog({
         <DialogHeader>
           <DialogTitle className='flex items-center justify-between'>
             <span>{dayLabel}</span>
-            <div className='flex items-center gap-2'>
-              <span className='text-xs font-normal text-muted-foreground flex items-center gap-1'>
-                <GripVertical className='w-3 h-3' /> גרור לשינוי סדר
-              </span>
-            </div>
+            {/* No reorder affordance here on purpose: this dialog has no save path, and
+                its list is rebuilt from fresh arrays on every parent render, so a drag
+                would snap straight back. Route order is arranged in DayApprovalDialog. */}
+            <span className='text-xs font-normal text-muted-foreground me-6'>
+              לשינוי סדר המסלול — אישור לו״ז
+            </span>
           </DialogTitle>
         </DialogHeader>
 
@@ -162,23 +153,12 @@ export function DayDetailDialog({
                 ? completionColorMap[job.completionStatus]
                 : typeColors[job.type];
               const isExpanded = expandedJobId === job.id;
-              const isDragging = dragIdx === idx;
-              const isOver = overIdx === idx && dragIdx !== idx;
               const time = timeRanges[idx];
 
               return (
                 <div key={job.id}>
                   <div
-                    draggable
-                    onDragStart={() => handleDragStart(idx)}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDrop={() => handleDrop(idx)}
-                    onDragEnd={handleDragEnd}
-                    className={cn(
-                      `p-3 rounded-lg border-2 ${borderClass} flex items-center gap-2 cursor-grab active:cursor-grabbing transition-all`,
-                      isDragging && "opacity-40 scale-95",
-                      isOver && "ring-2 ring-primary ring-offset-2",
-                    )}
+                    className={`p-3 rounded-lg border-2 ${borderClass} flex items-center gap-2 cursor-pointer transition-all`}
                     onClick={() =>
                       setExpandedJobId(isExpanded ? null : job.id)
                     }>
@@ -192,9 +172,6 @@ export function DayDetailDialog({
                       {isCompleted && job.completionStatus === "done"
                         ? "✓"
                         : idx + 1}
-                    </div>
-                    <div className='text-muted-foreground/40 hover:text-muted-foreground shrink-0 cursor-grab'>
-                      <GripVertical className='w-4 h-4' />
                     </div>
                     <div className='flex-1 min-w-0'>
                       <div className='flex items-center justify-between'>

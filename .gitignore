@@ -26,7 +26,6 @@ dist-ssr
 
 # Local caches and temp output
 .pnpm-store/
-supabase/.temp/
 *.stackdump
 current-blueprint.json
 
@@ -54,11 +53,35 @@ sessions/
 
 # Make.com exported scenarios / local integration blueprints
 tal_hermon_make_blueprints/
-*.sql
-!supabase/migrations/20260708120000_restrict_employee_customer_reads.sql
 *_STATUS*.md
 
-# Supabase local config (contains project IDs)
+# Supabase
+#
+# supabase/migrations/**.sql IS TRACKED ON PURPOSE. It was previously excluded by a
+# global `*.sql` ignore, on the rationale that it "exposes the project ID". That
+# rationale was wrong: the project ref is already committed in CLAUDE_CODE_BRIEF.md
+# and HANDOFF_make_supabase_sync.md, is in git history, and ships in the deployed JS
+# bundle next to the publishable anon key. A project ref is a public identifier, like
+# a subdomain — every browser request contains it. Security here is RLS + key
+# scoping, not obscurity. The genuinely sensitive files are named below.
+#
+# The cost of that ignore was real: zero migration history, so the live database was
+# the only source of truth for DDL and RLS, and two tests were red because the
+# migration/function files they read no longer existed.
 supabase/config.toml
-supabase/.env.local
+supabase/.env*
+supabase/.branches/
+supabase/.temp/
+
+# Database snapshots from scripts/db_snapshot.mjs. These are full pg_dumps of the
+# production database — every customer name, phone and address. They must never be
+# committed, and the ignore is deliberately broad (any extension, any depth).
+backups/
+
+# One-off SQL generated against real customer data (INSERTs with names/addresses)
+scripts/import/**/*.sql
+reset_jobs_from_sheets.sql
+
+# Customer PII — every CSV/XLSX in this repo is real customer data from a one-time
+# import. Keep the blanket ignore; add an explicit negation if a fixture is ever safe.
 *.csv

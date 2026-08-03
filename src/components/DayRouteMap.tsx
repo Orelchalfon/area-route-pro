@@ -31,6 +31,11 @@ const mapOptions: google.maps.MapOptions = {
 interface DayRouteMapProps {
   jobs: Job[];
   height?: string;
+  // Reports the geocoded coordinates this map actually drew, keyed by job id. The day
+  // approval dialog optimizes the route on these rather than on getCustomerCoords, whose
+  // city-centre fallback jitters unlocated customers by up to ~11km — enough to make an
+  // optimized order meaningless. Fires only when the resolved set genuinely changes.
+  onCoordsResolved?: (coords: Map<string, { lat: number; lng: number }>) => void;
 }
 
 type JobWithOptionalCoords = Job & { lat?: number; lng?: number };
@@ -50,7 +55,7 @@ function getPreferredCoords(job: Job, fallback: { lat: number; lng: number }) {
   return fallback;
 }
 
-export function DayRouteMap({ jobs, height = '80vh' }: DayRouteMapProps) {
+export function DayRouteMap({ jobs, height = '80vh', onCoordsResolved }: DayRouteMapProps) {
   const { customersList: allCustomersData } = useJobsContext();
   const { apiKey, loading, error, fetchKey } = useGoogleMapsKey();
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
@@ -108,6 +113,7 @@ export function DayRouteMap({ jobs, height = '80vh' }: DayRouteMapProps) {
       activeMarkerId={activeMarkerId}
       setActiveMarkerId={setActiveMarkerId}
       onLoad={onLoad}
+      onCoordsResolved={onCoordsResolved}
     />
   );
 }
@@ -119,6 +125,7 @@ function DayRouteMapInner({
   activeMarkerId,
   setActiveMarkerId,
   onLoad,
+  onCoordsResolved,
 }: {
   apiKey: string;
   jobsWithCoords: { job: Job; customer: Customer | undefined; coords: { lat: number; lng: number } }[];
@@ -126,6 +133,7 @@ function DayRouteMapInner({
   activeMarkerId: string | null;
   setActiveMarkerId: (id: string | null) => void;
   onLoad: (map: google.maps.Map) => void;
+  onCoordsResolved?: (coords: Map<string, { lat: number; lng: number }>) => void;
 }) {
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, ...GOOGLE_MAPS_LOADER_OPTIONS });
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -170,6 +178,18 @@ function DayRouteMapInner({
     () => resolvedJobs.map(jc => `${jc.job.id}:${jc.coords.lat.toFixed(6)}:${jc.coords.lng.toFixed(6)}`).join('|'),
     [resolvedJobs]
   );
+
+  // Publish the coordinates we actually resolved. Keyed on mapRenderKey (id + lat + lng
+  // per job), so this fires once per genuine coordinate change rather than every render,
+  // and the ref keeps an unstable callback prop from re-triggering it.
+  const onCoordsResolvedRef = useRef(onCoordsResolved);
+  onCoordsResolvedRef.current = onCoordsResolved;
+  useEffect(() => {
+    onCoordsResolvedRef.current?.(
+      new Map(resolvedJobs.map(jc => [jc.job.id, jc.coords]))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapRenderKey]);
 
   const hasFittedRef = useRef(false);
   const prevCoordsKeyRef = useRef('');
