@@ -26,7 +26,7 @@ import {
   makeOngoingCustomerId,
   makeOngoingJobId,
 } from "@/lib/idConventions";
-import { Job, JobType } from "@/types";
+import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import {
   addMonths,
   addWeeks,
@@ -61,6 +61,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DAY_HEADERS, MONTH_NAMES } from "./monthly-schedule/constants";
+import { AddToApprovedDayDialog } from "./monthly-schedule/dialogs/AddToApprovedDayDialog";
 import { DayApprovalDialog } from "./monthly-schedule/dialogs/DayApprovalDialog";
 import { DayDetailDialog } from "./monthly-schedule/dialogs/DayDetailDialog";
 import { UnifiedJobPickerDialog } from "./monthly-schedule/dialogs/UnifiedJobPickerDialog";
@@ -71,8 +72,11 @@ import {
   jobMatchesAreas,
 } from "./monthly-schedule/regions";
 import {
+  DAY_START_MINUTES,
   distributeFilterJobs,
   generateFilterJobs,
+  minutesToTime,
+  nextFreeMinutes,
 } from "./monthly-schedule/utils";
 
 interface MonthlyScheduleBoardProps {
@@ -173,6 +177,13 @@ export function MonthlyScheduleBoard({
     open: boolean;
     dateStr: string;
   } | null>(null);
+  // Parked assignment awaiting the "day already approved" decision. `apply` performs the
+  // original scheduling action once the manager picks append or re-plan.
+  const [pendingApprovedAdd, setPendingApprovedAdd] = useState<{
+    dateStr: string;
+    addedJobs: Job[];
+    apply: () => void;
+  } | null>(null);
   // Approved days for the selected technician, derived from the persisted
   // approved_schedule_days keys (`${technicianId}|${date}`) so the green-check /
   // "messages sent" state survives a refresh and stays in sync across managers.
@@ -197,8 +208,10 @@ export function MonthlyScheduleBoard({
     return set;
   }, [lockedDayKeys, selectedTechId]);
 
-  const handleApproveDay = (jobIds: string[], dateStr: string) => {
-    // Calculate time ranges for assignments
+  // Persist the day's stop order. `jobIds` arrives already in route order from the
+  // approval dialog — position is the whole payload here, since order is encoded as the
+  // clock times this writes (10:00 + cumulative duration).
+  const handleSaveRouteOrder = (jobIds: string[], dateStr: string) => {
     const filterDayJobs = getFilterDayJobs(dateStr);
     const manualDayJobs = getManualDayJobs(dateStr);
     const allDayJobs = [...filterDayJobs, ...manualDayJobs];
@@ -209,11 +222,9 @@ export function MonthlyScheduleBoard({
       })
       .filter(Boolean) as Job[];
 
-    let currentMinutes = 10 * 60; // Start at 10:00
+    let currentMinutes = DAY_START_MINUTES;
     const assignments = allJobs.map((job) => {
-      const startHour = Math.floor(currentMinutes / 60);
-      const startMin = currentMinutes % 60;
-      const scheduledTime = `${String(startHour).padStart(2, "0")}:${String(startMin).padStart(2, "0")}`;
+      const scheduledTime = minutesToTime(currentMinutes);
       currentMinutes += job.estimatedDuration;
       return {
         jobId: job.id,
@@ -224,6 +235,13 @@ export function MonthlyScheduleBoard({
     });
 
     onApproveDaySchedule(assignments, allJobs);
+  };
+
+  // First approval: save the order, then mark the day approved so the technician can
+  // see it. Re-saving an approved day goes through handleSaveRouteOrder alone — calling
+  // approveDay again would re-upsert the row and risk resetting its `locked` flag.
+  const handleApproveDay = (jobIds: string[], dateStr: string) => {
+    handleSaveRouteOrder(jobIds, dateStr);
     approveDay(selectedTechId, dateStr);
   };
 
@@ -480,33 +498,101 @@ export function MonthlyScheduleBoard({
       });
     }
 
-    setExtraFilterAssignments((prev) => {
-      const next = new Map(prev);
-      if (movedIds.size > 0) {
-        next.forEach((dayJobs, key) => {
-          if (key !== dateStr) {
-            const filtered = dayJobs.filter((j) => !movedIds.has(j.id));
-            if (filtered.length > 0) next.set(key, filtered);
-            else next.delete(key);
-          }
-        });
-      }
-      const existing = next.get(dateStr) || [];
-      next.set(dateStr, [...existing, ...selected]);
-      return next;
+    withApprovedDayGuard(dateStr, selected, () => {
+      setExtraFilterAssignments((prev) => {
+        const next = new Map(prev);
+        if (movedIds.size > 0) {
+          next.forEach((dayJobs, key) => {
+            if (key !== dateStr) {
+              const filtered = dayJobs.filter((j) => !movedIds.has(j.id));
+              if (filtered.length > 0) next.set(key, filtered);
+              else next.delete(key);
+            }
+          });
+        }
+        const existing = next.get(dateStr) || [];
+        next.set(dateStr, [...existing, ...selected]);
+        return next;
+      });
+      // Persist each scheduled service so it survives a refresh. Upsert is keyed on
+      // job_key, so a job moved from another day just gets its date updated in place.
+      selected.forEach((job) =>
+        onAssignFilterService?.(job, selectedTechId, dateStr, ""),
+      );
     });
-    // Persist each scheduled service so it survives a refresh. Upsert is keyed on
-    // job_key, so a job moved from another day just gets its date updated in place.
-    selected.forEach((job) =>
-      onAssignFilterService?.(job, selectedTechId, dateStr, ""),
+  };
+
+  // --- Adding work to a day that is already approved ---------------------------
+  // An approved day is live: the technician sees it and the customers have times. Every
+  // deliberate "put this job on this day" action funnels through this guard so the
+  // manager consciously chooses between appending and re-planning.
+  const withApprovedDayGuard = (
+    dateStr: string,
+    addedJobs: Job[],
+    apply: () => void,
+  ) => {
+    if (!approvedDays.has(dateStr) || addedJobs.length === 0) {
+      apply();
+      return;
+    }
+    setPendingApprovedAdd({ dateStr, addedJobs, apply });
+  };
+
+  // Append: give ONLY the new jobs a time, after the current last stop. Every existing
+  // stop keeps its exact scheduledTime — rebuilding the whole day here would reorder it
+  // by the board's filter-jobs-first grouping and destroy the saved route order.
+  const handleAppendToApprovedDay = () => {
+    if (!pendingApprovedAdd) return;
+    const { dateStr, addedJobs, apply } = pendingApprovedAdd;
+    const addedIds = new Set(addedJobs.map((j) => j.id));
+    const existing = [
+      ...getFilterDayJobs(dateStr),
+      ...getManualDayJobs(dateStr),
+    ].filter((j) => !addedIds.has(j.id));
+
+    apply();
+
+    let currentMinutes = nextFreeMinutes(existing);
+    const assignments = addedJobs.map((job) => {
+      const scheduledTime = minutesToTime(currentMinutes);
+      currentMinutes += job.estimatedDuration;
+      return {
+        jobId: job.id,
+        technicianId: selectedTechId,
+        scheduledDate: dateStr,
+        scheduledTime,
+      };
+    });
+    // This is what flips the job to 'confirmed' and replaces the 08:00 placeholder —
+    // the technician's screen picks it up over the existing realtime subscriptions.
+    onApproveDaySchedule(assignments, addedJobs);
+    setPendingApprovedAdd(null);
+    toast.success(
+      addedJobs.length > 1
+        ? `${addedJobs.length} משימות נוספו לסוף המסלול — הטכנאי רואה את העדכון`
+        : "נוסף לסוף המסלול — הטכנאי רואה את העדכון",
     );
+  };
+
+  const handleUnapproveAndReplan = () => {
+    if (!pendingApprovedAdd) return;
+    const { dateStr, apply } = pendingApprovedAdd;
+    apply();
+    handleUnapproveDay(dateStr, false);
+    setPendingApprovedAdd(null);
+    setApprovalState({ open: true, dateStr });
   };
 
   const handlePickerSelect = (jobIds: string[]) => {
     if (!pickerState) return;
     const { dateStr } = pickerState;
-    jobIds.forEach((jobId) => {
-      onAssignJob(jobId, selectedTechId, dateStr, "08:00");
+    const addedJobs = jobIds
+      .map((id) => jobs.find((j) => j.id === id))
+      .filter(Boolean) as Job[];
+    withApprovedDayGuard(dateStr, addedJobs, () => {
+      jobIds.forEach((jobId) => {
+        onAssignJob(jobId, selectedTechId, dateStr, "08:00");
+      });
     });
   };
 
@@ -514,12 +600,15 @@ export function MonthlyScheduleBoard({
   const findNearestAreaDay = useCallback(
     (removedDateStr: string, jobCity: string): string | null => {
       const removedDate = new Date(removedDateStr + "T00:00:00");
-      // Look forward through working days for same-area days
+      // Look forward through working days for same-area days. Approved days are skipped:
+      // the manager did not choose this date, so a job must never land on a live route
+      // behind their back — that decision belongs to the explicit add-to-approved-day flow.
       const candidates = futureWorkingDays
         .filter(
           (d) => format(d, "yyyy-MM-dd") !== removedDateStr && d >= removedDate,
         )
-        .map((d) => format(d, "yyyy-MM-dd"));
+        .map((d) => format(d, "yyyy-MM-dd"))
+        .filter((dateStr) => !approvedDays.has(dateStr));
 
       // First: find a day whose selected areas include this city's sub-area.
       const jobSubArea = getSubArea(jobCity);
@@ -538,6 +627,7 @@ export function MonthlyScheduleBoard({
       return null;
     },
     [
+      approvedDays,
       futureWorkingDays,
       getDayAreas,
       getFilterDayJobs,
@@ -1341,11 +1431,36 @@ export function MonthlyScheduleBoard({
           dayJobs={getManualDayJobs(approvalState.dateStr)}
           filterJobs={getFilterDayJobs(approvalState.dateStr)}
           onApprove={handleApproveDay}
+          onSaveRouteOrder={handleSaveRouteOrder}
           onUnapprove={handleUnapproveDay}
           approvedDays={approvedDays}
           isLocked={lockedDays.has(approvalState.dateStr)}
           onToggleLock={() => handleToggleLock(approvalState.dateStr)}
           onAddJob={onAddJob}
+        />
+      )}
+
+      {/* Adding work to a day whose route is already live */}
+      {pendingApprovedAdd && (
+        <AddToApprovedDayDialog
+          open
+          onOpenChange={(o) => {
+            if (!o) setPendingApprovedAdd(null);
+          }}
+          dayLabel={format(
+            new Date(pendingApprovedAdd.dateStr + "T00:00:00"),
+            "EEEE d/M",
+            { locale: he },
+          )}
+          technicianName={
+            technicians.find((t) => t.id === selectedTechId)?.name || "הטכנאי"
+          }
+          jobLabel={
+            JOB_TYPE_CONFIG[pendingApprovedAdd.addedJobs[0].type]?.label || "משימה"
+          }
+          jobCount={pendingApprovedAdd.addedJobs.length}
+          onAppendToRoute={handleAppendToApprovedDay}
+          onUnapproveAndReplan={handleUnapproveAndReplan}
         />
       )}
 

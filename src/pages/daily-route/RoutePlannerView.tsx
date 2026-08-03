@@ -3,7 +3,7 @@ import { EditableRouteStop } from '@/components/EditableRouteStop';
 import { GoogleMapsPlanner } from '@/components/GoogleMapsPlanner';
 import { Customer, Job } from '@/types';
 import { DragDropContext, Draggable, Droppable, DropResult } from '@hello-pangea/dnd';
-import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, MapPin, Save } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Lock, MapPin, Save } from 'lucide-react';
 import { JobWithCustomer } from './types';
 
 export function RoutePlannerView({
@@ -65,8 +65,34 @@ export function RoutePlannerView({
             )}
           </div>
 
-          <p className="text-xs text-muted-foreground">גרור כדי לשנות את סדר ההגעה</p>
+          {isAdmin ? (
+            <p className="text-xs text-muted-foreground">גרור כדי לשנות את סדר ההגעה</p>
+          ) : (
+            /* Say why the controls are missing rather than silently dropping them —
+               the route is the manager's plan and only they may change it. */
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              סדר המסלול נקבע על ידי המנהל
+            </p>
+          )}
 
+          {!isAdmin ? (
+            <div className="space-y-2 max-h-[460px] overflow-y-auto">
+              {orderedJobs.map((jc, idx) => (
+                <EditableRouteStop
+                  key={jc.job.id}
+                  job={jc.job}
+                  customer={jc.customer}
+                  index={idx}
+                  isEditing={false}
+                  onStartEdit={() => undefined}
+                  onCancelEdit={onCancelEdit}
+                  onSave={onSaveEdit}
+                  readOnly
+                />
+              ))}
+            </div>
+          ) : (
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="route-stops">
               {(provided) => (
@@ -127,6 +153,7 @@ export function RoutePlannerView({
               )}
             </Droppable>
           </DragDropContext>
+          )}
         </div>
       </div>
 

@@ -84,17 +84,22 @@ export default function DailyRoutePage() {
     setRouteSaved(false);
   }, [fetchKey, jobsWithCustomers]);
 
+  // Only the manager may change the route. The UI hides these controls for technicians,
+  // but the handlers guard too — Supabase RLS would reject the write anyway, and a
+  // technician silently rearranging a list that never saves is worse than no control.
   const handleDragEnd = useCallback((result: DropResult) => {
+    if (!isAdmin) return;
     if (!result.destination || !orderedJobIds) return;
     const newOrder = [...orderedJobIds];
     const [moved] = newOrder.splice(result.source.index, 1);
     newOrder.splice(result.destination.index, 0, moved);
     setOrderedJobIds(newOrder);
     setRouteSaved(false);
-  }, [orderedJobIds]);
+  }, [isAdmin, orderedJobIds]);
 
   // Touch-friendly reordering alternative to drag (gesture-alternative on mobile).
   const handleMove = useCallback((index: number, direction: -1 | 1) => {
+    if (!isAdmin) return;
     const target = index + direction;
     setOrderedJobIds(prev => {
       const base = prev ?? orderedJobs.map(jc => jc.job.id);
@@ -104,9 +109,10 @@ export default function DailyRoutePage() {
       return newOrder;
     });
     setRouteSaved(false);
-  }, [orderedJobs]);
+  }, [isAdmin, orderedJobs]);
 
   const handleSaveRoute = useCallback(() => {
+    if (!isAdmin) return;
     if (!orderedJobIds) return;
     const startHour = 10;
     const assignments = orderedJobs.map((jc, idx) => {
@@ -127,7 +133,7 @@ export default function DailyRoutePage() {
     approveDaySchedule(assignments);
     setRouteSaved(true);
     toast.success(`מסלול נשמר! ${assignments.length} עצירות סודרו מחדש`);
-  }, [orderedJobIds, orderedJobs, activeTechId, todayStr, approveDaySchedule]);
+  }, [isAdmin, orderedJobIds, orderedJobs, activeTechId, todayStr, approveDaySchedule]);
 
   const handleSaveEdit = useCallback((
     jobId: string,
