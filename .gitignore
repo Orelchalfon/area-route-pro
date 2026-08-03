@@ -73,6 +73,11 @@ supabase/.env*
 supabase/.branches/
 supabase/.temp/
 
+# Database snapshots from scripts/db_snapshot.mjs. These are full pg_dumps of the
+# production database — every customer name, phone and address. They must never be
+# committed, and the ignore is deliberately broad (any extension, any depth).
+backups/
+
 # One-off SQL generated against real customer data (INSERTs with names/addresses)
 scripts/import/**/*.sql
 reset_jobs_from_sheets.sql

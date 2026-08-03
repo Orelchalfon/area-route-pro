@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast feedback: lint, unit tests, production build. Runs on every PR and is
+  # the only job that gates trivial changes.
+  verify:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm test
+
+      # The build needs the Supabase client env vars to exist, but not to be
+      # real — the client is constructed at import time and Vite inlines the
+      # values. Dummy values prove the bundle compiles without reaching any
+      # database.
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_SUPABASE_URL: https://ci-placeholder.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-anon-key
+
+  # The gate that makes every migration phase safe: prove the committed
+  # migrations reproduce the schema from scratch, on a throwaway database, with
+  # no reference to the live project.
+  #
+  # Skips itself until Phase 0's `supabase db pull` has landed a baseline, so
+  # this file can be merged before the migrations exist.
+  database:
+    name: Migrations reproduce schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for migrations
+        id: check
+        run: |
+          if compgen -G "supabase/migrations/*.sql" > /dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "Found $(ls supabase/migrations/*.sql | wc -l) migration(s)."
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No supabase/migrations/*.sql yet — skipping."
+            echo "Phase 0 step 2 (\`supabase db pull\`) enables this job."
+          fi
+
+      - uses: supabase/setup-cli@v1
+        if: steps.check.outputs.present == 'true'
+        with:
+          version: latest
+
+      # `supabase start` boots the full local stack in Docker. Excluding the
+      # services we never assert on cuts several minutes off every run.
+      - name: Start local Supabase
+        if: steps.check.outputs.present == 'true'
+        run: |
+          supabase start -x studio,imgproxy,inbucket,realtime,storage-api,edge-runtime,logflare,vector,supavisor
+
+      # Applies every migration in order against an empty database. A migration
+      # that only works because of drift already present in production fails
+      # here — which is the entire point.
+      - name: Reset database from migrations
+        if: steps.check.outputs.present == 'true'
+        run: supabase db reset
+
+      # Guards against someone editing types.ts by hand, or a migration landing
+      # without its regenerated types. A diff here means the two have drifted.
+      - name: Generated types are current
+        if: steps.check.outputs.present == 'true'
+        run: |
+          supabase gen types typescript --local > /tmp/types.ts
+          if ! diff -q /tmp/types.ts src/integrations/supabase/types.ts > /dev/null; then
+            echo "::error::src/integrations/supabase/types.ts is stale."
+            echo "Regenerate with: pnpm db:types"
+            diff -u src/integrations/supabase/types.ts /tmp/types.ts | head -60
+            exit 1
+          fi
+
+      # TODO(phase-2): the Milestone 1 tenant-isolation gate lands here.
+      #
+      # It must query PostgREST directly with a second tenant's JWT and assert
+      # zero rows of org A come back on every table — NOT drive the app. The
+      # repository layer's client-side `.eq('org_id', ...)` filter will mask a
+      # broken RLS policy perfectly in the UI, so testing through the app proves
+      # nothing about isolation. Test the database.
+      #
+      # This job is where it runs: a local stack per PR, so it never depends on
+      # the staging project being awake (free-tier projects pause when idle).

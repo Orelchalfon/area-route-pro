@@ -13,7 +13,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate:areas": "node scripts/fetch_settlements.mjs && node scripts/generate_settlement_areas.mjs"
+    "generate:areas": "node scripts/fetch_settlements.mjs && node scripts/generate_settlement_areas.mjs",
+    "db:snapshot": "node scripts/db_snapshot.mjs",
+    "db:pull": "supabase db pull",
+    "db:diff": "supabase db diff",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --linked > src/integrations/supabase/types.ts"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",

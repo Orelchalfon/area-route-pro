@@ -26,22 +26,27 @@ npm run dev                 # http://localhost:8080
 
 Copy `.env.example` to `.env` and set:
 
-| Variable                        | Description                                  |
-| ------------------------------- | -------------------------------------------- |
-| `VITE_SUPABASE_URL`             | Supabase project URL                         |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable (anon) key              |
-| `VITE_SUPABASE_PROJECT_ID`      | Supabase project ref                         |
+| Variable                        | Required | Description                                     |
+| ------------------------------- | -------- | ----------------------------------------------- |
+| `VITE_SUPABASE_URL`             | yes      | Supabase project URL                            |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | yes      | Supabase publishable (anon) key                 |
+| `VITE_VAPID_PUBLIC_KEY`         | no       | Web-push VAPID public key; push is skipped if unset |
 
 These values are public (they ship in the client bundle) — security is enforced by
 Supabase Auth + RLS, not by hiding them.
 
+The two required values have no fallback: the Supabase client is constructed at
+module-import time, so an unset value crashes the app on load.
+
 ### Scripts
 
-- `npm run dev` — dev server
-- `npm run build` — production build to `dist/`
-- `npm run preview` — preview the production build locally
-- `npm run lint` — ESLint
-- `npm test` — Vitest
+Use **pnpm** (the repo ships `pnpm-lock.yaml`; Node 20+ per `.nvmrc`).
+
+- `pnpm dev` — dev server on http://localhost:8080
+- `pnpm build` — production build to `dist/`
+- `pnpm preview` — preview the production build locally
+- `pnpm lint` — ESLint
+- `pnpm test` — Vitest
 
 ## Authentication
 
@@ -62,8 +67,11 @@ the SPA fallback redirect required by React Router).
 
 1. In Netlify, **Add new site → Import from Git** and select this GitHub repo.
    Build settings are read from `netlify.toml` (no manual config needed).
-2. **Site settings → Environment variables**: add `VITE_SUPABASE_URL`,
-   `VITE_SUPABASE_PUBLISHABLE_KEY`, and `VITE_SUPABASE_PROJECT_ID`.
+2. **Site settings → Environment variables**: add `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_PUBLISHABLE_KEY` (plus `VITE_VAPID_PUBLIC_KEY` if push is wanted).
+   Scope them to the **production** context — branch deploys read their Supabase
+   values from the `[context.branch-deploy.environment]` block in `netlify.toml`
+   so a branch can never accidentally write to the production database.
 3. Deploy. Pushes to the default branch trigger automatic deploys.
 
 ### Supabase setup (one-time, before/at first deploy)
