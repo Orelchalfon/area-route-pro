@@ -248,23 +248,6 @@ export function DayApprovalDialog({
   const totalMinutes = orderedJobs.reduce((s, j) => s + j.estimatedDuration, 0);
   const endMinutes = 10 * 60 + totalMinutes;
 
-  // Stops whose on-screen time no longer matches what is persisted. On an approved day
-  // that persisted time is what the customer was told over WhatsApp, so surfacing the
-  // diff is what lets the manager re-coordinate. There is no "customer confirmed" flag
-  // to consult — /confirm never writes to the database.
-  const movedStops = useMemo(
-    () =>
-      timeRanges
-        .filter(
-          ({ job, startTime }) => !!job.scheduledTime && job.scheduledTime !== startTime,
-        )
-        .map(({ job, startTime }) => ({
-          job,
-          from: job.scheduledTime as string,
-          to: startTime,
-        })),
-    [timeRanges],
-  );
   // Anything unsaved at all, including stops that had no time yet.
   const hasUnsavedOrder = timeRanges.some(
     ({ job, startTime }) => job.scheduledTime !== startTime,
@@ -555,54 +538,6 @@ export function DayApprovalDialog({
                   );
                 })}
               </div>
-
-              {/* Customers who were already told a time that has since moved. Only
-                  meaningful once the day is approved — that is when the WhatsApp
-                  messages went out. */}
-              {isApproved && movedStops.length > 0 && (
-                <div className='shrink-0 rounded-lg border border-warning/30 bg-warning/10 p-3 space-y-2'>
-                  <div className='flex items-center gap-1.5 text-xs font-medium text-warning'>
-                    <AlertTriangle className='w-3.5 h-3.5 shrink-0' />
-                    {movedStops.length} לקוחות עם שעה מאושרת זזו
-                  </div>
-                  <div className='space-y-1 max-h-28 overflow-y-auto'>
-                    {movedStops.map(({ job, from, to }) => {
-                      const customer = customers.find(
-                        (c) => c.id === job.customerId,
-                      );
-                      const waPhone = normalizeIsraeliPhone(
-                        job.phone || customer?.phone,
-                      );
-                      const customerName = customer?.name || "לקוח";
-                      return (
-                        <div
-                          key={job.id}
-                          className='flex items-center justify-between gap-2 text-xs'>
-                          <span className='truncate'>{customerName}</span>
-                          <span className='font-mono shrink-0 opacity-70'>
-                            {from} ← {to}
-                          </span>
-                          {waPhone && (
-                            <button
-                              className='shrink-0 h-6 px-2 rounded bg-[#25D366] hover:bg-[#1da851] text-white font-medium'
-                              onClick={() =>
-                                window.open(
-                                  whatsappUrl(
-                                    waPhone,
-                                    `היי ${customerName} מדברים מטל חרמון, השעה של הביקור בתאריך ${dayDateText} עודכנה ל-${to}. אנא אשר.`,
-                                  ),
-                                  "_blank",
-                                )
-                              }>
-                              תאם מחדש
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Approve button */}
               <div className='shrink-0'>
