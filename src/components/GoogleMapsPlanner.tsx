@@ -16,9 +16,23 @@ interface Stop {
   fullAddress?: string;
 }
 
+/**
+ * The technician's live position, when they are sharing it (manager view only).
+ * Deliberately NOT a `Stop`: it must stay out of `resolvedStops`, out of the bounds-fitting
+ * signature and out of the route waypoints. If it leaked into any of those, every position ping
+ * would re-fit the map under the manager's hands and re-issue a Directions request.
+ */
+interface LiveMarker {
+  position: { lat: number; lng: number };
+  title: string;
+  isStale: boolean;
+  ageLabel: string;
+}
+
 interface GoogleMapsPlannerProps {
   apiKey: string;
   stops: Stop[];
+  liveMarker?: LiveMarker | null;
 }
 
 const typeColorMap: Record<string, string> = {
@@ -37,7 +51,9 @@ const mapOptions: google.maps.MapOptions = {
   fullscreenControl: true,
 };
 
-export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
+const LIVE_MARKER_ID = '__live-technician__';
+
+export function GoogleMapsPlanner({ apiKey, stops, liveMarker }: GoogleMapsPlannerProps) {
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: apiKey, ...GOOGLE_MAPS_LOADER_OPTIONS });
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -180,6 +196,39 @@ export function GoogleMapsPlanner({ apiKey, stops }: GoogleMapsPlannerProps) {
           </Marker>
         );
       })}
+
+      {liveMarker && (
+        <Marker
+          position={liveMarker.position}
+          zIndex={9999}
+          title={liveMarker.title}
+          icon={{
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: liveMarker.isStale ? '#f59e0b' : '#0ea5e9',
+            fillOpacity: liveMarker.isStale ? 0.55 : 1,
+            strokeColor: 'white',
+            strokeWeight: 3,
+            scale: 10,
+          }}
+          onClick={() =>
+            setActiveMarkerId(activeMarkerId === LIVE_MARKER_ID ? null : LIVE_MARKER_ID)
+          }
+        >
+          {activeMarkerId === LIVE_MARKER_ID && (
+            <InfoWindow
+              position={liveMarker.position}
+              onCloseClick={() => setActiveMarkerId(null)}
+            >
+              <div dir="rtl" style={{ minWidth: 160 }}>
+                <p style={{ fontWeight: 'bold', marginBottom: 4 }}>{liveMarker.title}</p>
+                <p style={{ fontSize: 12, color: liveMarker.isStale ? '#b45309' : '#0284c7' }}>
+                  {liveMarker.ageLabel}
+                </p>
+              </div>
+            </InfoWindow>
+          )}
+        </Marker>
+      )}
     </GoogleMap>
   );
 }
