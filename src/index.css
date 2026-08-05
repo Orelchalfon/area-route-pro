@@ -347,6 +347,17 @@ button{
   .shadow-modal {
     box-shadow: var(--shadow-modal);
   }
+
+  /* iOS safe areas. Only resolve to non-zero with viewport-fit=cover on the viewport meta
+     (index.html) and when launched standalone from the home screen; in a normal browser
+     tab these are 0 and the classes are inert. Additive so existing padding is kept. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 /* Google Maps Autocomplete dropdown must appear above dialogs and drag-drop overlays */

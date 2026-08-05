@@ -140,6 +140,7 @@ export function useApprovedDays() {
     approvedDayKeys,
     lockedDayKeys,
     approvedDaysLoaded: loaded,
+    refresh,
     approveDay,
     unapproveDay,
     lockDay,

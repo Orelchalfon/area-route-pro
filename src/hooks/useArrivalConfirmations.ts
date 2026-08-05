@@ -159,6 +159,7 @@ export function useArrivalConfirmations() {
   return {
     arrivalConfirmations,
     arrivalConfirmationsLoaded: loaded,
+    refresh,
     confirmArrival,
     unconfirmArrival,
   };

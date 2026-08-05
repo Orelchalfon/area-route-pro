@@ -8,6 +8,7 @@ import { arrivalStateFor } from '@/hooks/useArrivalConfirmations';
 import { technicians } from '@/data/technicians';
 import { Job, CompletionStatus } from '@/types';
 import { JobCard } from '@/components/JobCard';
+import { JobListSkeleton } from '@/components/JobListSkeleton';
 import { Button } from '@/components/ui/button';
 import { Calendar, CheckCircle2, Clock, Map as MapIcon, Lock, XCircle, RotateCcw, Pencil, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,8 +28,13 @@ interface TechnicianViewProps {
 
 export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianViewProps) {
   const { isAdmin, technicianId } = useAuth();
-  const { customersList, approvedDayKeys, lockedDayKeys, arrivalConfirmations } =
-    useJobsContext();
+  const {
+    customersList,
+    approvedDayKeys,
+    lockedDayKeys,
+    arrivalConfirmations,
+    boardReady,
+  } = useJobsContext();
 
   // Judged against the job's persisted slot — this view has no unsaved reorder of its own.
   const arrivalStateOf = (j: Job) =>
@@ -328,13 +334,19 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </div>
         )}
 
-        {activeJobs.length === 0 && completedJobs.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
-            <p className="font-medium">אין משימות מתוזמנות</p>
-            <p className="text-sm">בדוק שוב מאוחר יותר</p>
-          </div>
-        )}
+        {activeJobs.length === 0 &&
+          completedJobs.length === 0 &&
+          // Don't claim the day is empty until everything has actually loaded — that
+          // message is otherwise indistinguishable from a failed sync.
+          (boardReady ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
+              <p className="font-medium">אין משימות מתוזמנות</p>
+              <p className="text-sm">בדוק שוב מאוחר יותר</p>
+            </div>
+          ) : (
+            <JobListSkeleton />
+          ))}
       </div>
 
       <CompletionDialog

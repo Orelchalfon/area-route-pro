@@ -9,6 +9,7 @@ import {
 } from "@/hooks/useCustomers";
 import { useMalfunctionsInstallations } from "@/hooks/useMalfunctionsInstallations";
 import { useOngoingServices } from "@/hooks/useOngoingServices";
+import { useResumeRefresh } from "@/hooks/useResumeRefresh";
 import { useScheduledFilterServices } from "@/hooks/useScheduledFilterServices";
 import { supabase } from "@/integrations/supabase/client";
 import { loadCustomersFromCSV } from "@/lib/csvParser";
@@ -74,8 +75,11 @@ export function useJobs() {
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
   const { activityLogs, addLog, getCustomerLogs } = useActivityLogs();
   const [dataLoaded, setDataLoaded] = useState(false);
-  const { customers: dbBaseCustomers, loaded: baseCustomersLoaded } =
-    useCustomers();
+  const {
+    customers: dbBaseCustomers,
+    loaded: baseCustomersLoaded,
+    refresh: refreshBaseCustomers,
+  } = useCustomers();
   const {
     jobs: dbJobs,
     customers: dbCustomers,
@@ -92,15 +96,27 @@ export function useJobs() {
     refresh: refreshScheduledFilterServices,
   } =
     useScheduledFilterServices();
-  const { approvedDayKeys, lockedDayKeys, approveDay, unapproveDay, lockDay, unlockDay } =
-    useApprovedDays();
-  const { arrivalConfirmations, confirmArrival, unconfirmArrival } =
-    useArrivalConfirmations();
+  const {
+    approvedDayKeys,
+    lockedDayKeys,
+    approveDay,
+    unapproveDay,
+    lockDay,
+    unlockDay,
+    refresh: refreshApprovedDays,
+  } = useApprovedDays();
+  const {
+    arrivalConfirmations,
+    confirmArrival,
+    unconfirmArrival,
+    refresh: refreshArrivalConfirmations,
+  } = useArrivalConfirmations();
   const {
     jobs: ongoingJobs,
     customers: ongoingCustomers,
     services: ongoingServices,
     loaded: ongoingLoaded,
+    refresh: refreshOngoingServices,
   } = useOngoingServices();
 
   // Calendar-derived service enrichment (filterReplacementMonth / serviceTrack / service
@@ -125,6 +141,31 @@ export function useJobs() {
   // an effect (below) — after the merge effects have folded the fetched data into
   // `jobs` — not computed during render, which would go true a frame too early.
   const [boardReady, setBoardReady] = useState(false);
+
+  // Refetch every Supabase-backed source in one call. Used by the resume listener below
+  // (to recover changes the realtime socket missed while the app was backgrounded) and by
+  // the header's manual refresh button.
+  // Returns a promise so the header's refresh button can show a spinner for the real
+  // duration. `allSettled` — one failing table must not abandon the other five.
+  const refreshAll = useCallback(async () => {
+    await Promise.allSettled([
+      refreshDbJobs(),
+      refreshScheduledFilterServices(),
+      refreshOngoingServices(),
+      refreshBaseCustomers(),
+      refreshApprovedDays(),
+      refreshArrivalConfirmations(),
+    ]);
+  }, [
+    refreshDbJobs,
+    refreshScheduledFilterServices,
+    refreshOngoingServices,
+    refreshBaseCustomers,
+    refreshApprovedDays,
+    refreshArrivalConfirmations,
+  ]);
+
+  useResumeRefresh(refreshAll);
 
   const handlePersistFailure = useCallback(
     (message: string, error: unknown) => {
@@ -1254,6 +1295,7 @@ export function useJobs() {
     dbSyncError: dbSyncError || undefined,
     dbLastSyncedAt: dbLastSyncedAt || undefined,
     refreshDbJobs,
+    refreshAll,
     updateJobStatus,
     approveSchedule,
     approveDaySchedule,

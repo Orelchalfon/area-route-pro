@@ -9,6 +9,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { HeaderSyncControl } from "@/components/HeaderSyncControl";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import {
@@ -116,8 +117,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className='min-h-dvh bg-background'>
-      <header className='bg-card border-b border-border sticky top-0 z-30'>
+    <div className='min-h-dvh bg-background pb-safe'>
+      {/* pt-safe/pb-safe keep the sticky header clear of the status bar / Dynamic Island and
+          the content clear of the home indicator when installed to the iOS home screen. */}
+      <header className='bg-card border-b border-border sticky top-0 z-30 pt-safe'>
         <div className='w-full px-4 sm:px-6 lg:px-10'>
           <div
             dir='rtl'
@@ -139,36 +142,39 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <NavLinks />
             </nav>
 
-            {/* Mobile drawer — shown for 1340px and less */}
-            <div className='min-[1341px]:hidden'>
-              <Sheet open={open} onOpenChange={setOpen}>
-                <SheetTrigger asChild>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-11 w-11'
-                    aria-label='פתח תפריט'>
-                    <Menu className='w-5 h-5' />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent
-                  side='right'
-                  dir='rtl'
-                  className='w-72 flex flex-col gap-1'>
-                  <SheetTitle className='text-right mb-2'>תפריט</SheetTitle>
-                  <NavLinks mobile onNavigate={() => setOpen(false)} />
-                  {!installed && canOfferInstall && (
+            {/* Sync control is always visible; the drawer only at 1340px and less */}
+            <div className='flex items-center gap-1'>
+              <HeaderSyncControl />
+              <div className='min-[1341px]:hidden'>
+                <Sheet open={open} onOpenChange={setOpen}>
+                  <SheetTrigger asChild>
                     <Button
                       variant='ghost'
-                      size='sm'
-                      className='text-sm h-11 w-full justify-start text-muted-foreground'
-                      onClick={handleInstallClick}>
-                      <Download className='w-4 h-4 ml-1.5' />
-                      התקן אפליקציה
+                      size='icon'
+                      className='h-11 w-11'
+                      aria-label='פתח תפריט'>
+                      <Menu className='w-5 h-5' />
                     </Button>
-                  )}
-                </SheetContent>
-              </Sheet>
+                  </SheetTrigger>
+                  <SheetContent
+                    side='right'
+                    dir='rtl'
+                    className='w-72 flex flex-col gap-1'>
+                    <SheetTitle className='text-right mb-2'>תפריט</SheetTitle>
+                    <NavLinks mobile onNavigate={() => setOpen(false)} />
+                    {!installed && canOfferInstall && (
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        className='text-sm h-11 w-full justify-start text-muted-foreground'
+                        onClick={handleInstallClick}>
+                        <Download className='w-4 h-4 ml-1.5' />
+                        התקן אפליקציה
+                      </Button>
+                    )}
+                  </SheetContent>
+                </Sheet>
+              </div>
             </div>
           </div>
         </div>

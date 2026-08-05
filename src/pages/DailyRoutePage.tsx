@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MapPin, Map as MapIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { EditableRouteStop } from '@/components/EditableRouteStop';
+import { JobListSkeleton } from '@/components/JobListSkeleton';
 import { format, addDays, subDays } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { DropResult } from '@hello-pangea/dnd';
@@ -18,7 +19,7 @@ import { RoutePlannerView } from './daily-route/RoutePlannerView';
 import { JobWithCustomer } from './daily-route/types';
 
 export default function DailyRoutePage() {
-  const { jobs, customersList, approvedDayKeys, approveDaySchedule, updateJob, updateCustomer } = useJobsContext();
+  const { jobs, customersList, approvedDayKeys, approveDaySchedule, updateJob, updateCustomer, boardReady } = useJobsContext();
   const { isAdmin, technicianId } = useAuth();
   const [selectedTechId, setSelectedTechId] = useState(technicians[0].id);
   // Admins may browse any technician; employees are locked to their own route.
@@ -211,7 +212,11 @@ export default function DailyRoutePage() {
         </div>
       </div>
 
-      {todayJobs.length === 0 ? (
+      {todayJobs.length === 0 && !boardReady ? (
+        /* Still loading — an "empty day" message here would be indistinguishable from a
+           sync failure, which is exactly the confusion this page needs to avoid. */
+        <JobListSkeleton />
+      ) : todayJobs.length === 0 ? (
         <div className="text-center py-16 bg-card rounded-xl border border-border">
           <MapPin className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
           <p className="text-lg font-medium text-muted-foreground">אין משימות משובצות להיום</p>
