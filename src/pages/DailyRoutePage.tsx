@@ -17,6 +17,9 @@ import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { getCustomerCoords } from '@/lib/customerCoords';
 import { RoutePlannerView } from './daily-route/RoutePlannerView';
 import { JobWithCustomer } from './daily-route/types';
+import { useTechnicianLocation } from '@/hooks/useTechnicianLocation';
+import { useShareLocationContext } from '@/contexts/ShareLocationContext';
+import { ShareLocationToggle } from '@/components/ShareLocationToggle';
 
 export default function DailyRoutePage() {
   const { jobs, customersList, approvedDayKeys, approveDaySchedule, updateJob, updateCustomer, boardReady } = useJobsContext();
@@ -31,6 +34,14 @@ export default function DailyRoutePage() {
   const { apiKey, loading: keyLoading, error: keyError, fetchKey } = useGoogleMapsKey();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const todayStr = format(selectedDate, 'yyyy-MM-dd');
+
+  // Live location, opt-in: the manager watches the selected technician's position; the technician
+  // publishes their own from ShareLocationProvider, which sits above the router so sharing
+  // survives navigating to /technician. A technician never subscribes to anyone.
+  const isViewingToday = todayStr === format(new Date(), 'yyyy-MM-dd');
+  const liveLocation = useTechnicianLocation(activeTechId, isAdmin && isViewingToday);
+  const shareLocation = useShareLocationContext();
+  const activeTechName = technicians.find(t => t.id === activeTechId)?.name ?? 'הטכנאי';
 
   // Today's scheduled jobs for selected tech. Employees only see a day once the
   // manager approves it (realtime); admins keep the full view for planning.
@@ -185,7 +196,8 @@ export default function DailyRoutePage() {
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {!isAdmin && technicianId && <ShareLocationToggle {...shareLocation} />}
           {todayJobs.length > 0 && !plannerMode && (
             <Button onClick={handleEnterPlanner} variant="outline" className="gap-2">
               <MapIcon className="w-4 h-4" />
@@ -236,6 +248,9 @@ export default function DailyRoutePage() {
           keyLoading={keyLoading}
           keyError={keyError}
           apiKey={apiKey}
+          /* Only meaningful for today: a live pin next to last Tuesday's route is a lie. */
+          liveLocation={isAdmin && isViewingToday ? liveLocation : null}
+          technicianName={activeTechName}
           onSaveRoute={handleSaveRoute}
           onDragEnd={handleDragEnd}
           onMove={handleMove}

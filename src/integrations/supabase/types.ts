@@ -452,6 +452,30 @@ export type Database = {
         }
         Relationships: []
       }
+      technician_locations: {
+        Row: {
+          accuracy: number | null
+          lat: number
+          lng: number
+          technician_id: string
+          updated_at: string
+        }
+        Insert: {
+          accuracy?: number | null
+          lat: number
+          lng: number
+          technician_id: string
+          updated_at?: string
+        }
+        Update: {
+          accuracy?: number | null
+          lat?: number
+          lng?: number
+          technician_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

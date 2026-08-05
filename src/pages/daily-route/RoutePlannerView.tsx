@@ -3,8 +3,14 @@ import { EditableRouteStop } from '@/components/EditableRouteStop';
 import { GoogleMapsPlanner } from '@/components/GoogleMapsPlanner';
 import { Customer, Job } from '@/types';
 import { DragDropContext, Draggable, Droppable, DropResult } from '@hello-pangea/dnd';
-import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Lock, MapPin, Save } from 'lucide-react';
+import { TechnicianLocationResult } from '@/hooks/useTechnicianLocation';
+import { AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Lock, MapPin, Navigation, Save } from 'lucide-react';
 import { JobWithCustomer } from './types';
+
+/** "עודכן עכשיו" / "עודכן לפני 4 דק'" — the manager needs the age, not a bare timestamp. */
+function ageLabel(minutesAgo: number) {
+  return minutesAgo < 1 ? 'מיקום עודכן עכשיו' : `מיקום עודכן לפני ${minutesAgo} דק'`;
+}
 
 export function RoutePlannerView({
   orderedJobs,
@@ -14,6 +20,8 @@ export function RoutePlannerView({
   keyLoading,
   keyError,
   apiKey,
+  liveLocation,
+  technicianName,
   onSaveRoute,
   onDragEnd,
   onMove,
@@ -29,6 +37,9 @@ export function RoutePlannerView({
   keyLoading: boolean;
   keyError: string | null;
   apiKey: string | null;
+  /** Manager-only live position of the selected technician; null for technicians. */
+  liveLocation: TechnicianLocationResult | null;
+  technicianName: string;
   onSaveRoute: () => void;
   onDragEnd: (result: DropResult) => void;
   onMove: (index: number, direction: -1 | 1) => void;
@@ -74,6 +85,31 @@ export function RoutePlannerView({
               <Lock className="w-3.5 h-3.5 shrink-0" />
               סדר המסלול נקבע על ידי המנהל
             </p>
+          )}
+
+          {/* Live technician position — manager only. "Not sharing" is stated explicitly rather
+              than shown as an absent pin, which would be indistinguishable from a broken feed. */}
+          {isAdmin && liveLocation && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-xs">
+              <Navigation
+                className={`w-3.5 h-3.5 shrink-0 ${
+                  liveLocation.state === 'live'
+                    ? 'text-sky-500'
+                    : liveLocation.state === 'stale'
+                      ? 'text-amber-500'
+                      : 'text-muted-foreground'
+                }`}
+              />
+              {liveLocation.state === 'off' ? (
+                <span className="text-muted-foreground">{technicianName} · לא משתף מיקום</span>
+              ) : (
+                <span
+                  className={liveLocation.state === 'stale' ? 'text-amber-600' : 'text-foreground'}
+                >
+                  {technicianName} · {ageLabel(liveLocation.minutesAgo)}
+                </span>
+              )}
+            </div>
           )}
 
           {!isAdmin ? (
@@ -188,6 +224,19 @@ export function RoutePlannerView({
               customer: jc.customer,
               fullAddress: [jc.customer?.address, jc.customer?.city].filter(Boolean).join(', '),
             }))}
+            liveMarker={
+              isAdmin && liveLocation?.location && liveLocation.state !== 'off'
+                ? {
+                    position: {
+                      lat: liveLocation.location.lat,
+                      lng: liveLocation.location.lng,
+                    },
+                    title: technicianName,
+                    isStale: liveLocation.state === 'stale',
+                    ageLabel: ageLabel(liveLocation.minutesAgo),
+                  }
+                : null
+            }
           />
         ) : null}
       </div>

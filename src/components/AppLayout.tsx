@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { HeaderSyncControl } from "@/components/HeaderSyncControl";
 import { useAuth } from "@/contexts/AuthContext";
+import { useShareLocationContext } from "@/contexts/ShareLocationContext";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import {
   AlertTriangle,
@@ -50,6 +51,15 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { signOut, isAdmin } = useAuth();
+  const shareLocation = useShareLocationContext();
+
+  // Stop sharing while the session is still valid. The provider's unmount cleanup would also
+  // fire, but it races the auth teardown — once the JWT is gone RLS rejects the delete and the
+  // technician's last position lingers on the manager's map after they've gone home.
+  const handleSignOut = () => {
+    if (shareLocation.sharing) shareLocation.toggle(false);
+    signOut();
+  };
   const visibleNavItems = navItems.filter((item) => isAdmin || !item.adminOnly);
   const [open, setOpen] = useState(false);
   const [showInstallSteps, setShowInstallSteps] = useState(false);
@@ -90,7 +100,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         className={`text-sm text-muted-foreground border-l-4 border-primary rounded-l ${mobile ? "h-11 w-full justify-start" : ""}`}
         onClick={() => {
           onNavigate?.();
-          signOut();
+          handleSignOut();
         }}>
         <LogOut className='w-4 h-4 ml-1.5' />
         התנתק

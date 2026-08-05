@@ -10,6 +10,7 @@ import { RequireAuth } from "./components/RequireAuth";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { JobsProvider } from "./contexts/JobsContext";
+import { ShareLocationProvider } from "./contexts/ShareLocationContext";
 import LoginPage from "./pages/LoginPage";
 
 // Heavy routes (maps, drag-drop, calendars, charts) are split to keep the
@@ -60,6 +61,9 @@ const App = () => (
               element={
                 <RequireAuth>
                   <JobsProvider>
+                    {/* Above the router on purpose: location sharing must survive the technician
+                        navigating between /daily-route and /technician. */}
+                    <ShareLocationProvider>
                     <AppLayout>
                       <Suspense fallback={<RouteFallback />}>
                       <Routes>
@@ -76,6 +80,7 @@ const App = () => (
                       </Routes>
                       </Suspense>
                     </AppLayout>
+                    </ShareLocationProvider>
                   </JobsProvider>
                 </RequireAuth>
               }
