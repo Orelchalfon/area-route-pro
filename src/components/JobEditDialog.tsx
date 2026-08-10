@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useJobsContext } from '@/contexts/JobsContext';
 import { useGoogleMapsKey } from '@/hooks/useGoogleMapsKey';
 import { geocodeAddress } from '@/lib/geocodeAddress';
+import { splitJobNotes } from '@/lib/jobNotes';
 import { cn } from '@/lib/utils';
 import { Job, JobPriority } from '@/types';
 import { Pencil, Save } from 'lucide-react';
@@ -113,14 +114,23 @@ export function JobEditDialog({
 
     const jobData: Partial<
       Pick<Job, 'location' | 'city' | 'phone' | 'notes' | 'priority' | 'estimatedDuration'>
-    > & { lat?: number; lng?: number } = {
+    > & { lat?: number; lng?: number; description?: string } = {
       location: nextLocation,
       city: nextCity,
       phone: form.phone.trim(),
-      notes: form.notes,
       priority: form.priority,
       estimatedDuration: form.estimatedDuration,
     };
+
+    // The textarea holds the DISPLAY string, which the loaders join from two columns
+    // (description/product_type + notes). Writing it back whole would duplicate the
+    // description on the next refetch, so split it — and only when it actually changed,
+    // to avoid shuffling text between columns on an unrelated save.
+    if (form.notes !== (job.notes || '')) {
+      const split = splitJobNotes(form.notes);
+      jobData.description = split.description;
+      jobData.notes = split.notes;
+    }
 
     setIsSaving(true);
     try {

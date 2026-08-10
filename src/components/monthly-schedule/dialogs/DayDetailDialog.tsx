@@ -7,8 +7,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
+import type { DayDocumentationRecord } from "@/hooks/useCompletedDayRecords";
 import { isOngoingJob } from "@/lib/idConventions";
-import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
+import { CompletionStatus, Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { Archive, Navigation, Pencil, Phone, Save, Undo2, X } from "lucide-react";
@@ -20,12 +21,19 @@ import { FollowUpTasksPopover } from "../FollowUpTasksPopover";
 import { typeColors, typeIcons } from "../constants";
 import { useJobEditForm } from "../hooks/useJobEditForm";
 
+const DOCUMENTED_OUTCOME: Record<CompletionStatus, string> = {
+  done: "✓ בוצע",
+  not_done: "✗ לא בוצע",
+  need_return: "↻ צריך לחזור",
+};
+
 export function DayDetailDialog({
   open,
   onClose,
   dateStr,
   dayJobs,
   filterJobs,
+  documentation = [],
   onRemoveJob,
   onCloseJob,
   onReturnJob,
@@ -36,6 +44,8 @@ export function DayDetailDialog({
   dateStr: string;
   dayJobs: Job[];
   filterJobs: Job[];
+  /** Finished visits for this day, including ones whose call was already closed. */
+  documentation?: DayDocumentationRecord[];
   onRemoveJob: (jobId: string) => void;
   onMoveJob?: (jobId: string) => void;
   onCloseJob?: (jobId: string) => void;
@@ -439,6 +449,45 @@ export function DayDetailDialog({
                 </div>
               );
             })}
+
+            {/* Visits already finished (and possibly closed) on this day. They are no
+                longer work, so they sit below the list as a read-only record. */}
+            {documentation.length > 0 && (
+              <div className='pt-3 mt-3 border-t border-border space-y-2'>
+                <p className='text-xs font-semibold text-muted-foreground'>
+                  תיעוד — משימות שהושלמו ({documentation.length})
+                </p>
+                {documentation.map((record) => {
+                  const outcome = DOCUMENTED_OUTCOME[record.completionStatus];
+                  return (
+                    <div
+                      key={record.id}
+                      className='rounded-lg border border-dashed border-border bg-muted/20 p-2'>
+                      <div className='flex items-center justify-between gap-2'>
+                        <span className='truncate text-sm font-medium'>
+                          {record.customerName}
+                        </span>
+                        <span className='shrink-0 text-xs text-muted-foreground'>
+                          {outcome}
+                        </span>
+                      </div>
+                      {[record.location, record.city].filter(Boolean).length >
+                        0 && (
+                        <p className='truncate text-xs text-muted-foreground'>
+                          {[record.location, record.city]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                      )}
+                      <p className='mt-1 whitespace-pre-wrap text-xs'>
+                        <span className='font-medium'>הערות טכנאי: </span>
+                        {record.completionNotes || "לא נרשמו הערות"}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

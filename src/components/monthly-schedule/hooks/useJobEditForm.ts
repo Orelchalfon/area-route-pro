@@ -2,6 +2,7 @@ import { useJobsContext } from "@/contexts/JobsContext";
 import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
 import { geocodeAddress } from "@/lib/geocodeAddress";
 import { isOngoingCustomer } from "@/lib/idConventions";
+import { splitJobNotes } from "@/lib/jobNotes";
 import { Customer, Job } from "@/types";
 import {
   type Dispatch,
@@ -109,12 +110,24 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
 
         const nextJobData: Partial<
           Pick<Job, "location" | "city" | "phone" | "notes" | "estimatedDuration">
-        > & { lat?: number; lng?: number } = {
+        > & { lat?: number; lng?: number; description?: string } = {
           ...editForm,
           location: nextLocation,
           city: nextCity,
           phone: nextPhone,
         };
+
+        // `editForm.notes` is the DISPLAY string, joined by the loaders from two
+        // columns (description/product_type/task_description + notes). Persisting it
+        // whole duplicates the description on refetch, so split it back — only when
+        // edited, so an unrelated save never shuffles text between the columns.
+        if (editForm.notes !== (job.notes || "")) {
+          const split = splitJobNotes(editForm.notes);
+          nextJobData.description = split.description;
+          nextJobData.notes = split.notes;
+        } else {
+          delete nextJobData.notes;
+        }
 
         // Propagate geocoded coords into the job so the map moves immediately
         if (
@@ -126,8 +139,15 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
         }
 
         updateJob(job.id, nextJobData);
+        // The local list holds Jobs, whose `notes` is the joined display string —
+        // patch it with what the textarea shows, not with the split-out half.
+        const { description: _description, ...displayPatch } = nextJobData;
         setOrderedJobs((prev) =>
-          prev.map((j) => (j.id === job.id ? { ...j, ...nextJobData } : j)),
+          prev.map((j) =>
+            j.id === job.id
+              ? { ...j, ...displayPatch, notes: editForm.notes }
+              : j,
+          ),
         );
 
         // Don't write derived ongoing-service "customers" (db-ongoing-cust-*) back to

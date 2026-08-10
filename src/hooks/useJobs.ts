@@ -24,6 +24,7 @@ import {
   NewJobInsertInput,
 } from "@/lib/dbJobSync";
 import { getDbSyncStatus } from "@/lib/dbSyncStatus";
+import { joinJobNotes, splitJobNotes } from "@/lib/jobNotes";
 import {
   isDbCustomer,
   isFilterJob,
@@ -841,30 +842,27 @@ export function useJobs() {
       );
 
       // Synthetic filter (שירות שוטף) jobs have no malfunctions/installations row, so
-      // persistDbJob no-ops for them and they'd stay on the board. Delete their
+      // persistDbJob no-ops for them and they'd stay on the board. Archive their
       // scheduled_filter_services row instead: the job drops back into the auto-generated
-      // unassigned pool and no longer renders on any day.
+      // unassigned pool and no longer renders on any day, exactly as before — but the
+      // row (with its date, technician and completion report) survives, so the visit
+      // still shows on the board as documentation. Deleting it destroyed that outright.
       if (isFilterJob(jobId)) {
-        void supabase
-          .from("scheduled_filter_services")
-          .delete()
-          .eq("job_key", jobId)
-          .then(({ error }) => {
-            if (error) throw error;
-          })
-          .catch((error) => {
-            handlePersistFailure(`Failed to return filter service ${jobId}`, error);
-          });
+        archiveFilterServiceRow(jobId);
         return prev.filter((j) => j.id !== jobId);
       }
 
+      // Keep the technician's written report on the row. Clearing it erased the only
+      // record of WHY the visit failed, which is precisely what the manager needs when
+      // rescheduling. The status itself is cleared: MiniJobChip treats any job carrying
+      // a completionStatus as reported and hides its remove/move buttons, so a returned
+      // job that kept one could never be taken off the day it lands on next.
       persistDbJobSafely(jobId, {
         status: "draft",
         technicianId: null,
         scheduledDate: null,
         scheduledTime: null,
         completionStatus: null,
-        completionNotes: null,
       });
       return prev.map((j) =>
         j.id === jobId
@@ -874,7 +872,6 @@ export function useJobs() {
               scheduledDate: undefined,
               scheduledTime: undefined,
               completionStatus: undefined,
-              completionNotes: undefined,
             }
           : j,
       );
@@ -951,6 +948,10 @@ export function useJobs() {
     persistDbJobSafely(jobId, { technicianId, scheduledDate, scheduledTime });
   };
 
+  // `description` is the first half of the displayed `Job.notes` string and lives in
+  // its own column per table (see src/lib/jobNotes.ts). Callers pass it separately so
+  // the joined display string is never written back into `notes`; locally we re-join
+  // the two halves, since `Job` only carries the combined value.
   const updateJob = (
     jobId: string,
     data: Partial<
@@ -964,10 +965,23 @@ export function useJobs() {
         | "type"
         | "phone"
       >
-    > & { lat?: number; lng?: number },
+    > & { lat?: number; lng?: number; description?: string },
   ) => {
+    const { description, ...jobFields } = data;
+
     setJobs((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, ...data } : j)),
+      prev.map((j) => {
+        if (j.id !== jobId) return j;
+        const next = { ...j, ...jobFields };
+        if (description !== undefined) {
+          const rest =
+            jobFields.notes !== undefined
+              ? jobFields.notes
+              : splitJobNotes(j.notes).notes;
+          next.notes = joinJobNotes(description, rest);
+        }
+        return next;
+      }),
     );
 
     persistDbJobSafely(jobId, data);

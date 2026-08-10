@@ -15,12 +15,17 @@ export const REGIONS: readonly string[] = SUB_AREAS;
 // real-region list; the picker appends it and jobMatchesAreas handles it explicitly.
 export const UNASSIGNED_REGION = "לא משויך";
 
-/** Check if a job's city belongs to any of the selected sub-areas. */
-export function jobMatchesAreas(job: Job, areas: string[]): boolean {
+/** Check if a city belongs to any of the selected sub-areas. */
+export function cityMatchesAreas(city: string, areas: string[]): boolean {
   if (areas.length === 0) return true;
-  const sub = getSubArea(job.city || "");
+  const sub = getSubArea(city || "");
   if (sub && areas.includes(sub)) return true;
   // Unassigned bucket: surface jobs no sub-area claims.
   if (areas.includes(UNASSIGNED_REGION) && !sub) return true;
   return false;
+}
+
+/** Check if a job's city belongs to any of the selected sub-areas. */
+export function jobMatchesAreas(job: Job, areas: string[]): boolean {
+  return cityMatchesAreas(job.city || "", areas);
 }

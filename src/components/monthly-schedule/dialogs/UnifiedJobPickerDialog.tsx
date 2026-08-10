@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { useIncrementalRender } from "@/hooks/useIncrementalRender";
+import { formatHebrewDate } from "@/lib/dates";
 import { isOngoingJob } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
 import { Customer, Job } from "@/types";
@@ -18,6 +19,7 @@ import {
   CalendarDays,
   Clock,
   Filter,
+  Pencil,
   Phone,
   Plus,
   Search,
@@ -26,6 +28,13 @@ import {
 import { useMemo, useState } from "react";
 import { jobMatchesPickerSearch } from "./jobPickerSearch";
 import { jobMatchesAreas } from "../regions";
+import {
+  JobDetailsDraft,
+  PlaceCoords,
+  useJobDetailsSave,
+} from "../hooks/useJobDetailsSave";
+import { PickerJobEditForm } from "./PickerJobEditForm";
+import { UpdateCustomerCardDialog } from "./UpdateCustomerCardDialog";
 
 const PICKER_PAGE_SIZE = 100;
 
@@ -66,6 +75,16 @@ export function UnifiedJobPickerDialog({
   const { customersList: customers } = useJobsContext();
   const [activeTab, setActiveTab] = useState("malfunction");
   const [searchQuery, setSearchQuery] = useState("");
+  // Inline detail editing, so a wrong phone/address can be fixed without leaving the
+  // scheduling flow. One row at a time.
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const {
+    isSaving,
+    saveJobDetails,
+    pendingCustomerUpdate,
+    confirmCustomerUpdate,
+    dismissCustomerUpdate,
+  } = useJobDetailsSave();
 
   // Don't offer jobs that are already finished — only schedule open work.
   const isCompleted = (j: Job) =>
@@ -162,7 +181,27 @@ export function UnifiedJobPickerDialog({
     // Selections are intentionally kept so reopening the same day restores them;
     // they only clear on per-job uncheck or on confirm (handleConfirm).
     setSearchQuery("");
+    setEditingJobId(null);
     onClose();
+  };
+
+  const listProps = {
+    customers,
+    otherDayIds,
+    selectedJobIds,
+    onToggleJob: toggleJob,
+    editingJobId,
+    isSaving,
+    onStartEdit: (jobId: string) => setEditingJobId(jobId),
+    onCancelEdit: () => setEditingJobId(null),
+    onSaveEdit: async (
+      job: Job,
+      draft: JobDetailsDraft,
+      coords: PlaceCoords | null,
+    ) => {
+      await saveJobDetails(job, draft, coords);
+      setEditingJobId(null);
+    },
   };
 
   return (
@@ -209,19 +248,13 @@ export function UnifiedJobPickerDialog({
           <TabsContent value='malfunction' className='min-h-0 flex-1'>
             <IncrementalJobList
               items={filteredJobsByType.malfunction}
-              customers={customers}
-              otherDayIds={otherDayIds}
-              selectedJobIds={selectedJobIds}
-              onToggleJob={toggleJob}
+              {...listProps}
             />
           </TabsContent>
           <TabsContent value='installation' className='min-h-0 flex-1'>
             <IncrementalJobList
               items={filteredJobsByType.installation}
-              customers={customers}
-              otherDayIds={otherDayIds}
-              selectedJobIds={selectedJobIds}
-              onToggleJob={toggleJob}
+              {...listProps}
             />
           </TabsContent>
           <TabsContent
@@ -229,10 +262,7 @@ export function UnifiedJobPickerDialog({
             className='min-h-0 flex-1 flex flex-col'>
             <IncrementalJobList
               items={filteredJobsByType.filter_replacement}
-              customers={customers}
-              otherDayIds={otherDayIds}
-              selectedJobIds={selectedJobIds}
-              onToggleJob={toggleJob}
+              {...listProps}
             />
           </TabsContent>
         </Tabs>
@@ -249,6 +279,15 @@ export function UnifiedJobPickerDialog({
           </div>
         )}
       </DialogContent>
+
+      <UpdateCustomerCardDialog
+        open={!!pendingCustomerUpdate}
+        onOpenChange={(o) => {
+          if (!o) dismissCustomerUpdate();
+        }}
+        customerName={pendingCustomerUpdate?.customerName || ""}
+        onConfirm={() => void confirmCustomerUpdate()}
+      />
     </Dialog>
   );
 }
@@ -259,12 +298,26 @@ function IncrementalJobList({
   otherDayIds,
   selectedJobIds,
   onToggleJob,
+  editingJobId,
+  isSaving,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
 }: {
   items: Job[];
   customers: Customer[];
   otherDayIds: Set<string>;
   selectedJobIds: Set<string>;
   onToggleJob: (jobId: string) => void;
+  editingJobId: string | null;
+  isSaving: boolean;
+  onStartEdit: (jobId: string) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (
+    job: Job,
+    draft: JobDetailsDraft,
+    coords: PlaceCoords | null,
+  ) => void;
 }) {
   const { visible, sentinelRef, hasMore } = useIncrementalRender(
     items,
@@ -293,13 +346,28 @@ function IncrementalJobList({
             ? job.scheduledDate || job.createdAt
             : undefined;
           const phone = job.phone || customer?.phone;
+          const isEditing = editingJobId === job.id;
+          // "Opened on" stamp, so the manager can see how long a request has been
+          // waiting while choosing what to schedule. Same fallback as the requests
+          // table: openedDate is in-memory only, so a reloaded row formats createdAt.
+          // Only for real requests — an ongoing row shows its service date in this
+          // slot instead, and a synthetic filter-* createdAt is a due-month placeholder.
+          const openedLabel =
+            job.type === "malfunction" || job.type === "installation"
+              ? (job.openedDate ?? formatHebrewDate(job.createdAt))
+              : "";
           return (
-            <label
+            <div
               key={job.id}
               className={cn(
-                "flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 cursor-pointer transition-colors",
+                "overflow-hidden rounded-lg border transition-colors",
                 isFromOther ? "border-accent bg-accent/5" : "border-border",
               )}>
+              {/* The pencil sits OUTSIDE the label — inside it, every click would be
+                  forwarded to the checkbox and toggle the selection instead. */}
+              <div className='flex items-stretch'>
+              <label
+                className='flex min-w-0 flex-1 cursor-pointer items-start gap-3 p-3 transition-colors hover:bg-muted/30'>
               <Checkbox
                 checked={selectedJobIds.has(job.id)}
                 onCheckedChange={() => onToggleJob(job.id)}
@@ -343,8 +411,8 @@ function IncrementalJobList({
                 <p
                   className='truncate text-xs text-muted-foreground mt-0.5'
                   title={[job.location, job.city].filter(Boolean).join(", ")}>
-                  {job.location}
-                  {job.city ? `, ${job.city}` : ""}
+                  {job.location + ', '}
+                  {job.city ? <span className='truncate font-bold'>{job.city} </span> : ""}
                 </p>
                 {phone && (
                   <p className='flex min-w-0 items-center gap-1 text-xs text-muted-foreground mt-0.5'>
@@ -366,6 +434,14 @@ function IncrementalJobList({
                     )
                   ) : (
                     <>
+                      {openedLabel && (
+                        <span
+                          className='flex shrink-0 items-center gap-1'
+                          title={`נפתח: ${openedLabel}`}>
+                          <CalendarDays className='w-3 h-3 shrink-0' />
+                          נפתח: {openedLabel}
+                        </span>
+                      )}
                       <span className='flex shrink-0 items-center gap-1'>
                         <Clock className='w-3 h-3' />
                         {job.estimatedDuration} דק׳
@@ -383,7 +459,30 @@ function IncrementalJobList({
                   </p>
                 )}
               </div>
-            </label>
+              </label>
+                <button
+                  type='button'
+                  onClick={() =>
+                    isEditing ? onCancelEdit() : onStartEdit(job.id)
+                  }
+                  className='flex shrink-0 items-center px-3 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60'
+                  aria-label={`ערוך פרטים — ${customer?.name || "משימה"}`}
+                  aria-expanded={isEditing}
+                  title='ערוך פרטים'>
+                  <Pencil className='h-5 w-5' />
+                </button>
+              </div>
+
+              {isEditing && (
+                <PickerJobEditForm
+                  job={job}
+                  customer={customer}
+                  isSaving={isSaving}
+                  onSave={(draft, coords) => onSaveEdit(job, draft, coords)}
+                  onCancel={onCancelEdit}
+                />
+              )}
+            </div>
           );
         })}
       </div>

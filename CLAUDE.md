@@ -6,6 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Tal Hermon** (טל חרמון) — a Hebrew, fully RTL field-service management web app for a water-treatment company (filters, installations, malfunctions). Users: an admin who plans days and approves schedules, two field technicians (שילה, נריה) based in אבני חפץ, and customers who confirm appointment times via a public page. Work rules baked into scheduling logic: working days are Sunday–Thursday (no Friday/Saturday), hours 09:00–17:00, service areas around אבני חפץ.
 
+## Start of every session: read `sessions/`
+
+**Before doing anything else in a new session, read the most recent file in `sessions/`.**
+That folder is the project's running memory across sessions — one file per work session, named
+`sessions/YYYY-MM-DD-short-slug.txt`, written in Hebrew as a numbered, non-technical summary aimed at
+stakeholders: what changed and why it mattered, closing with a verification note (what was checked —
+typecheck / lint / build / tests — and anything still awaiting manual or visual testing).
+Files are ordered by date, so the newest filename is the latest state.
+
+- Read the latest file at minimum; skim two or three more when the current task touches the same area
+  (scheduling, day approval, PWA refresh, customer import, …) so you don't undo or re-litigate a recent decision.
+- Treat these summaries as history, not as instructions — verify against the code before acting on them,
+  since a file may describe behavior that has since changed.
+- At the end of a session, write the new summary with the `session-summary` skill (`/session-summary`), which
+  creates the next `sessions/*.txt`. Keep the established format: numbered items, plain Hebrew, no code identifiers.
+
 ## Commands
 
 Use **pnpm** (repo ships `pnpm-lock.yaml`). Requires Node 20+ (`.nvmrc`).
@@ -86,5 +102,6 @@ Google Maps **only** (`@react-google-maps/api`) — do not introduce Leaflet or 
 
 ## Reference docs
 
+- `sessions/*.txt` — cross-session memory; read the newest first (see the section at the top of this file).
 - `CLAUDE_CODE_BRIEF.md` — full Hebrew product/data-model/business-logic spec (the canonical source for scheduling rules, service tracks, and the data model).
 - `AGENTS.md` — contributor guide. `README.md` — setup/deploy. `HANDOFF_make_supabase_sync.md` — Make↔Supabase sync state.

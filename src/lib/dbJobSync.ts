@@ -39,6 +39,11 @@ export type JobSyncPatch = Partial<
   scheduledTime?: string | null;
   completionStatus?: Job['completionStatus'] | null;
   completionNotes?: string | null;
+  // The first half of the displayed `Job.notes` string, which lives in a different
+  // column per table (description / product_type / task_description). Kept separate
+  // from `notes` so an edit doesn't write the joined string back into `notes` and
+  // duplicate the description on refetch — see src/lib/jobNotes.ts.
+  description?: string | null;
 };
 
 export function getDbJobRef(jobId: string): DbJobRef | null {
@@ -135,7 +140,7 @@ export function buildOngoingServiceInsert(
 }
 
 export function buildDbJobUpdatePatch<TTable extends DbJobTable>(
-  _table: TTable,
+  table: TTable,
   data: JobSyncPatch,
 ): DbJobUpdateByTable[TTable] {
   // Note: do NOT set `source` here. The employee RLS trigger
@@ -148,9 +153,33 @@ export function buildDbJobUpdatePatch<TTable extends DbJobTable>(
   if (data.technicianId !== undefined) patch.technician_id = data.technicianId ?? null;
   if (data.scheduledDate !== undefined) patch.scheduled_date = data.scheduledDate ?? null;
   if (data.scheduledTime !== undefined) patch.scheduled_time = data.scheduledTime ?? null;
-  if (data.location !== undefined) patch.address = data.location;
+  if (data.location !== undefined) {
+    patch.address = data.location;
+    // ongoing_services carries a second address column (`location`) — it's what the
+    // service-cycle page renders, and reads prefer `address` over it. Keep both in
+    // step so an address edited on the board also shows up there.
+    if (table === 'ongoing_services') {
+      (patch as OngoingServiceJobUpdate).location = data.location ?? '';
+    }
+  }
   if (data.city !== undefined) patch.city = data.city;
   if (data.notes !== undefined) patch.notes = data.notes;
+
+  // Route the description half to whichever column that table joins into Job.notes.
+  if (data.description !== undefined) {
+    switch (table) {
+      case 'malfunctions':
+        (patch as MalfunctionJobUpdate).description = data.description;
+        break;
+      case 'installations':
+        (patch as InstallationJobUpdate).product_type = data.description;
+        break;
+      case 'ongoing_services':
+        // NOT NULL in the schema — fall back to an empty string rather than null.
+        (patch as OngoingServiceJobUpdate).task_description = data.description ?? '';
+        break;
+    }
+  }
   if (data.phone !== undefined) patch.phone = data.phone;
   if (data.priority !== undefined) patch.priority = data.priority;
   if (data.estimatedDuration !== undefined) patch.estimated_duration = data.estimatedDuration;

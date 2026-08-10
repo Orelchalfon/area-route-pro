@@ -9,6 +9,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AnimatedCount } from "@/components/AnimatedCount";
+import { DocumentedJobChip } from "./monthly-schedule/DocumentedJobChip";
+import {
+  documentationForDay,
+  useCompletedDayRecords,
+} from "@/hooks/useCompletedDayRecords";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,6 +75,7 @@ import { MiniJobChip } from "./monthly-schedule/MiniJobChip";
 import {
   REGIONS,
   UNASSIGNED_REGION,
+  cityMatchesAreas,
   jobMatchesAreas,
 } from "./monthly-schedule/regions";
 import {
@@ -122,6 +128,7 @@ interface MonthlyScheduleBoardProps {
 
 // Stable empty default so days with no selection don't create a new Set each render.
 const EMPTY_SELECTION: Set<string> = new Set();
+const EMPTY_JOBS: Job[] = [];
 
 export function MonthlyScheduleBoard({
   jobs,
@@ -283,6 +290,32 @@ export function MonthlyScheduleBoard({
     return dow !== 5 && dow !== 6;
   });
   const futureWorkingDays = workingDays.filter((d) => d >= todayDate);
+
+  // The dates actually on screen. Week view moves `currentWeekStart` without touching
+  // `currentMonth`, so anything scoped to the month silently drops the days of a week
+  // that straddles a month boundary — date-scoped lookups use this range instead.
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    if (viewMode === "week") {
+      return {
+        rangeStart: format(currentWeekStart, "yyyy-MM-dd"),
+        rangeEnd: format(
+          endOfWeek(currentWeekStart, { weekStartsOn: 0 }),
+          "yyyy-MM-dd",
+        ),
+      };
+    }
+    return {
+      rangeStart: format(startOfMonth(currentMonth), "yyyy-MM-dd"),
+      rangeEnd: format(endOfMonth(currentMonth), "yyyy-MM-dd"),
+    };
+  }, [currentMonth, currentWeekStart, viewMode]);
+
+  // Finished visits for the visible range, archived ones included. Kept out of `jobs`
+  // on purpose (see useCompletedDayRecords) — they are documentation, not work.
+  const { records: documentationRecords } = useCompletedDayRecords(
+    rangeStart,
+    rangeEnd,
+  );
 
   // Auto-generated filter jobs for this month, merged with global state + redistributed overdue jobs
   const filterJobs = useMemo(() => {
@@ -447,9 +480,27 @@ export function MonthlyScheduleBoard({
       }));
   }, [ongoingServices]);
 
+  // Indexed by date straight off `jobs` rather than off the month-scoped `manualJobs`,
+  // so a week that crosses a month boundary still shows its manual jobs.
+  const manualJobsByDate = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    jobs.forEach((j) => {
+      if (
+        j.type === "filter_replacement" ||
+        j.technicianId !== selectedTechId ||
+        !j.scheduledDate
+      )
+        return;
+      const list = map.get(j.scheduledDate);
+      if (list) list.push(j);
+      else map.set(j.scheduledDate, [j]);
+    });
+    return map;
+  }, [jobs, selectedTechId]);
+
   const getManualDayJobs = useCallback(
-    (dateStr: string) => manualJobs.filter((j) => j.scheduledDate === dateStr),
-    [manualJobs],
+    (dateStr: string) => manualJobsByDate.get(dateStr) ?? EMPTY_JOBS,
+    [manualJobsByDate],
   );
   const getFilterDayJobs = useCallback((dateStr: string) => {
     const localJobs = extraFilterAssignments.get(dateStr) || [];
@@ -536,6 +587,37 @@ export function MonthlyScheduleBoard({
         (j) => arrivalStateFor(j, arrivalConfirmations.get(j.id)) === "confirmed",
       ).length,
     [getFilterDayJobs, getManualDayJobs, arrivalConfirmations],
+  );
+
+  // Documentation chips for a day: this technician's finished visits, minus anything
+  // still rendered as a live job there. A completed-but-not-yet-closed job exists in
+  // both places, and the board regenerates synthetic filter ids on every render, so
+  // dedupe against what is actually drawn rather than against `jobs`.
+  const getDayDocumentation = useCallback(
+    (dateStr: string) => {
+      const live = new Set<string>();
+      getFilterDayJobs(dateStr).forEach((j) => live.add(j.id));
+      getManualDayJobs(dateStr).forEach((j) => live.add(j.id));
+      return documentationForDay(
+        documentationRecords,
+        dateStr,
+        selectedTechId,
+        live,
+      ).map((r) => {
+        // scheduled_filter_services holds no name of its own — resolve it here, where
+        // customersList is available (customer rows are never archived).
+        if (!r.customerId) return r;
+        const name = customersList.find((c) => c.id === r.customerId)?.name;
+        return name ? { ...r, customerName: name } : r;
+      });
+    },
+    [
+      customersList,
+      documentationRecords,
+      getFilterDayJobs,
+      getManualDayJobs,
+      selectedTechId,
+    ],
   );
 
   // --- Adding work to a day that is already approved ---------------------------
@@ -906,16 +988,12 @@ export function MonthlyScheduleBoard({
       {/* View mode toggle + Navigator */}
       <div className='flex items-center justify-between'>
         <div className='flex items-center gap-1'>
+          {/* Backward navigation is open: past days are the documentation view — the
+              record of what was actually done — so they have to be reachable. */}
           <Button
             variant='ghost'
             size='sm'
-            disabled={
-              viewMode === "month"
-                ? currentMonth.getFullYear() === new Date().getFullYear() &&
-                  currentMonth.getMonth() <= new Date().getMonth()
-                : currentWeekStart <=
-                  startOfWeek(new Date(), { weekStartsOn: 0 })
-            }
+            title='חזור אחורה'
             onClick={() => {
               if (viewMode === "month")
                 setCurrentMonth((prev) => subMonths(prev, 1));
@@ -1094,6 +1172,12 @@ export function MonthlyScheduleBoard({
                 const dayManualJobs = getManualDayJobs(dateStr).filter((j) =>
                   jobMatchesAreas(j, dayAreas),
                 );
+                const dayDocumentation =
+                  !isWeekend && inCurrentMonth
+                    ? getDayDocumentation(dateStr).filter((r) =>
+                        cityMatchesAreas(r.city, dayAreas),
+                      )
+                    : [];
                 const totalMinutes =
                   dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) +
                   dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
@@ -1309,6 +1393,18 @@ export function MonthlyScheduleBoard({
                           </span>
                         )}
 
+                        {/* Finished visits stay here as documentation, including ones
+                            whose call was already closed. Read-only and muted so they
+                            never compete with the day's live work. */}
+                        {dayDocumentation.slice(0, maxShow).map((record) => (
+                          <DocumentedJobChip key={record.id} record={record} />
+                        ))}
+                        {dayDocumentation.length > maxShow && (
+                          <span className='text-xs text-muted-foreground'>
+                            +{dayDocumentation.length - maxShow} תיעוד
+                          </span>
+                        )}
+
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1429,6 +1525,7 @@ export function MonthlyScheduleBoard({
           dateStr={detailState.dateStr}
           dayJobs={getManualDayJobs(detailState.dateStr)}
           filterJobs={getFilterDayJobs(detailState.dateStr)}
+          documentation={getDayDocumentation(detailState.dateStr)}
           onRemoveJob={(jobId) => {
             const isFilter = filterJobs.some((j) => j.id === jobId);
             setPendingDelete({
