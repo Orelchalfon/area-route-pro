@@ -190,18 +190,32 @@ export function useCompletedDayRecords(rangeStart: string, rangeEnd: string) {
 
   useEffect(() => {
     void refresh();
+
+    // Debounced like the other realtime hooks: this listens on four tables and each
+    // refresh costs four queries, so a single board edit (which writes one row and can
+    // ripple into a second) must not fan out into a burst of them.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        void refresh();
+      }, 300);
+    };
+
     const channel = supabase
       .channel(`completed-day-records-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'malfunctions' }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'installations' }, () => void refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ongoing_services' }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'malfunctions' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'installations' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ongoing_services' }, scheduleRefresh)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'scheduled_filter_services' },
-        () => void refresh(),
+        scheduleRefresh,
       )
       .subscribe();
     return () => {
+      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
   }, [refresh]);

@@ -129,6 +129,9 @@ export function useOngoingServices() {
   // generation before setState, so a newer refresh's results are never clobbered by a
   // slower in-flight one that started earlier.
   const fetchGenerationRef = useRef(0);
+  // Whether a full fetch has completed at least once. Gates progressive publishing —
+  // see the comment in fetchAll.
+  const hasLoadedOnceRef = useRef(false);
 
   const fetchAll = useCallback(async () => {
     const PAGE_SIZE = 1000;
@@ -182,9 +185,19 @@ export function useOngoingServices() {
       setCustomers(reqCustomers);
     };
 
+    // Publishing a partial page is only safe when there is nothing on screen yet.
+    // applyRows REPLACES jobs/customers/services outright, and useJobs folds the result
+    // in by dropping every db-ongoing- job and re-appending this hook's array — so on a
+    // refresh, publishing page 0 alone wipes every ongoing chip off the board until the
+    // last page lands a second or two later. Board rows are mostly calendar rows whose
+    // service_date is old, so they sort behind page 0 and all of them vanish at once.
+    // First load streams progressively (fast first paint, board still behind
+    // boardReady); every later refresh accumulates silently and publishes once.
+    const progressive = !hasLoadedOnceRef.current;
+
     // Page 0 first: paint the most-relevant rows and flip loaded after one round-trip
     // (no serial exact-count query — it was expensive on this large table and blocked
-    // first paint). Remaining pages, if any, stream in below and append progressively.
+    // first paint). Remaining pages, if any, stream in below.
     const { data: firstData, error: firstError } = await page(0);
     if (firstError) {
       console.error('Error fetching ongoing services:', firstError);
@@ -198,14 +211,14 @@ export function useOngoingServices() {
     const allRows: OngoingServiceRow[] = [
       ...((firstData as OngoingServiceRow[] | null) ?? []),
     ];
-    applyRows(allRows);
+    if (progressive) applyRows(allRows);
     if (generation === fetchGenerationRef.current) {
       setLoading(false);
       setLoaded(true);
     }
 
-    // Background: fetch the rest sequentially, appending as each page arrives. A page
-    // shorter than PAGE_SIZE means we've reached the end.
+    // Background: fetch the rest sequentially. A page shorter than PAGE_SIZE means
+    // we've reached the end.
     let i = 1;
     let hasMore = allRows.length === PAGE_SIZE;
     while (hasMore) {
@@ -217,10 +230,18 @@ export function useOngoingServices() {
       }
       const rows = (data as OngoingServiceRow[] | null) ?? [];
       allRows.push(...rows);
-      applyRows(allRows);
+      if (progressive) applyRows(allRows);
       i += 1;
       hasMore = rows.length === PAGE_SIZE;
     }
+
+    // The complete set, in one commit. Reached on both exits — including the `break`
+    // above — so a mid-way page failure still publishes what was gathered rather than
+    // leaving the previous fetch's data in place. Skipped when progressive already
+    // published these rows page by page (a `break` there discards nothing, since the
+    // failing page contributed no rows).
+    if (!progressive) applyRows(allRows);
+    hasLoadedOnceRef.current = true;
   }, []);
 
   useEffect(() => {

@@ -33,6 +33,10 @@ import {
 } from "@/lib/idConventions";
 import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import {
+  isReturnedForReschedule,
+  isWaitingForAssignment,
+} from "@/pages/job-category/assignmentBuckets";
+import {
   addMonths,
   addWeeks,
   eachDayOfInterval,
@@ -436,12 +440,13 @@ export function MonthlyScheduleBoard({
     [jobs, month, selectedTechId, year],
   );
 
-  // Unassigned malfunction/installation jobs
+  // Unassigned malfunction/installation jobs. Shares the requests page's definition so a
+  // returned call — which keeps its date/technician as documentation — counts as waiting
+  // here too and can be scheduled again from the picker.
   const unassignedManualJobs = useMemo(
     () =>
       jobs.filter(
-        (j) =>
-          j.type !== "filter_replacement" && (!j.technicianId || !j.scheduledDate),
+        (j) => j.type !== "filter_replacement" && isWaitingForAssignment(j),
       ),
     [jobs],
   );
@@ -481,14 +486,17 @@ export function MonthlyScheduleBoard({
   }, [ongoingServices]);
 
   // Indexed by date straight off `jobs` rather than off the month-scoped `manualJobs`,
-  // so a week that crosses a month boundary still shows its manual jobs.
+  // so a week that crosses a month boundary still shows its manual jobs. Returned calls
+  // are skipped: they keep a date so the visit stays documented, but they are no longer
+  // work on that day — they render through the documentation chips instead.
   const manualJobsByDate = useMemo(() => {
     const map = new Map<string, Job[]>();
     jobs.forEach((j) => {
       if (
         j.type === "filter_replacement" ||
         j.technicianId !== selectedTechId ||
-        !j.scheduledDate
+        !j.scheduledDate ||
+        isReturnedForReschedule(j)
       )
         return;
       const list = map.get(j.scheduledDate);
@@ -511,7 +519,9 @@ export function MonthlyScheduleBoard({
         j.type === "filter_replacement" &&
         j.scheduledDate === dateStr &&
         j.technicianId === selectedTechId &&
-        !localIds.has(j.id),
+        !localIds.has(j.id) &&
+        // Returned calls keep their date for documentation only — not live work.
+        !isReturnedForReschedule(j),
     );
     return [...localJobs, ...globalFilterJobs];
   }, [extraFilterAssignments, jobs, selectedTechId]);

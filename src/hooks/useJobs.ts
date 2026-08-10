@@ -25,6 +25,7 @@ import {
 } from "@/lib/dbJobSync";
 import { getDbSyncStatus } from "@/lib/dbSyncStatus";
 import { joinJobNotes, splitJobNotes } from "@/lib/jobNotes";
+import { isReturnedForReschedule } from "@/pages/job-category/assignmentBuckets";
 import {
   isDbCustomer,
   isFilterJob,
@@ -852,26 +853,23 @@ export function useJobs() {
         return prev.filter((j) => j.id !== jobId);
       }
 
-      // Keep the technician's written report on the row. Clearing it erased the only
-      // record of WHY the visit failed, which is precisely what the manager needs when
-      // rescheduling. The status itself is cleared: MiniJobChip treats any job carrying
-      // a completionStatus as reported and hides its remove/move buttons, so a returned
-      // job that kept one could never be taken off the day it lands on next.
+      // Keep the whole visit stamp — the day, the technician and the report. The manager
+      // still needs to see that someone was at this customer, and clearing these was the
+      // only reason a returned call vanished from the board without a trace. Only the
+      // clock time goes, since the job no longer holds a slot in anyone's route.
+      // `status: 'draft'` is what marks it as returned: isReturnedForReschedule() reads
+      // draft + a completionStatus, which keeps the job out of the day's live chips and
+      // back in the "ממתינים לשיבוץ" pool despite still carrying a date.
       persistDbJobSafely(jobId, {
         status: "draft",
-        technicianId: null,
-        scheduledDate: null,
         scheduledTime: null,
-        completionStatus: null,
       });
       return prev.map((j) =>
         j.id === jobId
           ? {
               ...j,
-              technicianId: undefined,
-              scheduledDate: undefined,
+              status: "draft" as JobStatus,
               scheduledTime: undefined,
-              completionStatus: undefined,
             }
           : j,
       );
@@ -938,14 +936,44 @@ export function useJobs() {
     scheduledDate: string,
     scheduledTime: string,
   ) => {
+    // Scheduling a returned call starts a NEW visit, so its previous report has to go:
+    // the row can only hold one, and leaving it would keep the job matching
+    // isReturnedForReschedule() — documented, never drawn as live work again. This is
+    // the point where the old visit's record is released (one row, one visit).
+    const job = jobs.find((j) => j.id === jobId);
+    const clearsPreviousVisit = !!job && isReturnedForReschedule(job);
+
     setJobs((prev) =>
       prev.map((j) =>
         j.id === jobId
-          ? { ...j, technicianId, scheduledDate, scheduledTime }
+          ? {
+              ...j,
+              technicianId,
+              scheduledDate,
+              scheduledTime,
+              ...(clearsPreviousVisit
+                ? {
+                    status: "confirmed" as JobStatus,
+                    completionStatus: undefined,
+                    completionNotes: undefined,
+                  }
+                : {}),
+            }
           : j,
       ),
     );
-    persistDbJobSafely(jobId, { technicianId, scheduledDate, scheduledTime });
+    persistDbJobSafely(jobId, {
+      technicianId,
+      scheduledDate,
+      scheduledTime,
+      ...(clearsPreviousVisit
+        ? {
+            status: "confirmed" as JobStatus,
+            completionStatus: null,
+            completionNotes: null,
+          }
+        : {}),
+    });
   };
 
   // `description` is the first half of the displayed `Job.notes` string and lives in
