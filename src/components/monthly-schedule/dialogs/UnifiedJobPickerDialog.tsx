@@ -403,7 +403,7 @@ function IncrementalJobList({
                   )}
                 </div>
                 {isOngoing && taskDescription && (
-                  <p
+                  <p 
                     className='truncate text-xs font-medium text-foreground mt-0.5'
                     title={taskDescription}>
                     {taskDescription}
