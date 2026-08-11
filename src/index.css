@@ -360,6 +360,36 @@ button{
   }
 }
 
+/* Printable daily route sheet (DayRouteSheet, portalled to <body> by the day-approval
+   dialog). Hidden on screen; print swaps that around and hides everything else, so the
+   app shell and the open dialog never reach the paper. Deliberately at top level and
+   not inside an @layer — Tailwind v4 may reorder or drop at-rules nested in layers. */
+.print-sheet-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  /* Radix mounts its dialogs as direct children of <body>, so this covers the app
+     shell and every open overlay in one rule. */
+  body > *:not(.print-sheet-root) {
+    display: none !important;
+  }
+
+  .print-sheet-root {
+    display: block !important;
+  }
+
+  html,
+  body {
+    background: #fff;
+  }
+}
+
 /* Google Maps Autocomplete dropdown must appear above dialogs and drag-drop overlays */
 .pac-container {
   z-index: 99999 !important;

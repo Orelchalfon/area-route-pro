@@ -133,6 +133,7 @@ interface MonthlyScheduleBoardProps {
 // Stable empty default so days with no selection don't create a new Set each render.
 const EMPTY_SELECTION: Set<string> = new Set();
 const EMPTY_JOBS: Job[] = [];
+const EMPTY_AREAS: string[] = [];
 
 export function MonthlyScheduleBoard({
   jobs,
@@ -414,8 +415,10 @@ export function MonthlyScheduleBoard({
 
   const getDayAreas = useCallback((dateStr: string): string[] => {
     if (dayAreaOverrides.has(dateStr)) return dayAreaOverrides.get(dateStr)!;
-    // No auto-determined areas — days start empty, areas are selected manually
-    return [];
+    // No auto-determined areas — days start empty, areas are selected manually.
+    // Stable reference so the (very common) empty result does not re-render consumers
+    // that take it as a prop.
+    return EMPTY_AREAS;
   }, [dayAreaOverrides]);
 
   // Area selection is a non-destructive view filter: it only records which areas
@@ -1573,6 +1576,10 @@ export function MonthlyScheduleBoard({
           isLocked={lockedDays.has(approvalState.dateStr)}
           onToggleLock={() => handleToggleLock(approvalState.dateStr)}
           onAddJob={onAddJob}
+          dayAreas={getDayAreas(approvalState.dateStr)}
+          technicianName={
+            technicians.find((t) => t.id === selectedTechId)?.name || "הטכנאי"
+          }
         />
       )}
 

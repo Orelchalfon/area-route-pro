@@ -15,6 +15,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { arrivalStateFor } from "@/hooks/useArrivalConfirmations";
 import { getCustomerCoords } from "@/lib/customerCoords";
@@ -29,23 +35,28 @@ import {
   AlertTriangle,
   CheckCircle,
   CheckCircle2,
+  ChevronDown,
   Circle,
   Clock,
   GripVertical,
   Lock,
   LockOpen,
   MessageCircle,
+  Printer,
   RotateCcw,
   Save,
   Wand2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { CustomerInfoPopover } from "../../CustomerInfoPopover";
 import { DayRouteMap } from "../../DayRouteMap";
+import { DayRouteSheet } from "../DayRouteSheet";
 import { FollowUpTasksPopover } from "../FollowUpTasksPopover";
 import { typeColors, typeIcons } from "../constants";
 import { useDragReorder } from "../hooks/useDragReorder";
+import { buildRouteSheetRows } from "../routeSheet";
 import { calculateTimeRanges } from "../utils";
 
 // Day approval dialog: proposes an efficient route, lets the manager rearrange it, and
@@ -67,6 +78,8 @@ export function DayApprovalDialog({
   isLocked,
   onToggleLock,
   onAddJob,
+  dayAreas,
+  technicianName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -90,6 +103,10 @@ export function DayApprovalDialog({
     scheduledTime: string;
     notes: string;
   }) => void | Promise<Job | undefined>;
+  // Both only reach the printed day sheet: the areas the manager selected for the day,
+  // and whose sheet this is.
+  dayAreas: string[];
+  technicianName: string;
 }) {
   const initialJobs = useMemo(
     () =>
@@ -264,6 +281,22 @@ export function DayApprovalDialog({
         arrivalConfirmations.get(job.id),
       ),
     [dateStr, arrivalConfirmations],
+  );
+
+  // Rows of the printable day sheet. Built from `timeRanges` — the very array the
+  // timeline below maps over — rather than from the persisted times, so the numbers on
+  // paper are the numbers on screen even mid-reorder. `startTime` is derived from list
+  // position, so buildRouteSheetRows' sort by it is the identity here.
+  const sheetRows = useMemo(
+    () =>
+      buildRouteSheetRows(
+        timeRanges.map(({ job, startTime }) => ({
+          ...job,
+          scheduledTime: startTime,
+        })),
+        customers,
+      ),
+    [timeRanges, customers],
   );
 
   const arrivalCounts = useMemo(() => {
@@ -539,73 +572,136 @@ export function DayApprovalDialog({
                 })}
               </div>
 
-              {/* Approve button */}
-              <div className='shrink-0'>
-                {!isApproved ? (
-                  <Button
-                    className='w-full gap-2 bg-success hover:bg-success/90 text-success-foreground'
-                    onClick={() => {
-                      onApprove(
-                        orderedJobs.map((j) => j.id),
-                        dateStr,
-                      );
-                      toast.success(
-                        `יום ${dayLabel} אושר — ${orderedJobs.length} משימות שובצו לטכנאי`,
-                      );
-                    }}>
-                    <CheckCircle className='w-4 h-4' />
-                    אשר יום ושלח הודעות ללקוחות
-                  </Button>
-                ) : (
-                  <div className='space-y-2'>
-                    <div className='text-center p-3 bg-success/10 rounded-lg text-success text-sm font-medium'>
-                      ✓ יום זה אושר — הודעות נשלחו ללקוחות
-                    </div>
-                    {/* Re-save the arrangement on an already-approved day. Writes stop
-                        times only — it must not re-approve, or it would risk clearing
-                        the day's lock. */}
+              {/* Day actions. One row, laid out right-to-left by the enclosing dir='rtl':
+                  primary action · save · everything else behind a menu. An unapproved day
+                  has only the one button, so it keeps the full width and the full label. */}
+              <div className='shrink-0 space-y-2'>
+                {isApproved && (
+                  <div className='flex items-center justify-center gap-2 p-3 bg-success/10 rounded-lg text-success text-sm font-medium'>
+                    <span>✓ יום זה אושר — הודעות נשלחו ללקוחות</span>
+                    {/* The lock button now lives in the menu, so its state has to show
+                        somewhere it can be seen without opening anything. */}
+                    {isLocked && (
+                      <span className='flex items-center gap-1'>
+                        <Lock className='w-3.5 h-3.5' />
+                        נעול
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className='flex items-center gap-2'>
+                  {!isApproved ? (
                     <Button
-                      className='w-full gap-2'
-                      disabled={!hasUnsavedOrder}
+                      className='flex-1 min-w-0 gap-2 bg-success hover:bg-success/90 text-success-foreground'
                       onClick={() => {
-                        onSaveRouteOrder(
+                        onApprove(
                           orderedJobs.map((j) => j.id),
                           dateStr,
                         );
                         toast.success(
-                          `סדר המסלול נשמר — ${orderedJobs.length} עצירות`,
+                          `יום ${dayLabel} אושר — ${orderedJobs.length} משימות שובצו לטכנאי`,
                         );
                       }}>
-                      <Save className='w-4 h-4' />
-                      {hasUnsavedOrder ? "שמור סדר מסלול" : "סדר המסלול שמור"}
+                      <CheckCircle className='w-4 h-4 shrink-0' />
+                      <span className='truncate'>אשר יום ושלח הודעות ללקוחות</span>
                     </Button>
-                    <Button
-                      variant='outline'
-                      className='w-full gap-2'
-                      onClick={onToggleLock}>
-                      {isLocked ? (
-                        <Lock className='w-4 h-4' />
-                      ) : (
-                        <LockOpen className='w-4 h-4' />
-                      )}
-                      {isLocked
-                        ? "בטל נעילה — אפשר לטכנאי לערוך"
-                        : "נעל יום — מנע עריכה מהטכנאי"}
-                    </Button>
-                    <Button
-                      variant='outline'
-                      className='w-full gap-2 border-destructive text-destructive hover:bg-destructive/10'
-                      onClick={() => setConfirmUnapproveOpen(true)}>
-                      <RotateCcw className='w-4 h-4' />
-                      בטל אישור יום
-                    </Button>
-                  </div>
-                )}
+                  ) : (
+                    <>
+                      {/* Sized to its own label rather than flex-1: an even split leaves
+                          the longer "שמור סדר מסלול" truncated while this one keeps slack.
+                          Destructive styling kept — first in the row must not read as the
+                          primary action. The confirm dialog spells out the consequence. */}
+                      <Button
+                        variant='outline'
+                        className='shrink-0 gap-2 border-destructive text-destructive hover:bg-destructive/10'
+                        onClick={() => setConfirmUnapproveOpen(true)}>
+                        <RotateCcw className='w-4 h-4 shrink-0' />
+                        <span className='truncate'>בטל אישור</span>
+                      </Button>
+                      {/* Re-save the arrangement on an already-approved day. Writes stop
+                          times only — it must not re-approve, or it would risk clearing
+                          the day's lock. */}
+                      <Button
+                        className='flex-1 min-w-0 gap-2'
+                        disabled={!hasUnsavedOrder}
+                        onClick={() => {
+                          onSaveRouteOrder(
+                            orderedJobs.map((j) => j.id),
+                            dateStr,
+                          );
+                          toast.success(
+                            `סדר המסלול נשמר — ${orderedJobs.length} עצירות`,
+                          );
+                        }}>
+                        <Save className='w-4 h-4 shrink-0' />
+                        <span className='truncate'>
+                          {hasUnsavedOrder ? "שמור סדר מסלול" : "סדר המסלול שמור"}
+                        </span>
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant='outline'
+                            size='icon'
+                            className='shrink-0'
+                            title='פעולות נוספות'>
+                            <ChevronDown className='w-4 h-4' />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align='end' dir='rtl'>
+                          <DropdownMenuItem onClick={onToggleLock}>
+                            {isLocked ? (
+                              <Lock className='w-4 h-4' />
+                            ) : (
+                              <LockOpen className='w-4 h-4' />
+                            )}
+                            {isLocked
+                              ? "בטל נעילה — אפשר לטכנאי לערוך"
+                              : "נעל יום — מנע עריכה מהטכנאי"}
+                          </DropdownMenuItem>
+                          {/* The paper sheet the technician takes to the field, replacing
+                              the hand-copied form. Print CSS hides the app and this dialog
+                              and leaves only the sheet portalled below.
+                              Deferred a tick: window.print() blocks the main thread until
+                              the print dialog is dismissed, and firing it mid-close leaves
+                              the menu's unmount — including the pointer-events lock Radix
+                              puts on <body> — half-finished behind the modal. */}
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              window.setTimeout(() => window.print(), 0);
+                            }}>
+                            <Printer className='w-4 h-4' />
+                            הדפס דף יום
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         )}
       </DialogContent>
+
+      {/* Portalled to <body> rather than rendered inside DialogContent, whose
+          max-h/overflow would clip the printed output to a single viewport. The rows
+          still come from this dialog's own state, so the sheet cannot disagree with the
+          route that was approved. */}
+      {open &&
+        isApproved &&
+        sheetRows.length > 0 &&
+        createPortal(
+          <div className='print-sheet-root'>
+            <DayRouteSheet
+              dateText={dayDateText}
+              areas={dayAreas}
+              technicianName={technicianName}
+              rows={sheetRows}
+            />
+          </div>,
+          document.body,
+        )}
 
       <AlertDialog
         open={confirmUnapproveOpen}
