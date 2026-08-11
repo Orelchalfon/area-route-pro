@@ -286,6 +286,7 @@ export function UnifiedJobPickerDialog({
           if (!o) dismissCustomerUpdate();
         }}
         customerName={pendingCustomerUpdate?.customerName || ""}
+        isNewCard={pendingCustomerUpdate?.isNewCard}
         onConfirm={() => void confirmCustomerUpdate()}
       />
     </Dialog>

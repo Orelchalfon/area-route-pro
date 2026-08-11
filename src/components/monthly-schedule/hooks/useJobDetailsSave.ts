@@ -1,7 +1,8 @@
 import { useJobsContext } from "@/contexts/JobsContext";
 import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
 import { geocodeAddress } from "@/lib/geocodeAddress";
-import { isDbCustomer, isFilterJob } from "@/lib/idConventions";
+import { resolveCustomerCard } from "@/lib/customerCardMatch";
+import { isFilterJob } from "@/lib/idConventions";
 import { splitJobNotes } from "@/lib/jobNotes";
 import { Customer, Job } from "@/types";
 import { useCallback, useState } from "react";
@@ -28,6 +29,11 @@ export interface PendingCustomerUpdate {
   /** Address changed, so the stored coordinates need re-geocoding on confirm. */
   needsGeocode: boolean;
   coords: PlaceCoords | null;
+  /**
+   * No existing card matched this job, so confirming creates one (updateCustomer falls
+   * back to an upsert on the name key). The dialog says so rather than implying an edit.
+   */
+  isNewCard: boolean;
 }
 
 /** Seed a draft from a job, falling back to the customer for a missing phone. */
@@ -93,26 +99,33 @@ export function useJobDetailsSave() {
       const phone = draft.phone.trim();
       const description = draft.description.trim();
 
-      const customer = customersList.find((c) => c.id === job.customerId);
+      const jobCustomer = customersList.find((c) => c.id === job.customerId);
+      // Malfunctions/installations don't reference a customer row at all, so the card
+      // has to be identified by name/phone before we can offer to update it.
+      const card = resolveCustomerCard(jobCustomer, customersList);
+      // Where a card update would land: the matched card, else the job's own customer,
+      // which updateCustomer upserts by name key.
+      const cardTarget = card ?? jobCustomer;
       const addressChanged =
-        !!customer &&
-        (location !== (customer.address || "").trim() ||
-          city !== (customer.city || "").trim());
+        !!cardTarget &&
+        (location !== (cardTarget.address || "").trim() ||
+          city !== (cardTarget.city || "").trim());
       const customerPatch: Partial<Customer> = { address: location, city, phone };
 
       setIsSaving(true);
       try {
         if (isFilterJob(job.id)) {
-          if (!customer) {
+          if (!cardTarget) {
             toast.error("לא נמצא כרטיס לקוח למשימה זו");
             return;
           }
           await applyCustomerUpdate({
-            customerId: customer.id,
-            customerName: customer.name,
+            customerId: cardTarget.id,
+            customerName: cardTarget.name,
             patch: customerPatch,
             needsGeocode: addressChanged && !!(location || city),
             coords,
+            isNewCard: !card,
           });
           toast.success("כרטיס הלקוח עודכן");
           return;
@@ -131,16 +144,20 @@ export function useJobDetailsSave() {
         updateJob(job.id, jobPatch);
         toast.success("פרטי המשימה עודכנו");
 
-        const customerDiffers =
-          !!customer &&
-          (addressChanged || phone !== (customer.phone || "").trim());
-        if (customer && isDbCustomer(customer.id) && customerDiffers) {
+        // Ask wherever the contact details now differ from the card — for every job
+        // type, not just ones that already point at a customer row. Editing only the
+        // description never asks: there is nothing card-related to decide.
+        const cardDiffers =
+          !!cardTarget &&
+          (addressChanged || phone !== (cardTarget.phone || "").trim());
+        if (cardTarget && cardDiffers) {
           setPendingCustomerUpdate({
-            customerId: customer.id,
-            customerName: customer.name,
+            customerId: cardTarget.id,
+            customerName: cardTarget.name,
             patch: customerPatch,
             needsGeocode: addressChanged && !!(location || city),
             coords,
+            isNewCard: !card,
           });
         }
       } finally {
