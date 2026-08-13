@@ -79,7 +79,10 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground",
+      // gap-2 + a fixed icon size: without them the leading icon sits flush against its
+      // label, which is unreadable in RTL Hebrew menus. The size rule also keeps every
+      // item's text starting on the same line regardless of the icon passed in.
+      "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-2 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:cursor-default data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground [&>svg]:size-4 [&>svg]:shrink-0",
       inset && "pl-8",
       className,
     )}

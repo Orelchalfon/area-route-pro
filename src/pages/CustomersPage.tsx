@@ -4,6 +4,7 @@ import { useCustomerDirectory } from '@/hooks/useCustomerDirectory';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { Customer } from '@/types';
 import { CustomerCard } from '@/components/CustomerCard';
+import { CustomerDetailsDialog } from '@/components/CustomerDetailsDialog';
 import { CustomerEditDialog } from '@/components/CustomerEditDialog';
 import { CustomerHistoryDialog } from '@/components/CustomerHistoryDialog';
 import { NewCustomerDialog } from '@/components/NewCustomerDialog';
@@ -46,10 +47,17 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const handleEdit = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
     setEditOpen(true);
+  }, []);
+
+  // Clicking the card body — the card shows only part of the record.
+  const handleShowDetails = useCallback((customer: Customer) => {
+    setSelectedCustomer(customer);
+    setDetailsOpen(true);
   }, []);
 
   const handleShowHistory = useCallback((customer: Customer) => {
@@ -111,6 +119,7 @@ export default function CustomersPage() {
                 logCount={getCustomerLogs(customer.id).length}
                 onEdit={handleEdit}
                 onShowHistory={handleShowHistory}
+                onShowDetails={handleShowDetails}
               />
             ))}
           </div>
@@ -123,6 +132,11 @@ export default function CustomersPage() {
         </>
       )}
 
+      <CustomerDetailsDialog
+        customer={selectedCustomer}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      />
       <CustomerEditDialog
         customer={selectedCustomer}
         open={editOpen}

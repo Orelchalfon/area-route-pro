@@ -61,7 +61,6 @@ import {
   ChevronRight,
   Filter,
   Lock,
-  LockOpen,
   MapPin,
   Plus,
   Trash2,
@@ -1019,6 +1018,17 @@ export function MonthlyScheduleBoard({
     setPendingDayMove(null);
   };
 
+  // Every action in the approval dialog's menu replaces that dialog with another modal.
+  // Close it first and defer the next one a tick: Radix locks <body> pointer-events while
+  // a modal is open and restores it on unmount, and mounting the replacement in the same
+  // commit can leave that lock behind (same reason the print item defers window.print()).
+  // It is also the honest thing to show — a reset empties the day and a hand-over gives it
+  // away, so the route sitting behind the confirmation would be stale either way.
+  const swapDialog = (next: () => void) => {
+    setApprovalState(null);
+    window.setTimeout(next, 0);
+  };
+
   // Stats
   const stats = useMemo(() => {
     const filterCount = filterJobs.length;
@@ -1277,37 +1287,76 @@ export function MonthlyScheduleBoard({
                 const dayManualJobs = getManualDayJobs(dateStr).filter((j) =>
                   jobMatchesAreas(j, dayAreas),
                 );
-                const dayDocumentation =
-                  !isWeekend && inCurrentMonth
-                    ? getDayDocumentation(dateStr).filter((r) =>
-                        cityMatchesAreas(r.city, dayAreas),
-                      )
-                    : [];
+                const allDayDocumentation =
+                  !isWeekend && inCurrentMonth ? getDayDocumentation(dateStr) : [];
+                const dayDocumentation = allDayDocumentation.filter((r) =>
+                  cityMatchesAreas(r.city, dayAreas),
+                );
                 const totalMinutes =
                   dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) +
                   dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
                 const maxShow = isWeekView ? 20 : 2;
                 const isDayApproved = approvedDays.has(dateStr);
                 const isDayLocked = lockedDays.has(dateStr);
-                const hasJobs = dayFilterJobs.length + dayManualJobs.length > 0;
+                // The day's real contents, before the area view-filter. Everything that
+                // decides whether the day can be opened or acted on reads this — gating on
+                // the filtered lists would make a full day unreachable the moment the
+                // manager selects an area none of its jobs match.
+                const totalDayJobs =
+                  !isWeekend && inCurrentMonth ? dayJobCount(dateStr) : 0;
+                const isOpenable =
+                  totalDayJobs > 0 || allDayDocumentation.length > 0;
+                const dayLabel = isWeekend
+                  ? ""
+                  : format(day, "EEEE d/M", { locale: he });
+
+                // Clicking the cell IS the way into the day. A day with live work opens the
+                // approval dialog — where the route is arranged and the day is approved. A
+                // past day holding only documentation has nothing to approve, so it opens
+                // the detail view, the only surface that renders the technician's notes and
+                // the close/return-call actions.
+                const openDay = () => {
+                  if (isWeekend || !inCurrentMonth) return;
+                  if (totalDayJobs > 0) setApprovalState({ open: true, dateStr });
+                  else if (allDayDocumentation.length > 0)
+                    setDetailState({ open: true, dateStr });
+                };
 
                 return (
                   <div
                     key={dateStr}
-                    className={`${isWeekView ? "min-h-[280px]" : "min-h-[130px]"} border-b border-r border-border p-2 transition-colors cursor-pointer hover:bg-muted/20 ${
+                    className={`${isWeekView ? "min-h-[280px]" : "min-h-[130px]"} border-b border-r border-border p-2 transition-colors hover:bg-muted/20 ${
+                      isOpenable ? "cursor-pointer" : ""
+                    } ${
                       isWeekend ? "bg-muted/30" : ""
                     } ${isToday ? "ring-2 ring-inset ring-primary" : ""} ${!inCurrentMonth ? "opacity-40" : ""} ${isDayApproved ? "bg-success/5" : ""}`}
-                    onClick={() =>
-                      !isWeekend &&
-                      inCurrentMonth &&
-                      setDetailState({ open: true, dateStr })
-                    }>
+                    onClick={openDay}>
                     <div className='flex items-center justify-between mb-1'>
                       <div className='flex items-center gap-1'>
-                        <span
-                          className={`text-sm font-medium ${isToday ? "text-primary font-bold" : "text-card-foreground"}`}>
-                          {isWeekView ? format(day, "d/M") : day.getDate()}
-                        </span>
+                        {/* Clicking anywhere on the cell opens the day, but the keyboard
+                            path is this one button: the cell is a container full of real
+                            controls (area popover, job chips, the action row), so giving it
+                            role="button" would nest interactives inside a button and make
+                            the whole thing a tab stop that swallows them. */}
+                        {isOpenable ? (
+                          <button
+                            type='button'
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDay();
+                            }}
+                            aria-label={`${dayLabel}${isDayApproved ? " — אושר" : ""}${
+                              isDayLocked ? ", נעול" : ""
+                            } — ${totalDayJobs > 0 ? "פתח אישור לו״ז" : "פתח תיעוד היום"}`}
+                            className={`rounded text-sm font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isToday ? "text-primary font-bold" : "text-card-foreground"}`}>
+                            {isWeekView ? format(day, "d/M") : day.getDate()}
+                          </button>
+                        ) : (
+                          <span
+                            className={`text-sm font-medium ${isToday ? "text-primary font-bold" : "text-card-foreground"}`}>
+                            {isWeekView ? format(day, "d/M") : day.getDate()}
+                          </span>
+                        )}
                       </div>
                       <div className='flex items-center gap-1'>
                         {totalMinutes > 0 && !isWeekend && (
@@ -1316,60 +1365,24 @@ export function MonthlyScheduleBoard({
                             {String(totalMinutes % 60).padStart(2, "0")}
                           </span>
                         )}
-                        {/* Reset day — unassign every job on this day back to the pool.
-                            Destructive, so it's separated from the '+' add button and
-                            guarded by a confirmation dialog. */}
-                        {!isWeekend && inCurrentMonth && hasJobs && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPendingDayReset(dateStr);
-                            }}
-                            className='p-0.5 rounded hover:bg-destructive/15 transition-colors'
-                            title='אפס יום — הסר את כל המשימות'
-                            aria-label='אפס יום — הסר את כל המשימות'>
-                            <Trash2 className='w-3 h-3 text-muted-foreground hover:text-destructive' />
-                          </button>
+                        {/* Approved / locked are STATUS, not controls — the actions that
+                            used to sit here moved to the action row at the bottom of the
+                            cell and to the approval dialog's menu. The cell's aria-label
+                            carries the same information for screen readers, so these are
+                            hidden from them rather than read as stray icons. */}
+                        {!isWeekend && inCurrentMonth && isDayApproved && (
+                          <span
+                            className='flex items-center'
+                            title='היום אושר — הודעות נשלחו ללקוחות'>
+                            <CheckCircle
+                              className='w-3 h-3 text-success'
+                              aria-hidden='true'
+                            />
+                          </span>
                         )}
-                        {/* Hand the whole day to the other technician (this one is sick /
-                            away). Hidden on a locked day — that day's reporting is final,
-                            so there is nothing left to hand over. */}
-                        {!isWeekend &&
-                          inCurrentMonth &&
-                          hasJobs &&
-                          !isDayLocked &&
-                          otherTech && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPendingDayMove(dateStr);
-                              }}
-                              className='p-0.5 rounded hover:bg-info/20 transition-colors'
-                              title={`העבר את היום ל${otherTech.name}`}
-                              aria-label={`העבר את היום ל${otherTech.name}`}>
-                              <ArrowLeftRight className='w-3 h-3 text-muted-foreground hover:text-info' />
-                            </button>
-                          )}
-                        {/* Approve / manage-approval entry point. When approved the green check
-                            reopens the dialog so the day can be un-approved and edited. */}
-                        {!isWeekend &&
-                          inCurrentMonth &&
-                          hasJobs && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setApprovalState({ open: true, dateStr });
-                              }}
-                              className='p-0.5 rounded hover:bg-success/20 transition-colors'
-                              title={isDayApproved ? "היום אושר — לחץ לניהול/ביטול" : "אשר יום"}>
-                              <CheckCircle
-                                className={`w-3 h-3 ${isDayApproved ? "text-success" : "text-muted-foreground hover:text-success"}`}
-                              />
-                            </button>
-                          )}
                         {/* How many of the day's customers have confirmed the visit, so days
                             still waiting on replies stand out at a glance. */}
-                        {!isWeekend && inCurrentMonth && hasJobs && isDayApproved && (
+                        {!isWeekend && inCurrentMonth && totalDayJobs > 0 && isDayApproved && (
                           <span
                             className={`text-[10px] font-medium leading-none ${
                               confirmedArrivalCount(dateStr) === dayJobCount(dateStr)
@@ -1380,24 +1393,19 @@ export function MonthlyScheduleBoard({
                             ✓{confirmedArrivalCount(dateStr)}/{dayJobCount(dateStr)}
                           </span>
                         )}
-                        {/* Lock / unlock — only shown once the day is approved. Locking
-                            blocks the technician's own completion-report edits (client-side
-                            here in TechnicianView, and enforced in Supabase RLS triggers). */}
-                        {!isWeekend && inCurrentMonth && hasJobs && isDayApproved && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleLock(dateStr);
-                            }}
-                            className='p-0.5 rounded hover:bg-primary/20 transition-colors'
-                            title={isDayLocked ? "היום נעול — לחץ לשחרור" : "נעל יום — מנע עריכה מהטכנאי"}
-                            aria-label={isDayLocked ? "היום נעול — לחץ לשחרור" : "נעל יום — מנע עריכה מהטכנאי"}>
-                            {isDayLocked ? (
-                              <Lock className='w-3 h-3 text-primary' />
-                            ) : (
-                              <LockOpen className='w-3 h-3 text-muted-foreground hover:text-primary' />
-                            )}
-                          </button>
+                        {/* Locked-day status. Locking blocks the technician's own
+                            completion-report edits (client-side here and in TechnicianView,
+                            and enforced in Supabase RLS triggers); it is toggled from the
+                            approval dialog's menu. */}
+                        {!isWeekend && inCurrentMonth && isDayLocked && (
+                          <span
+                            className='flex items-center'
+                            title='היום נעול — הטכנאי לא יכול לערוך'>
+                            <Lock
+                              className='w-3 h-3 text-primary'
+                              aria-hidden='true'
+                            />
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1529,22 +1537,62 @@ export function MonthlyScheduleBoard({
                           </span>
                         )}
 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const dayDate = new Date(dateStr + "T00:00:00");
-                            setPickerState({
-                              open: true,
-                              dateStr,
-                              dayLabel: format(dayDate, "EEEE d/M", {
-                                locale: he,
-                              }),
-                            });
-                          }}
-                          className='w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-0.5 py-1 rounded border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors mt-1'
-                          title='הוסף משימה'>
-                          <Plus className='w-3 h-3' />
-                        </button>
+                        {/* The day's own actions, in one row at a single visual altitude:
+                            add · hand over · reset. Everything else lives in the approval
+                            dialog's menu, which the cell click opens.
+                            The two icon buttons are week-view only: a month cell is ~84px of
+                            content across the 7-column min-w-[700px] grid, and three controls
+                            would squeeze '+' down to ~20px. In month view they stay reachable
+                            through that same menu. */}
+                        <div className='mt-1 flex items-stretch gap-1'>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const dayDate = new Date(dateStr + "T00:00:00");
+                              setPickerState({
+                                open: true,
+                                dateStr,
+                                dayLabel: format(dayDate, "EEEE d/M", {
+                                  locale: he,
+                                }),
+                              });
+                            }}
+                            className='flex-1 text-xs text-muted-foreground flex items-center justify-center gap-0.5 py-1 rounded border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors'
+                            title='הוסף משימה'
+                            aria-label='הוסף משימה'>
+                            <Plus className='w-3 h-3' />
+                          </button>
+                          {/* Hand the whole day to the other technician (this one is sick /
+                              away). Hidden on a locked day — that day's reporting is final,
+                              so there is nothing left to hand over. */}
+                          {isWeekView && totalDayJobs > 0 && !isDayLocked && otherTech && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingDayMove(dateStr);
+                              }}
+                              className='w-7 shrink-0 flex items-center justify-center py-1 rounded border border-dashed border-border text-muted-foreground hover:border-info/50 hover:text-info transition-colors'
+                              title={`העבר את היום ל${otherTech.name}`}
+                              aria-label={`העבר את היום ל${otherTech.name}`}>
+                              <ArrowLeftRight className='w-3 h-3' />
+                            </button>
+                          )}
+                          {/* Reset day — unassign every job on this day back to the pool.
+                              Destructive, so it sits apart from '+' and is guarded by a
+                              confirmation dialog. */}
+                          {isWeekView && totalDayJobs > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingDayReset(dateStr);
+                              }}
+                              className='w-7 shrink-0 flex items-center justify-center py-1 rounded border border-dashed border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors'
+                              title='אפס יום — הסר את כל המשימות'
+                              aria-label='אפס יום — הסר את כל המשימות'>
+                              <Trash2 className='w-3 h-3' />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1690,6 +1738,24 @@ export function MonthlyScheduleBoard({
           dayAreas={getDayAreas(approvalState.dateStr)}
           technicianName={
             technicians.find((t) => t.id === selectedTechId)?.name || "הטכנאי"
+          }
+          onOpenDetails={() =>
+            swapDialog(() =>
+              setDetailState({ open: true, dateStr: approvalState.dateStr }),
+            )
+          }
+          onResetDay={() =>
+            swapDialog(() => setPendingDayReset(approvalState.dateStr))
+          }
+          onMoveDayToOtherTech={
+            otherTech
+              ? () => swapDialog(() => setPendingDayMove(approvalState.dateStr))
+              : undefined
+          }
+          otherTechName={otherTech?.name}
+          moveDisabled={
+            !!otherTech &&
+            lockedDayKeys.has(approvedDayKey(otherTech.id, approvalState.dateStr))
           }
         />
       )}

@@ -19,6 +19,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useJobsContext } from "@/contexts/JobsContext";
@@ -33,18 +34,21 @@ import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import {
   AlertTriangle,
+  ArrowLeftRight,
   CheckCircle,
   CheckCircle2,
-  ChevronDown,
   Circle,
   Clock,
   GripVertical,
+  ListChecks,
   Lock,
   LockOpen,
   MessageCircle,
+  MoreHorizontal,
   Printer,
   RotateCcw,
   Save,
+  Trash2,
   Wand2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -80,6 +84,11 @@ export function DayApprovalDialog({
   onAddJob,
   dayAreas,
   technicianName,
+  onOpenDetails,
+  onResetDay,
+  onMoveDayToOtherTech,
+  otherTechName,
+  moveDisabled,
 }: {
   open: boolean;
   onClose: () => void;
@@ -107,6 +116,17 @@ export function DayApprovalDialog({
   // and whose sheet this is.
   dayAreas: string[];
   technicianName: string;
+  // The day's remaining actions, grouped in this dialog's overflow menu now that the day
+  // cell itself only carries add / transfer / reset. Each one replaces this dialog with
+  // another one, so the board closes this dialog before opening the next.
+  // Not optional: this dialog is the only way into the detail view, which owns per-job
+  // editing, closing/returning a call, and the day's completion documentation.
+  onOpenDetails: () => void;
+  onResetDay?: () => void;
+  onMoveDayToOtherTech?: () => void;
+  otherTechName?: string;
+  /** Target technician's day is locked — the move would produce unreportable stops. */
+  moveDisabled?: boolean;
 }) {
   const initialJobs = useMemo(
     () =>
@@ -606,77 +626,115 @@ export function DayApprovalDialog({
                       <span className='truncate'>אשר יום ושלח הודעות ללקוחות</span>
                     </Button>
                   ) : (
-                    <>
-                      {/* Sized to its own label rather than flex-1: an even split leaves
-                          the longer "שמור סדר מסלול" truncated while this one keeps slack.
-                          Destructive styling kept — first in the row must not read as the
-                          primary action. The confirm dialog spells out the consequence. */}
+                    /* Re-save the arrangement on an already-approved day. Writes stop
+                       times only — it must not re-approve, or it would risk clearing
+                       the day's lock. It is the one thing a manager does repeatedly on an
+                       approved day, so it gets the row to itself; בטל אישור moved into the
+                       menu with the rest of the day-level actions. */
+                    <Button
+                      className='flex-1 min-w-0'
+                      disabled={!hasUnsavedOrder}
+                      onClick={() => {
+                        onSaveRouteOrder(
+                          orderedJobs.map((j) => j.id),
+                          dateStr,
+                        );
+                        toast.success(
+                          `סדר המסלול נשמר — ${orderedJobs.length} עצירות`,
+                        );
+                      }}>
+                      <Save className='w-4 h-4' />
+                      <span className='truncate'>
+                        {hasUnsavedOrder ? "שמור סדר מסלול" : "סדר המסלול שמור"}
+                      </span>
+                    </Button>
+                  )}
+                  {/* Every remaining action for this day, in one menu — the day cell keeps
+                      only add / transfer / reset. Rendered for an unapproved day too: the
+                      detail view and the reset are reachable from nowhere else once the
+                      cell's icon buttons are gone. */}
+                  {/* dir belongs on the root, not on Content: Radix reads it for arrow-key
+                      direction and passes it down to the rendered element. */}
+                  <DropdownMenu dir='rtl'>
+                    <DropdownMenuTrigger asChild>
+                      {/* "More actions", not "expand the button beside me" — hence the
+                          overflow glyph rather than a chevron. */}
                       <Button
                         variant='outline'
-                        className='shrink-0 gap-2 border-destructive text-destructive hover:bg-destructive/10'
-                        onClick={() => setConfirmUnapproveOpen(true)}>
-                        <RotateCcw className='w-4 h-4 shrink-0' />
-                        <span className='truncate'>בטל אישור</span>
+                        size='icon'
+                        className='shrink-0'
+                        title='פעולות נוספות'
+                        aria-label='פעולות נוספות ליום'>
+                        <MoreHorizontal className='w-4 h-4' />
                       </Button>
-                      {/* Re-save the arrangement on an already-approved day. Writes stop
-                          times only — it must not re-approve, or it would risk clearing
-                          the day's lock. */}
-                      <Button
-                        className='flex-1 min-w-0 gap-2'
-                        disabled={!hasUnsavedOrder}
-                        onClick={() => {
-                          onSaveRouteOrder(
-                            orderedJobs.map((j) => j.id),
-                            dateStr,
-                          );
-                          toast.success(
-                            `סדר המסלול נשמר — ${orderedJobs.length} עצירות`,
-                          );
-                        }}>
-                        <Save className='w-4 h-4 shrink-0' />
-                        <span className='truncate'>
-                          {hasUnsavedOrder ? "שמור סדר מסלול" : "סדר המסלול שמור"}
-                        </span>
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant='outline'
-                            size='icon'
-                            className='shrink-0'
-                            title='פעולות נוספות'>
-                            <ChevronDown className='w-4 h-4' />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align='end' dir='rtl'>
-                          <DropdownMenuItem onClick={onToggleLock}>
-                            {isLocked ? (
-                              <Lock className='w-4 h-4' />
-                            ) : (
-                              <LockOpen className='w-4 h-4' />
-                            )}
-                            {isLocked
-                              ? "בטל נעילה — אפשר לטכנאי לערוך"
-                              : "נעל יום — מנע עריכה מהטכנאי"}
-                          </DropdownMenuItem>
-                          {/* The paper sheet the technician takes to the field, replacing
-                              the hand-copied form. Print CSS hides the app and this dialog
-                              and leaves only the sheet portalled below.
-                              Deferred a tick: window.print() blocks the main thread until
-                              the print dialog is dismissed, and firing it mid-close leaves
-                              the menu's unmount — including the pointer-events lock Radix
-                              puts on <body> — half-finished behind the modal. */}
-                          <DropdownMenuItem
-                            onSelect={() => {
-                              window.setTimeout(() => window.print(), 0);
-                            }}>
-                            <Printer className='w-4 h-4' />
-                            הדפס דף יום
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </>
-                  )}
+                    </DropdownMenuTrigger>
+                    {/* Fixed width: the item set changes between an approved and an
+                        unapproved day, and an auto-sized menu would jump between them. */}
+                    <DropdownMenuContent align='end' className='w-64'>
+                      <DropdownMenuItem onSelect={onOpenDetails}>
+                        <ListChecks className='w-4 h-4' />
+                        פרטי היום ועריכת משימות
+                      </DropdownMenuItem>
+                      {isApproved && (
+                        <DropdownMenuItem onSelect={onToggleLock}>
+                          {isLocked ? (
+                            <Lock className='w-4 h-4' />
+                          ) : (
+                            <LockOpen className='w-4 h-4' />
+                          )}
+                          {isLocked
+                            ? "בטל נעילה — אפשר לטכנאי לערוך"
+                            : "נעל יום — מנע עריכה מהטכנאי"}
+                        </DropdownMenuItem>
+                      )}
+                      {/* The paper sheet the technician takes to the field, replacing
+                          the hand-copied form. Only for an approved day — the portalled
+                          sheet below renders on the same condition. Print CSS hides the
+                          app and this dialog and leaves only that sheet.
+                          Deferred a tick: window.print() blocks the main thread until
+                          the print dialog is dismissed, and firing it mid-close leaves
+                          the menu's unmount — including the pointer-events lock Radix
+                          puts on <body> — half-finished behind the modal. */}
+                      {isApproved && (
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            window.setTimeout(() => window.print(), 0);
+                          }}>
+                          <Printer className='w-4 h-4' />
+                          הדפס דף יום
+                        </DropdownMenuItem>
+                      )}
+                      {onMoveDayToOtherTech && otherTechName && !isLocked && (
+                        <DropdownMenuItem
+                          onSelect={onMoveDayToOtherTech}
+                          disabled={moveDisabled}>
+                          <ArrowLeftRight className='w-4 h-4' />
+                          {moveDisabled
+                            ? `היום נעול אצל ${otherTechName}`
+                            : `העבר את היום ל${otherTechName}`}
+                        </DropdownMenuItem>
+                      )}
+                      {/* Everything that undoes work sits below the separator, away from
+                          the routine actions above it. */}
+                      {(isApproved || onResetDay) && <DropdownMenuSeparator />}
+                      {isApproved && (
+                        <DropdownMenuItem
+                          onSelect={() => setConfirmUnapproveOpen(true)}
+                          className='text-destructive focus:text-destructive'>
+                          <RotateCcw className='w-4 h-4' />
+                          בטל אישור יום
+                        </DropdownMenuItem>
+                      )}
+                      {onResetDay && (
+                        <DropdownMenuItem
+                          onSelect={onResetDay}
+                          className='text-destructive focus:text-destructive'>
+                          <Trash2 className='w-4 h-4' />
+                          אפס יום — הסר את כל המשימות
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>

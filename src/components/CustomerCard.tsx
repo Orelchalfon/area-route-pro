@@ -3,6 +3,7 @@ import { Customer } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Phone, Mail, MapPin, Package, History, CalendarClock, StickyNote, Pencil } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ServiceTrackBadge } from './ServiceTrackBadge';
 
 interface CustomerCardProps {
@@ -11,11 +12,37 @@ interface CustomerCardProps {
   logCount?: number;
   onEdit?: (customer: Customer) => void;
   onShowHistory?: (customer: Customer) => void;
+  /** Opens the read-only full-record dialog. When given, the whole card becomes clickable. */
+  onShowDetails?: (customer: Customer) => void;
 }
 
-function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory }: CustomerCardProps) {
+function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory, onShowDetails }: CustomerCardProps) {
+  // Everything interactive inside the card stops propagation, so the buttons and the tel:/mailto:
+  // links keep doing only their own job instead of also opening the details dialog.
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
   return (
-    <Card dir="rtl" className="hover:shadow-md transition-shadow">
+    <Card
+      dir="rtl"
+      className={cn('hover:shadow-md transition-shadow', onShowDetails && 'cursor-pointer')}
+      {...(onShowDetails && {
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': `פרטי הלקוח ${customer.name}`,
+        onClick: () => onShowDetails(customer),
+        onKeyDown: (e: React.KeyboardEvent) => {
+          // Keydown bubbles independently of click, so stopping propagation on the child
+          // buttons/links is not enough: Enter on the pencil would fire the button AND
+          // this handler, opening two dialogs at once. Only act when the card itself is
+          // the focused element.
+          if (e.target !== e.currentTarget) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onShowDetails(customer);
+          }
+        },
+      })}
+    >
       <CardContent className="p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -24,11 +51,11 @@ function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory }
           </div>
           <div className="flex items-center gap-1">
             {onEdit && (
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={() => onEdit(customer)}>
+              <Button variant="ghost" size="sm" aria-label="עריכה" className="text-muted-foreground hover:text-primary" onClick={(e) => { stop(e); onEdit(customer); }}>
                 <Pencil className="w-4 h-4" />
               </Button>
             )}
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={() => onShowHistory?.(customer)}>
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={(e) => { stop(e); onShowHistory?.(customer); }}>
               <History className="w-4 h-4 ml-1" />
               <span className="text-xs">היסטוריה</span>
               {logCount > 0 && (
@@ -46,7 +73,7 @@ function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory }
           </div>
         )}
         <div className="space-y-2 text-sm text-muted-foreground">
-          <a href={`tel:${customer.phone}`} className="flex items-center gap-2 hover:text-primary transition-colors">
+          <a href={`tel:${customer.phone}`} onClick={stop} className="flex items-center gap-2 hover:text-primary transition-colors">
             <Phone className="w-4 h-4" />
             <span>{customer.phone}</span>
           </a>
@@ -54,7 +81,7 @@ function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory }
             <MapPin className="w-4 h-4" />
             <span>{customer.address}, {customer.city}</span>
           </div>
-          <a href={`mailto:${customer.email}`} className="flex items-center gap-2 hover:text-primary transition-colors">
+          <a href={`mailto:${customer.email}`} onClick={stop} className="flex items-center gap-2 hover:text-primary transition-colors">
             <Mail className="w-4 h-4" />
             <span>{customer.email}</span>
           </a>
