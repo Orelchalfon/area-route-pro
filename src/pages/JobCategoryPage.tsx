@@ -59,8 +59,9 @@ export default function JobCategoryPage({
     refreshDbJobs,
   } = useJobsContext();
   const config = categoryConfig[category];
-  // Malfunctions/installations get a dedicated "open request" button; the
-  // service page is a read-only summary, so it has none.
+  // Malfunctions/installations get a dedicated "open request" button here. The "service"
+  // category is a read-only summary and isn't routed anyway — /service renders
+  // ServiceCyclePage, which has its own "פתח קריאת שירות" dialog.
   const canOpenRequest = category !== "service";
   const allOfType = jobs.filter((j) => j.type === config.type);
   const showLiveSyncStatus = category !== "service";

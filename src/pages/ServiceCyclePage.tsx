@@ -4,8 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { OngoingService, useOngoingServices } from "@/hooks/useOngoingServices";
-import { parseDbCustomerId } from "@/lib/idConventions";
+import { FollowUpOption } from "@/lib/followUpOptions";
+import { isOngoingJob, parseDbCustomerId } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
+import { Job } from "@/types";
 import {
   ArrowRight,
   CalendarDays,
@@ -17,9 +19,12 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useDeferredValue, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { ClientSearchResults } from "./service-cycle/ClientSearchResults";
 import { MonthCalendarView, MonthListView } from "./service-cycle/MonthViews";
+import { OpenServiceCallDialog } from "./service-cycle/OpenServiceCallDialog";
 import { isServiceDone } from "./service-cycle/status";
 
 const MONTH_NAMES = [
@@ -40,17 +45,25 @@ const MONTH_NAMES = [
 type ViewMode = "annual" | "month-calendar" | "month-list";
 
 export default function ServiceCyclePage() {
-  const { services, loading, updateOngoingService, archiveOngoingService } =
-    useOngoingServices();
-  const { jobs, customersList, updateCustomer, archiveJob } = useJobsContext();
+  const {
+    services,
+    loading,
+    refresh,
+    updateOngoingService,
+    archiveOngoingService,
+  } = useOngoingServices();
+  const { jobs, customersList, addJob, updateCustomer, archiveJob } =
+    useJobsContext();
 
-  // Linked-customer lookup by the raw customers UUID stored on ongoing_services rows
-  // (customersList ids carry a db-cust- prefix).
+  // Linked-customer lookup by the customers UUID stored on ongoing_services rows
+  // (customersList ids carry a db-cust- prefix). Keyed under BOTH forms: new rows store the
+  // raw uuid, but rows written before that was normalized carry the prefixed id verbatim.
   const customersByRawId = useMemo(() => {
     const map = new Map<string, (typeof customersList)[number]>();
     customersList.forEach((c) => {
       const rawId = parseDbCustomerId(c.id);
       if (rawId) map.set(rawId, c);
+      map.set(c.id, c);
     });
     return map;
   }, [customersList]);
@@ -137,6 +150,99 @@ export default function ServiceCyclePage() {
     setSelectedMonth(month);
     setViewMode(mode);
   };
+
+  // Pre-filled service date for a new call: today when the view is on the current month,
+  // otherwise the first working day (Sun–Thu) of the month being looked at — a Fri/Sat date
+  // would never render in MonthCalendarView.
+  const defaultServiceDate = useMemo(() => {
+    const today = new Date();
+    const month = selectedMonth ?? today.getMonth() + 1;
+    if (selectedYear === today.getFullYear() && month === today.getMonth() + 1) {
+      return format(today, "yyyy-MM-dd");
+    }
+    const first = new Date(selectedYear, month - 1, 1);
+    while (first.getDay() === 5 || first.getDay() === 6) {
+      first.setDate(first.getDate() + 1);
+    }
+    return format(first, "yyyy-MM-dd");
+  }, [selectedMonth, selectedYear]);
+
+  // Each ticked service type becomes its own request, awaited one at a time so the created
+  // records can be collected and offered as an undo — the same shape as the follow-up flow.
+  // The calls are created UNSCHEDULED (no technician/date) and only carry a service_date,
+  // so they show up in the cycle and wait in "ממתינים לשיבוץ".
+  const handleOpenServiceCalls = useCallback(
+    async ({
+      customerId,
+      options,
+      serviceDate,
+      notes,
+    }: {
+      customerId: string;
+      options: FollowUpOption[];
+      serviceDate: string;
+      notes: string;
+    }) => {
+      const customer = customersList.find((c) => c.id === customerId);
+      const created: Job[] = [];
+      for (const option of options) {
+        created.push(
+          await addJob({
+            type: "filter_replacement",
+            customerId,
+            technicianId: "",
+            scheduledDate: "",
+            scheduledTime: "",
+            serviceDate,
+            // The cycle views render task_description on its own, with no customer column —
+            // hence the name in the label, matching the follow-up and calendar rows.
+            description: customer?.name
+              ? `${option.label} — ${customer.name}`
+              : option.label,
+            notes,
+          }),
+        );
+      }
+
+      // Only rows that actually reached the database can be undone: addJob swallows an
+      // insert failure (it toasts on its own) and falls back to a local id with no row.
+      const saved = created.filter((j) => isOngoingJob(j.id));
+      if (saved.length === 0) return;
+
+      toast.success(
+        saved.length === 1
+          ? "קריאת השירות נפתחה"
+          : `${saved.length} קריאות שירות נפתחו`,
+        {
+          duration: 8000,
+          action: {
+            label: "בטל",
+            onClick: () => {
+              // No refresh() here: archiveJob persists in the background, so refetching now
+              // could race ahead of the UPDATE and briefly re-show the rows. The realtime
+              // channel fires once the archive lands and refetches then.
+              saved.forEach((j) => archiveJob(j.id));
+              toast.success(
+                saved.length === 1
+                  ? "קריאת השירות בוטלה"
+                  : `${saved.length} קריאות שירות בוטלו`,
+              );
+            },
+          },
+        },
+      );
+      void refresh();
+    },
+    [addJob, archiveJob, customersList, refresh],
+  );
+
+  const openServiceCallDialog = (
+    <OpenServiceCallDialog
+      customers={customersList}
+      defaultDate={defaultServiceDate}
+      onAdd={handleOpenServiceCalls}
+    />
+  );
 
   const isSearching = deferredQuery.trim().length > 0;
 
@@ -227,7 +333,8 @@ export default function ServiceCyclePage() {
             {stat.total} משימות ·{" "}
             {stat.services.filter(isServiceDone).length} בוצעו
           </span>
-          <div className='mr-auto flex gap-1'>
+          <div className='mr-auto flex items-center gap-1'>
+            {openServiceCallDialog}
             <Button
               variant={viewMode === "month-list" ? "default" : "outline"}
               size='sm'
@@ -294,6 +401,7 @@ export default function ServiceCyclePage() {
         </div>
         {!isSearching && (
           <div className='flex items-center gap-2'>
+            {openServiceCallDialog}
             <Button
               variant='outline'
               size='icon'

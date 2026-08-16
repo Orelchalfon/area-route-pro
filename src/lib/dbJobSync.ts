@@ -1,6 +1,6 @@
 import type { Job } from '@/types';
 import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
-import { ID_PREFIX } from '@/lib/idConventions';
+import { ID_PREFIX, parseDbCustomerId } from '@/lib/idConventions';
 
 export type DbJobTable = 'malfunctions' | 'installations' | 'ongoing_services';
 
@@ -72,6 +72,10 @@ export type NewJobInsertInput = {
   city?: string;
   address?: string;
   notes?: string;
+  // ongoing_services only: what the row IS, kept apart from the free-text `notes` so the
+  // two land in their own columns. Without it a description passed as `notes` is written
+  // to both and shows up doubled once useOngoingServices rejoins them into Job.notes.
+  taskDescription?: string;
   productType?: string;
   priority?: string;
   technicianId?: string | null;
@@ -121,8 +125,15 @@ export function buildOngoingServiceInsert(
 ): TablesInsert<'ongoing_services'> {
   return {
     service_date: serviceDate,
-    task_description: input.notes || input.productType || 'שירות שוטף',
-    customer_id: input.customerId ?? null,
+    task_description: input.taskDescription || input.notes || input.productType || 'שירות שוטף',
+    // Stored as the RAW customers-table uuid. Callers hand us the app-side `db-cust-{uuid}`
+    // id, but every reader strips or re-prefixes: useOngoingServices does
+    // makeDbCustomerId(row.customer_id), and the RLS policy compares
+    // replace(customer_id, 'db-cust-', '') = customers.id::text. Writing it prefixed
+    // produced `db-cust-db-cust-…` on read, which matched no customer.
+    customer_id: input.customerId
+      ? parseDbCustomerId(input.customerId) ?? input.customerId
+      : null,
     customer_name: input.customerName,
     phone: input.phone ?? null,
     city: input.city ?? null,

@@ -495,14 +495,12 @@ export function DayApprovalDialog({
                         (() => {
                           const waPhone = normalizeIsraeliPhone(phone);
                           if (!waPhone) return null;
-                          const customerName = customer?.name || "לקוח";
-                          const msg = `היי ${customerName} מדברים מטל חרמון רצינו לתאם פגישה לשבוע הבא בתאריך ${dayDateText} בשעה ${startTime} ,אנא אשר הגעת טכנאי.`;
                           return (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 window.open(
-                                  whatsappUrl(waPhone, msg),
+                                  whatsappUrl(waPhone),
                                   "_blank",
                                 );
                               }}
