@@ -7,6 +7,8 @@
 // Kept at module scope (it used to be rebuilt inside the popover's render) so both call
 // sites share one list — adding a task type here surfaces it in both.
 
+import { JobType } from "@/types";
+
 export interface FollowUpOption {
   id: string;
   label: string;
@@ -29,6 +31,21 @@ export const FOLLOW_UP_OPTIONS: readonly FollowUpOption[] = [
   { id: "contract_renewal", label: "חידוש חוזה שירות", monthsFromNow: 12 },
   { id: "resin_replacement", label: "החלפת שרף", monthsFromNow: 48 },
 ];
+
+/**
+ * Does assigning follow-up tasks finish the original request?
+ *
+ * For a תקלה/התקנה it does: the visit happened and the next services are on the books, so the
+ * source call leaves its table ("ממתינים לשיבוץ" / תקלות / התקנות) and lives on as documentation
+ * on the monthly board.
+ *
+ * A שירות שוטף job is excluded on purpose. closeJob's filter_replacement branch archives the
+ * scheduled_filter_services row AND spawns next year's job — that would pull the row out of the
+ * service cycle, the opposite of what this flow is for.
+ */
+export function closesOnFollowUp(type: JobType): boolean {
+  return type === "malfunction" || type === "installation";
+}
 
 export function monthsLabel(months: number): string {
   if (months === 2) return "חודשיים";

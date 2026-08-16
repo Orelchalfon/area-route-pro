@@ -16,7 +16,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useJobsContext } from "@/contexts/JobsContext";
-import { FOLLOW_UP_OPTIONS, monthsLabel } from "@/lib/followUpOptions";
+import {
+  closesOnFollowUp,
+  FOLLOW_UP_OPTIONS,
+  monthsLabel,
+} from "@/lib/followUpOptions";
 import { isOngoingJob } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
 import { Customer, Job, JobType } from "@/types";
@@ -54,7 +58,7 @@ export function FollowUpTasksPopover({
   const [creating, setCreating] = useState(false);
   // Read from context rather than threading two more props through
   // MonthlyScheduleBoard → DayApprovalDialog, which already does the same.
-  const { jobs, archiveJob } = useJobsContext();
+  const { jobs, archiveJob, closeJob } = useJobsContext();
 
   const customer = customers.find((c) => c.id === job.customerId);
 
@@ -121,15 +125,31 @@ export function FollowUpTasksPopover({
     // Only offer undo for records that actually reached the database — addJob falls back
     // to a local id when the insert fails, and that has nothing to archive.
     const revertible = created.filter((j) => isOngoingJob(j.id));
-    toast.success(`${selected.length} משימות המשך נוצרו בהצלחה`, {
-      duration: 8000,
-      action: revertible.length
-        ? { label: "בטל", onClick: () => revert(revertible) }
-        : undefined,
-    });
+
+    // Assigning follow-ups finishes the source call: the visit happened and the next services
+    // are booked, so a תקלה/התקנה leaves its table instead of being closed by hand afterwards.
+    // Gated on `revertible`, not `created` — addJob falls back to a local id when the insert
+    // fails, so `created` is never empty and would close the call with nothing on the books.
+    // That matters because closing is one-way: there is no reopen path for a closed call.
+    const closesSource = revertible.length > 0 && closesOnFollowUp(job.type);
+
+    toast.success(
+      closesSource
+        ? `${selected.length} משימות המשך נוצרו — הקריאה נסגרה`
+        : `${selected.length} משימות המשך נוצרו בהצלחה`,
+      {
+        duration: 8000,
+        action: revertible.length
+          ? { label: "בטל", onClick: () => revert(revertible) }
+          : undefined,
+      },
+    );
     setSelected([]);
     setCreating(false);
     setPopoverOpen(false);
+    // Last, deliberately: closeJob drops the job from `jobs`, which unmounts this popover
+    // along with the row it lives in — every state update above has to have run already.
+    if (closesSource) closeJob(job.id);
   };
 
   return (

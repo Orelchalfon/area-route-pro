@@ -59,6 +59,6 @@ tal_hermon_make_blueprints/
 
 # Supabase local config (contains project IDs)
 supabase/config.toml
-supabase/.env.local
+supabase/.env.local 
 *.csv
 sql/
