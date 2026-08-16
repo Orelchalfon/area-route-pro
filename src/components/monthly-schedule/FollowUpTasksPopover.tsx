@@ -16,6 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useJobsContext } from "@/contexts/JobsContext";
+import { FOLLOW_UP_OPTIONS, monthsLabel } from "@/lib/followUpOptions";
 import { isOngoingJob } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
 import { Customer, Job, JobType } from "@/types";
@@ -28,14 +29,6 @@ import { toast } from "sonner";
 // link back from an ongoing_services row to "this was a follow-up", so reverting after
 // a reload depends on it — keep the created notes and this constant in sync.
 const FOLLOW_UP_MARKER = "המשך התקנה";
-
-function monthsLabel(months: number): string {
-  if (months === 2) return "חודשיים";
-  if (months === 6) return "חצי שנה";
-  if (months === 12) return "שנה";
-  if (months === 48) return "4 שנים";
-  return `${months} חודשים`;
-}
 
 // Follow-up tasks popover for installation jobs
 export function FollowUpTasksPopover({
@@ -80,22 +73,6 @@ export function FollowUpTasksPopover({
       ),
     [jobs, job.customerId],
   );
-
-  const FOLLOW_UP_OPTIONS = [
-    { id: "mehadar_filter", label: "להחליף פילטר מהדר", monthsFromNow: 12 },
-    { id: "tamad_filter", label: "להחליף פילטר תמד", monthsFromNow: 12 },
-    { id: "osmosis", label: "להחליף אוסמוזה", monthsFromNow: 12 },
-    { id: "external_filter", label: "להחליף פילטר חוץ", monthsFromNow: 6 },
-    { id: "siliphos", label: "להחליף סיליפוס", monthsFromNow: 6 },
-    { id: "service_visit", label: "ביקור שירות", monthsFromNow: 2 },
-    { id: "minibar_filter", label: "פילטר מיני בר", monthsFromNow: 12 },
-    { id: "bb_filter", label: "פילטר BB", monthsFromNow: 6 },
-    { id: "electric_osmosis", label: "אוסמוזה חשמלית", monthsFromNow: 12 },
-    { id: "bb20_filter", label: "פילטר BB 20", monthsFromNow: 6 },
-    { id: "external_siliphos_combo", label: "חוץ+ סיליפוס", monthsFromNow: 6 },
-    { id: "contract_renewal", label: "חידוש חוזה שירות", monthsFromNow: 12 },
-    { id: "resin_replacement", label: "החלפת שרף", monthsFromNow: 48 },
-  ];
 
   const toggleOption = (id: string) => {
     setSelected((prev) =>

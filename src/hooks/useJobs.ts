@@ -1075,6 +1075,13 @@ export function useJobs() {
       address?: string;
       city?: string;
     };
+    // filter_replacement only — where the request sits in the service cycle
+    // (ongoing_services.service_date). Independent of scheduledDate, so a service call can
+    // be dated into a future month while staying unscheduled and off the board.
+    serviceDate?: string;
+    // What the request IS (ongoing_services.task_description). Kept apart from `notes` so
+    // the two halves of the displayed Job.notes persist to their own columns.
+    description?: string;
   }) => {
     // A one-time (non-client) request skips the real customer lookup/backup entirely —
     // its name/phone/address are free text on the malfunction/installation row itself,
@@ -1099,6 +1106,7 @@ export function useJobs() {
       city,
       address: location,
       notes: data.notes,
+      taskDescription: data.description,
       productType: customer?.product || "",
       technicianId: data.technicianId || null,
       scheduledDate: data.scheduledDate || null,
@@ -1129,7 +1137,9 @@ export function useJobs() {
         newId = makeInstallationJobId(row.id);
       } else {
         const serviceDate =
-          data.scheduledDate || new Date().toISOString().split("T")[0];
+          data.serviceDate ||
+          data.scheduledDate ||
+          new Date().toISOString().split("T")[0];
         const { data: row, error } = await supabase
           .from("ongoing_services")
           .insert(buildOngoingServiceInsert(input, serviceDate))
@@ -1181,7 +1191,11 @@ export function useJobs() {
       estimatedDuration,
       location,
       city,
-      notes: data.notes,
+      // Job.notes is the joined display string (description | notes) the loaders rebuild on
+      // refetch — join it the same way here so the card doesn't flicker from one to the other.
+      notes: data.description
+        ? joinJobNotes(data.description, data.notes)
+        : data.notes,
       createdAt: new Date().toISOString().split("T")[0],
       // date stamp — when the request is opened (Hebrew display, date + time)
       openedDate: formatHebrewDateTime(),
