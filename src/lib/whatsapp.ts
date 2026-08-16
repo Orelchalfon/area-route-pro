@@ -10,6 +10,6 @@ export function normalizeIsraeliPhone(raw: string | undefined | null): string | 
   return '972' + digits;
 }
 
-export function whatsappUrl(phone: string, message: string): string {
-  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+export function whatsappUrl(phone: string): string {
+  return `https://wa.me/${phone}`;
 }
