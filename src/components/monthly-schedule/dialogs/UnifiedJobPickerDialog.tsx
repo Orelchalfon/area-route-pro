@@ -25,8 +25,9 @@ import {
   Search,
   Wrench,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { jobMatchesPickerSearch } from "./jobPickerSearch";
+import { getPickerAssignment, PickerAssignment } from "./pickerAssignment";
 import { jobMatchesAreas } from "../regions";
 import {
   JobDetailsDraft,
@@ -38,6 +39,13 @@ import { UpdateCustomerCardDialog } from "./UpdateCustomerCardDialog";
 
 const PICKER_PAGE_SIZE = 100;
 
+/**
+ * One list row. `assignment` set means the job is already on someone's board: it
+ * renders as a read-only "taken" row (see the assigned group in IncrementalJobList)
+ * and can never be selected.
+ */
+type PickerRow = { job: Job; assignment: PickerAssignment | null };
+
 // Unified picker dialog for adding any job type to a day
 export function UnifiedJobPickerDialog({
   open,
@@ -45,6 +53,7 @@ export function UnifiedJobPickerDialog({
   unassignedManualJobs,
   unassignedFilterJobs,
   unassignedOngoingJobs,
+  assignedJobs,
   filterJobsFromOtherDays,
   otherDayIds,
   onSelectManualJobs,
@@ -60,6 +69,8 @@ export function UnifiedJobPickerDialog({
   unassignedManualJobs: Job[];
   unassignedFilterJobs: Job[];
   unassignedOngoingJobs: Job[];
+  /** Open work already on a technician's day — shown read-only, never selectable. */
+  assignedJobs: Job[];
   filterJobsFromOtherDays: Job[];
   otherDayIds: Set<string>;
   onSelectManualJobs: (jobIds: string[]) => void;
@@ -116,6 +127,40 @@ export function UnifiedJobPickerDialog({
       : open;
   }, [dayAreas, unassignedOngoingJobs]);
 
+  // Work already on the board, shown read-only so a manager planning one technician's
+  // day is told "this call is already שילה's" instead of simply not finding it.
+  // Deduped against every selectable list so an id never renders twice, and area-filtered
+  // ONLY while the search box is empty — once the manager searches, an assigned job must
+  // be findable even when it sits outside this day's areas, which is the whole point.
+  const areaFilteredAssignedJobs = useMemo(() => {
+    const alreadyShown = new Set([
+      ...unassignedManualJobs.map((j) => j.id),
+      ...unassignedFilterJobs.map((j) => j.id),
+      ...unassignedOngoingJobs.map((j) => j.id),
+      ...filterJobsFromOtherDays.map((j) => j.id),
+    ]);
+    const open = assignedJobs.filter(
+      (j) =>
+        !isCompleted(j) &&
+        !alreadyShown.has(j.id) &&
+        !otherDayIds.has(j.id) &&
+        // No technician name and no date leaves nothing to tell the manager.
+        getPickerAssignment(j) !== null,
+    );
+    return dayAreas.length > 0 && !searchQuery.trim()
+      ? open.filter((j) => jobMatchesAreas(j, dayAreas))
+      : open;
+  }, [
+    assignedJobs,
+    dayAreas,
+    filterJobsFromOtherDays,
+    otherDayIds,
+    searchQuery,
+    unassignedFilterJobs,
+    unassignedManualJobs,
+    unassignedOngoingJobs,
+  ]);
+
   const jobsByType = useMemo(
     () => ({
       malfunction: areaFilteredManualJobs.filter(
@@ -134,7 +179,22 @@ export function UnifiedJobPickerDialog({
     [areaFilteredManualJobs, areaFilteredFilterJobs, areaFilteredOngoingJobs],
   );
 
-  const filteredJobsByType = useMemo(() => {
+  const assignedByType = useMemo(
+    () => ({
+      malfunction: areaFilteredAssignedJobs.filter(
+        (j) => j.type === "malfunction",
+      ),
+      installation: areaFilteredAssignedJobs.filter(
+        (j) => j.type === "installation",
+      ),
+      filter_replacement: areaFilteredAssignedJobs.filter(
+        (j) => j.type === "filter_replacement",
+      ),
+    }),
+    [areaFilteredAssignedJobs],
+  );
+
+  const { filteredJobsByType, filteredAssignedByType } = useMemo(() => {
     const customersById = new Map(customers.map((c) => [c.id, c]));
     const filterJobs = (items: Job[]) =>
       items.filter((job) =>
@@ -142,12 +202,44 @@ export function UnifiedJobPickerDialog({
       );
 
     return {
-      malfunction: filterJobs(jobsByType.malfunction),
-      installation: filterJobs(jobsByType.installation),
-      filter_replacement: filterJobs(jobsByType.filter_replacement),
+      filteredJobsByType: {
+        malfunction: filterJobs(jobsByType.malfunction),
+        installation: filterJobs(jobsByType.installation),
+        filter_replacement: filterJobs(jobsByType.filter_replacement),
+      },
+      filteredAssignedByType: {
+        malfunction: filterJobs(assignedByType.malfunction),
+        installation: filterJobs(assignedByType.installation),
+        filter_replacement: filterJobs(assignedByType.filter_replacement),
+      },
     };
-  }, [customers, jobsByType, searchQuery]);
+  }, [assignedByType, customers, jobsByType, searchQuery]);
 
+  // Selectable rows first, the read-only assigned group after them. Memoized because
+  // useIncrementalRender resets its page whenever the items array identity changes.
+  const rowsByType = useMemo(() => {
+    const build = (selectable: Job[], assigned: Job[]): PickerRow[] => [
+      ...selectable.map((job) => ({ job, assignment: null })),
+      ...assigned.map((job) => ({ job, assignment: getPickerAssignment(job) })),
+    ];
+    return {
+      malfunction: build(
+        filteredJobsByType.malfunction,
+        filteredAssignedByType.malfunction,
+      ),
+      installation: build(
+        filteredJobsByType.installation,
+        filteredAssignedByType.installation,
+      ),
+      filter_replacement: build(
+        filteredJobsByType.filter_replacement,
+        filteredAssignedByType.filter_replacement,
+      ),
+    };
+  }, [filteredAssignedByType, filteredJobsByType]);
+
+  // Counts stay unassigned-only — they answer "how much is still left to schedule".
+  // The assigned group carries its own count in its divider header.
   const tabCounts = searchQuery.trim() ? filteredJobsByType : jobsByType;
 
   const toggleJob = (jobId: string) => {
@@ -246,22 +338,16 @@ export function UnifiedJobPickerDialog({
             />
           </div>
           <TabsContent value='malfunction' className='min-h-0 flex-1'>
-            <IncrementalJobList
-              items={filteredJobsByType.malfunction}
-              {...listProps}
-            />
+            <IncrementalJobList items={rowsByType.malfunction} {...listProps} />
           </TabsContent>
           <TabsContent value='installation' className='min-h-0 flex-1'>
-            <IncrementalJobList
-              items={filteredJobsByType.installation}
-              {...listProps}
-            />
+            <IncrementalJobList items={rowsByType.installation} {...listProps} />
           </TabsContent>
           <TabsContent
             value='filter_replacement'
             className='min-h-0 flex-1 flex flex-col'>
             <IncrementalJobList
-              items={filteredJobsByType.filter_replacement}
+              items={rowsByType.filter_replacement}
               {...listProps}
             />
           </TabsContent>
@@ -305,7 +391,7 @@ function IncrementalJobList({
   onCancelEdit,
   onSaveEdit,
 }: {
-  items: Job[];
+  items: PickerRow[];
   customers: Customer[];
   otherDayIds: Set<string>;
   selectedJobIds: Set<string>;
@@ -324,6 +410,7 @@ function IncrementalJobList({
     items,
     PICKER_PAGE_SIZE,
   );
+  const assignedCount = items.filter((row) => row.assignment).length;
 
   if (items.length === 0) {
     return (
@@ -336,7 +423,14 @@ function IncrementalJobList({
   return (
     <div className='max-h-[48vh] min-h-0 overflow-y-auto pr-1'>
       <div className='space-y-2'>
-        {visible.map((job) => {
+        {visible.map((row, index) => {
+          const { job, assignment } = row;
+          // Already on someone's board: informational only, never selectable.
+          const isAssigned = Boolean(assignment);
+          // The assigned rows are appended last, so the group divider belongs on the
+          // first row whose predecessor is still a selectable one.
+          const showAssignedHeader =
+            isAssigned && !visible[index - 1]?.assignment;
           const customer = customers.find((c) => c.id === job.customerId);
           const isFromOther = otherDayIds.has(job.id);
           const isOngoing = isOngoingJob(job.id);
@@ -358,19 +452,39 @@ function IncrementalJobList({
               ? (job.openedDate ?? formatHebrewDate(job.createdAt))
               : "";
           return (
+            <Fragment key={job.id}>
+              {showAssignedHeader && (
+                <div className='flex items-center gap-2 pt-2 text-xs text-muted-foreground'>
+                  <span className='h-px flex-1 bg-border' />
+                  <span className='shrink-0'>
+                    משובצות — לא ניתן לבחור ({assignedCount})
+                  </span>
+                  <span className='h-px flex-1 bg-border' />
+                </div>
+              )}
             <div
-              key={job.id}
+              aria-disabled={isAssigned || undefined}
               className={cn(
                 "overflow-hidden rounded-lg border transition-colors",
-                isFromOther ? "border-accent bg-accent/5" : "border-border",
+                isAssigned
+                  ? "border-warning/50 bg-warning/5"
+                  : isFromOther
+                    ? "border-accent bg-accent/5"
+                    : "border-border",
               )}>
               {/* The pencil sits OUTSIDE the label — inside it, every click would be
                   forwarded to the checkbox and toggle the selection instead. */}
               <div className='flex items-stretch'>
               <label
-                className='flex min-w-0 flex-1 cursor-pointer items-start gap-3 p-3 transition-colors hover:bg-muted/30'>
+                className={cn(
+                  "flex min-w-0 flex-1 items-start gap-3 p-3 transition-colors",
+                  isAssigned
+                    ? "cursor-default opacity-70"
+                    : "cursor-pointer hover:bg-muted/30",
+                )}>
               <Checkbox
-                checked={selectedJobIds.has(job.id)}
+                disabled={isAssigned}
+                checked={!isAssigned && selectedJobIds.has(job.id)}
                 onCheckedChange={() => onToggleJob(job.id)}
                 className='mt-0.5 shrink-0'
               />
@@ -421,6 +535,14 @@ function IncrementalJobList({
                     <span className='truncate' dir='ltr' title={phone}>
                       {phone}
                     </span>
+                  </p>
+                )}
+                {assignment && (
+                  <p
+                    className='flex min-w-0 items-center gap-1 text-xs font-medium text-warning-strong mt-0.5'
+                    title={assignment.label}>
+                    <CalendarDays className='w-3 h-3 shrink-0' />
+                    <span className='truncate'>{assignment.label}</span>
                   </p>
                 )}
                 <div className='flex min-w-0 items-center gap-3 text-xs text-muted-foreground mt-0.5'>
@@ -484,6 +606,7 @@ function IncrementalJobList({
                 />
               )}
             </div>
+            </Fragment>
           );
         })}
       </div>
