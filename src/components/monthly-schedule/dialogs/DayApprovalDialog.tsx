@@ -123,9 +123,10 @@ export function DayApprovalDialog({
   // editing, closing/returning a call, and the day's completion documentation.
   onOpenDetails: () => void;
   onResetDay?: () => void;
+  /** Swap this day with the other technician — each one's live stops become the other's. */
   onMoveDayToOtherTech?: () => void;
   otherTechName?: string;
-  /** Target technician's day is locked — the move would produce unreportable stops. */
+  /** The other technician's day is locked — the swap would produce unreportable stops. */
   moveDisabled?: boolean;
 }) {
   const initialJobs = useMemo(
@@ -709,7 +710,7 @@ export function DayApprovalDialog({
                           <ArrowLeftRight className='w-4 h-4' />
                           {moveDisabled
                             ? `היום נעול אצל ${otherTechName}`
-                            : `העבר את היום ל${otherTechName}`}
+                            : `החלף את היום עם ${otherTechName}`}
                         </DropdownMenuItem>
                       )}
                       {/* Everything that undoes work sits below the separator, away from
