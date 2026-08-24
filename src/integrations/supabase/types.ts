@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string
+          customer_id: string | null
+          customer_key: string
+          details: string
+          id: string
+          job_key: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_key: string
+          details?: string
+          id?: string
+          job_key?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_key?: string
+          details?: string
+          id?: string
+          job_key?: string | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
@@ -85,6 +121,7 @@ export type Database = {
           completion_notes: string | null
           completion_status: string | null
           created_at: string
+          customer_id: string | null
           customer_name: string | null
           estimated_duration: number | null
           id: string
@@ -110,6 +147,7 @@ export type Database = {
           completion_notes?: string | null
           completion_status?: string | null
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           estimated_duration?: number | null
           id?: string
@@ -135,6 +173,7 @@ export type Database = {
           completion_notes?: string | null
           completion_status?: string | null
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           estimated_duration?: number | null
           id?: string
@@ -163,6 +202,7 @@ export type Database = {
           completion_notes: string | null
           completion_status: string | null
           created_at: string
+          customer_id: string | null
           customer_name: string | null
           description: string | null
           estimated_duration: number | null
@@ -187,6 +227,7 @@ export type Database = {
           completion_notes?: string | null
           completion_status?: string | null
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           description?: string | null
           estimated_duration?: number | null
@@ -211,6 +252,7 @@ export type Database = {
           completion_notes?: string | null
           completion_status?: string | null
           created_at?: string
+          customer_id?: string | null
           customer_name?: string | null
           description?: string | null
           estimated_duration?: number | null

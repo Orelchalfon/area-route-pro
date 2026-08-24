@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { OngoingService } from '@/hooks/useOngoingServices';
 import { cn } from '@/lib/utils';
-import { CompletionStatus, Customer } from '@/types';
+import { Customer } from '@/types';
 import {
   eachDayOfInterval,
   endOfMonth,
@@ -23,7 +23,11 @@ import {
 import { CalendarDays, CheckCircle, Filter, Pencil, Phone, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ServiceEditDialogs } from './ServiceEditDialogs';
+import {
+  ServiceEditDialogs,
+  type ArchiveServiceFn,
+  type UpdateServiceFn,
+} from './ServiceEditDialogs';
 import { statusClass, statusText } from './status';
 import { StatusEditPopover } from './StatusEditPopover';
 
@@ -31,17 +35,8 @@ const DAY_HEADERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 interface MonthListViewProps {
   services: OngoingService[];
-  onUpdateService?: (
-    id: string,
-    patch: {
-      task_description?: string;
-      location?: string;
-      service_date?: string;
-      phone?: string;
-      completion_status?: CompletionStatus | null;
-    },
-  ) => void;
-  onArchiveService?: (id: string) => void;
+  onUpdateService?: UpdateServiceFn;
+  onArchiveService?: ArchiveServiceFn;
   customersById?: Map<string, Customer>;
   onUpdateCustomer?: (customerId: string, data: Partial<Customer>) => void;
 }
@@ -70,11 +65,16 @@ export function MonthListView({
     byDate[key].push(s);
   });
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!pendingDelete) return;
-    onArchiveService?.(pendingDelete.id);
-    toast.success('הרשומה נמחקה');
+    const id = pendingDelete.id;
     setPendingDelete(null);
+    const ok = await onArchiveService?.(id);
+    if (ok === false) {
+      toast.error('מחיקת הרשומה נכשלה');
+      return;
+    }
+    toast.success('הרשומה נמחקה');
   };
 
   return (

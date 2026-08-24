@@ -14,9 +14,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Loader2, Users } from 'lucide-react';
 
 export default function CustomersPage() {
-  // Activity logs live in the app-wide store; the directory list comes straight
-  // from the customers table (DB-only, paginated).
-  const { getCustomerLogs, addLog } = useJobsContext();
+  // The directory list comes straight from the customers table (DB-only, paginated).
+  // History is loaded per-customer by the dialog itself, not held in memory here.
+  const { addLog } = useJobsContext();
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -116,7 +116,6 @@ export default function CustomersPage() {
               <CustomerCard
                 key={customer.id}
                 customer={customer}
-                logCount={getCustomerLogs(customer.id).length}
                 onEdit={handleEdit}
                 onShowHistory={handleShowHistory}
                 onShowDetails={handleShowDetails}
@@ -145,7 +144,6 @@ export default function CustomersPage() {
       />
       <CustomerHistoryDialog
         customer={selectedCustomer}
-        logs={selectedCustomer ? getCustomerLogs(selectedCustomer.id) : []}
         open={historyOpen}
         onOpenChange={setHistoryOpen}
       />

@@ -1,16 +1,19 @@
-import { CompletionStatus } from "@/types";
+import { COMPLETION_STATUS_CONFIG, CompletionStatus } from "@/types";
 
 // Manager-editable completion states for a service-cycle row. Shared by the status
 // popover (list view) and the edit modal so the choices look/behave identically.
+//
+// Derived from COMPLETION_STATUS_CONFIG (src/types/index.ts) rather than re-typed, so
+// the labels here can never drift from the ones the board and the customer history use.
 export const STATUS_OPTIONS: {
   value: CompletionStatus;
   label: string;
   dot: string;
-}[] = [
-  { value: "done", label: "בוצע", dot: "bg-green-500" },
-  { value: "need_return", label: "צריך לחזור", dot: "bg-amber-500" },
-  { value: "not_done", label: "לא בוצע", dot: "bg-red-500" },
-];
+}[] = (Object.keys(COMPLETION_STATUS_CONFIG) as CompletionStatus[]).map((value) => ({
+  value,
+  label: COMPLETION_STATUS_CONFIG[value].label,
+  dot: COMPLETION_STATUS_CONFIG[value].dot,
+}));
 
 // Status shown on the service-cycle pill. Technician completion (completion_status)
 // takes precedence when present; otherwise fall back to the calendar-synced
@@ -24,31 +27,18 @@ type StatusSource = {
 // בוצע = green, צריך לחזור = amber, לא בוצע = red — matching the completion colors
 // used on the monthly board.
 export const statusClass = (s: StatusSource) => {
-  switch (s.completion_status) {
-    case "done":
-      return "bg-green-100 border-green-300 text-green-800";
-    case "need_return":
-      return "bg-amber-100 border-amber-300 text-amber-800";
-    case "not_done":
-      return "bg-red-100 border-red-300 text-red-800";
-    default:
-      return s.is_done
-        ? "bg-green-100 border-green-300 text-green-800"
-        : "bg-red-100 border-red-300 text-red-800";
-  }
+  if (s.completion_status) return COMPLETION_STATUS_CONFIG[s.completion_status].pill;
+  return s.is_done
+    ? COMPLETION_STATUS_CONFIG.done.pill
+    : COMPLETION_STATUS_CONFIG.not_done.pill;
 };
 
 export const statusText = (s: StatusSource) => {
-  switch (s.completion_status) {
-    case "done":
-      return "בוצע";
-    case "need_return":
-      return "צריך לחזור";
-    case "not_done":
-      return "לא בוצע";
-    default:
-      return s.status_label || (s.is_done ? "בוצע" : "לא בוצע");
-  }
+  if (s.completion_status) return COMPLETION_STATUS_CONFIG[s.completion_status].label;
+  return (
+    s.status_label ||
+    (s.is_done ? COMPLETION_STATUS_CONFIG.done.label : COMPLETION_STATUS_CONFIG.not_done.label)
+  );
 };
 
 // True when the row counts as completed for summaries (technician-done or calendar-done).

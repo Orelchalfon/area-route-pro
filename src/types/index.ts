@@ -16,9 +16,31 @@ export interface ActivityLog {
   action: string;
   details: string;
   timestamp: string;
+  /** Who performed the action. Absent on entries written before actors were recorded. */
+  actorName?: string;
 }
 export type JobStatus = 'draft' | 'pending_customer' | 'confirmed' | 'in_progress' | 'completed' | 'rescheduled' | 'archived';
 export type CompletionStatus = 'done' | 'not_done' | 'need_return';
+
+/**
+ * How a visit's outcome is named and coloured — the single source of truth.
+ *
+ * These three labels and their colour families were previously spelled out in four
+ * separate places (useJobs' local statusLabels, service-cycle/status.ts STATUS_OPTIONS
+ * and statusClass, and ClientSearchResults' COMPLETION_LABELS), which meant a wording
+ * change had to be made four times or the app contradicted itself.
+ *
+ * Key order is the order the manager picks from: the outcome he sets most often first.
+ */
+export const COMPLETION_STATUS_CONFIG: Record<CompletionStatus, { label: string; dot: string; pill: string }> = {
+  done: { label: 'בוצע', dot: 'bg-green-500', pill: 'bg-green-100 border-green-300 text-green-800' },
+  need_return: { label: 'צריך לחזור', dot: 'bg-amber-500', pill: 'bg-amber-100 border-amber-300 text-amber-800' },
+  not_done: { label: 'לא בוצע', dot: 'bg-red-500', pill: 'bg-red-100 border-red-300 text-red-800' },
+};
+
+export const COMPLETION_STATUS_LABELS = Object.fromEntries(
+  Object.entries(COMPLETION_STATUS_CONFIG).map(([k, v]) => [k, v.label]),
+) as Record<CompletionStatus, string>;
 export type JobPriority = 'low' | 'medium' | 'high';
 
 export interface Technician {

@@ -3,9 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJobsContext } from "@/contexts/JobsContext";
-import { OngoingService, useOngoingServices } from "@/hooks/useOngoingServices";
+import type { OngoingService } from "@/hooks/useOngoingServices";
 import { FollowUpOption } from "@/lib/followUpOptions";
-import { isOngoingJob, parseDbCustomerId } from "@/lib/idConventions";
+import {
+  ID_PREFIX,
+  isOngoingJob,
+  makeDbCustomerId,
+  makeOngoingCustomerId,
+  makeOngoingJobId,
+  parseDbCustomerId,
+} from "@/lib/idConventions";
+import { describeServicePatch, type ServicePatch } from "./service-cycle/serviceLog";
 import { cn } from "@/lib/utils";
 import { Job } from "@/types";
 import {
@@ -45,15 +53,83 @@ const MONTH_NAMES = [
 type ViewMode = "annual" | "month-calendar" | "month-list";
 
 export default function ServiceCyclePage() {
+  // Everything comes from the ONE app-wide store. This page used to mount its own
+  // useOngoingServices() alongside the one inside useJobs, which meant two independent
+  // caches of the same table and two realtime channels: an edit made here only reached
+  // the monthly board when that board's own debounced refetch fired, so the two screens
+  // visibly disagreed for a moment. One source, no lag.
   const {
-    services,
-    loading,
-    refresh,
+    ongoingServices: services,
+    ongoingServicesLoaded,
+    refreshOngoingServices: refresh,
     updateOngoingService,
     archiveOngoingService,
-  } = useOngoingServices();
-  const { jobs, customersList, addJob, updateCustomer, archiveJob } =
-    useJobsContext();
+    jobs,
+    customersList,
+    addJob,
+    updateCustomer,
+    archiveJob,
+    addLog,
+  } = useJobsContext();
+  const loading = !ongoingServicesLoaded;
+
+  // Which customer card a service row's log belongs to. App-created rows carry a
+  // customers uuid; calendar-derived rows carry none, so their history lands on the
+  // row-derived id instead and is not reachable from a customer card until those rows
+  // get linked too.
+  const serviceCustomerKey = useCallback((svc: OngoingService) => {
+    const raw = svc.customer_id;
+    if (!raw) return makeOngoingCustomerId(svc.id);
+    return raw.startsWith(ID_PREFIX.dbCustomer) ? raw : makeDbCustomerId(raw);
+  }, []);
+
+  // Every service-cycle mutation goes through these two wrappers, so the page has one
+  // place that records what happened. Logging is deliberately AFTER the awaited write:
+  // a rejected UPDATE must not leave a log entry claiming it succeeded.
+  const handleUpdateService = useCallback(
+    async (id: string, patch: ServicePatch) => {
+      const svc = services.find((s) => s.id === id);
+      const entry = describeServicePatch(svc, patch);
+      const ok = await updateOngoingService(id, patch);
+      if (ok && svc && entry) {
+        addLog(serviceCustomerKey(svc), entry.action, entry.details, makeOngoingJobId(svc.id));
+      }
+      return ok;
+    },
+    [addLog, serviceCustomerKey, services, updateOngoingService],
+  );
+
+  const handleArchiveService = useCallback(
+    async (id: string) => {
+      const svc = services.find((s) => s.id === id);
+      const ok = await archiveOngoingService(id);
+      if (ok && svc) {
+        addLog(
+          serviceCustomerKey(svc),
+          "מחיקת שירות",
+          svc.task_description || "שירות שוטף",
+          makeOngoingJobId(svc.id),
+        );
+      }
+      return ok;
+    },
+    [addLog, archiveOngoingService, serviceCustomerKey, services],
+  );
+
+  // Deleting a malfunction/installation from the search results. archiveJob persists in
+  // the background and its customer id is already a board id.
+  const handleArchiveJob = useCallback(
+    (jobId: string) => {
+      // Resolve BEFORE archiving — archiveJob drops the job from `jobs`, and the log
+      // needs the customer it belonged to.
+      const job = jobs.find((j) => j.id === jobId);
+      archiveJob(jobId);
+      if (job) {
+        addLog(job.customerId, "מחיקת קריאה", job.notes || "קריאה נמחקה", job.id);
+      }
+    },
+    [addLog, archiveJob, jobs],
+  );
 
   // Linked-customer lookup by the customers UUID stored on ongoing_services rows
   // (customersList ids carry a db-cust- prefix). Keyed under BOTH forms: new rows store the
@@ -353,8 +429,8 @@ export default function ServiceCyclePage() {
         {viewMode === "month-list" ? (
           <MonthListView
             services={stat.services}
-            onUpdateService={updateOngoingService}
-            onArchiveService={archiveOngoingService}
+            onUpdateService={handleUpdateService}
+            onArchiveService={handleArchiveService}
             customersById={customersByRawId}
             onUpdateCustomer={updateCustomer}
           />
@@ -363,7 +439,7 @@ export default function ServiceCyclePage() {
             services={stat.services}
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
-            onUpdateService={updateOngoingService}
+            onUpdateService={handleUpdateService}
             customersById={customersByRawId}
             onUpdateCustomer={updateCustomer}
           />
@@ -428,10 +504,10 @@ export default function ServiceCyclePage() {
       {isSearching ? (
         <ClientSearchResults
           results={searchResults}
-          onUpdateService={updateOngoingService}
+          onUpdateService={handleUpdateService}
           onUpdateCustomer={updateCustomer}
-          onArchiveService={archiveOngoingService}
-          onArchiveJob={archiveJob}
+          onArchiveService={handleArchiveService}
+          onArchiveJob={handleArchiveJob}
           customersById={customersByRawId}
         />
       ) : (
