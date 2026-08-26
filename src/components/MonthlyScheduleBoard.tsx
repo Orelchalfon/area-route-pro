@@ -34,6 +34,7 @@ import {
 } from "@/lib/idConventions";
 import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import {
+  hasBoardAssignment,
   isReturnedForReschedule,
   isWaitingForAssignment,
 } from "@/pages/job-category/assignmentBuckets";
@@ -454,6 +455,21 @@ export function MonthlyScheduleBoard({
     () =>
       jobs.filter(
         (j) => j.type !== "filter_replacement" && isWaitingForAssignment(j),
+      ),
+    [jobs],
+  );
+
+  // The counterpart pool: open work that IS already on someone's board. The picker
+  // lists these as read-only rows so a manager planning one technician's day learns
+  // that a call is already taken ("משובץ: שילה · 12.8") instead of not finding it at
+  // all. All job types — the picker splits them into its tabs itself.
+  const assignedJobs = useMemo(
+    () =>
+      jobs.filter(
+        (j) =>
+          hasBoardAssignment(j) &&
+          j.status !== "completed" &&
+          j.completionStatus !== "done",
       ),
     [jobs],
   );
@@ -1660,11 +1676,24 @@ export function MonthlyScheduleBoard({
             });
           });
 
+          // Jobs already sitting on THIS day for THIS technician are visible on the
+          // board behind the dialog — no need to repeat them. A job on the same date
+          // under the other technician is deliberately kept: that is exactly the
+          // double-booking the manager needs to see.
+          const assignedElsewhere = assignedJobs.filter(
+            (j) =>
+              !(
+                j.scheduledDate === pickerState.dateStr &&
+                j.technicianId === selectedTechId
+              ),
+          );
+
           return (
             <UnifiedJobPickerDialog
               open={pickerState.open}
               onClose={() => setPickerState(null)}
               unassignedManualJobs={unassignedManualJobs}
+              assignedJobs={assignedElsewhere}
               unassignedFilterJobs={unassignedRangedFilters}
               unassignedOngoingJobs={unassignedOngoingJobs}
               filterJobsFromOtherDays={fromOtherDays}
