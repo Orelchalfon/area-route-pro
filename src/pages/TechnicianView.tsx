@@ -245,7 +245,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
                     <Button
                       size="sm"
                       className="w-full h-11 bg-[#25D366] hover:bg-[#1da851] text-white"
-                      onClick={() => window.open(whatsappUrl(waPhone, `היי ${customer.name} מדבר ${tech.name} אנחנו מגיעים אליך עוד חצי שעה`), '_blank')}
+                      onClick={() => window.open(whatsappUrl(waPhone), '_blank')}
                     >
                       <MessageCircle className="w-3.5 h-3.5 ml-1" />
                       וואטסאפ — בדרך אליך
