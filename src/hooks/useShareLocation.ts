@@ -13,7 +13,7 @@ export interface ShareLocationApi {
 
 /**
  * Technician side of the live-location feature: publishes this technician's own position to
- * `technician_locations` while they have it switched on (see sql/technician_locations.sql).
+ * `technician_locations` while they have it switched on (see supabase/migrations/20260826120000_add_technician_locations.sql).
  *
  * Sharing is strictly opt-in and never starts on its own. Turning it off deletes the row, so the
  * manager sees "not sharing" rather than a position frozen wherever the technician happened to be.

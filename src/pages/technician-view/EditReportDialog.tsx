@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { CompletionStatus } from '@/types';
 import { CheckCircle2, RotateCcw, XCircle } from 'lucide-react';
@@ -32,6 +32,7 @@ export function EditReportDialog({
       <DialogContent dir="rtl">
         <DialogHeader>
           <DialogTitle>עריכת דיווח</DialogTitle>
+          <DialogDescription className="sr-only">עריכת דיווח הביצוע שנשמר עבור הפנייה.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex gap-2">

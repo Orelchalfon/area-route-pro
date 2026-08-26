@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -308,6 +309,7 @@ export function UnifiedJobPickerDialog({
               אזורים: {dayAreas.join(", ")}
             </p>
           )}
+          <DialogDescription className='sr-only'>בחירת פנייה מהממתינות לשיבוץ והוספתה ליום זה.</DialogDescription>
         </DialogHeader>
 
         <Tabs

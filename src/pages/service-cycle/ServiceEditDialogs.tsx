@@ -1,7 +1,7 @@
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { CustomerEditDialog } from '@/components/CustomerEditDialog';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { OngoingService } from '@/hooks/useOngoingServices';
@@ -137,6 +137,7 @@ function ServiceLineEditDialog({
             <Pencil className="w-5 h-5" />
             עריכת שירות
           </DialogTitle>
+          <DialogDescription className="sr-only">עריכת פרטי מחזור השירות של הלקוח.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="space-y-2">

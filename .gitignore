@@ -54,7 +54,8 @@ public/*.ics
 # Make.com exported scenarios / local integration blueprints
 tal_hermon_make_blueprints/
 *.sql
-!supabase/migrations/20260708120000_restrict_employee_customer_reads.sql
+# ...except schema migrations: they are the DB source of truth and must stay tracked.
+!supabase/migrations/*.sql
 *_STATUS*.md
 
 # Supabase local config (contains project IDs)

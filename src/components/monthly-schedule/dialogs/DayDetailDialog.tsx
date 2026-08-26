@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -121,6 +122,7 @@ export function DayDetailDialog({
               לשינוי סדר המסלול — אישור לו״ז
             </span>
           </DialogTitle>
+          <DialogDescription className='sr-only'>פירוט כל המשימות המשובצות ליום זה.</DialogDescription>
         </DialogHeader>
 
         <div

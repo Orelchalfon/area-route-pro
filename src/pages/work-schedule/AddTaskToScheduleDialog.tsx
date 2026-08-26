@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { technicians } from '@/data/technicians';
@@ -46,6 +46,7 @@ export function AddTaskToScheduleDialog({
           <DialogTitle>
             הוסף משימה — {tech?.name} — יום {DAY_NAMES[dayOfWeek]} {format(new Date(dateStr + 'T00:00:00'), 'd/M')}
           </DialogTitle>
+          <DialogDescription className="sr-only">בחירת משימה והוספתה ללוח העבודה של הטכנאי.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

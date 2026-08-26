@@ -1,6 +1,6 @@
 import { useCustomerVisits } from '@/hooks/useCustomerVisits';
 import { COMPLETION_STATUS_CONFIG, Customer, JOB_TYPE_CONFIG, SERVICE_TRACK_CONFIG } from '@/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { NOT_SET, filterMonthLabel, hasExactLocation } from '@/lib/customerDisplay';
 import { areaForCity } from '@/lib/areas';
@@ -91,6 +91,7 @@ export function CustomerDetailsDialog({ customer, open, onOpenChange }: Customer
             <User className="w-5 h-5" />
             פרטי לקוח — {customer?.name}
           </DialogTitle>
+          <DialogDescription className="sr-only">פרטי הקשר, הכתובת והמסלול של הלקוח.</DialogDescription>
         </DialogHeader>
 
         {customer && (

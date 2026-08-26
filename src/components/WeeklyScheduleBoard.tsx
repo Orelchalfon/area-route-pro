@@ -8,7 +8,7 @@ import { CheckCircle, Clock, MapPin, User, AlertTriangle, Filter, Wrench, Users,
 import { toast } from 'sonner';
 import { format, addDays, startOfToday } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -180,6 +180,7 @@ function AreaPickerDialog({ open, onClose, unassignedJobs, onSelectJobs, dayLabe
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle>הוספת פניות — {techName} — {dayLabel}</DialogTitle>
+          <DialogDescription className="sr-only">בחירת פניות והוספתן ליום העבודה של הטכנאי.</DialogDescription>
         </DialogHeader>
 
         {!selectedArea ? (

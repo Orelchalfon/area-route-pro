@@ -1,7 +1,7 @@
 import { useJobsContext } from '@/contexts/JobsContext';
 import { CustomerVisit, useCustomerVisits } from '@/hooks/useCustomerVisits';
 import { ActivityLog, COMPLETION_STATUS_CONFIG, Customer, JOB_TYPE_CONFIG } from '@/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { History, Loader2, MapPin, Wrench } from 'lucide-react';
@@ -158,6 +158,7 @@ export function CustomerHistoryDialog({ customer, open, onOpenChange }: Customer
             <History className="w-5 h-5" />
             היסטוריה — {customer?.name}
           </DialogTitle>
+          <DialogDescription className="sr-only">היסטוריית הפניות והשירותים של הלקוח.</DialogDescription>
         </DialogHeader>
 
         {!loading && !error && items.length > 0 && (

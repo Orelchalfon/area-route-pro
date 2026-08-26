@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -166,6 +167,7 @@ export function JobEditDialog({
             <Pencil className="w-5 h-5" />
             עריכת פנייה{customer?.name ? ` — ${customer.name}` : ''}
           </DialogTitle>
+          <DialogDescription className="sr-only">עריכת פרטי הפנייה, השיבוץ והמועד.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="space-y-2">

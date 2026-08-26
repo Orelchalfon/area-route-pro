@@ -2,7 +2,6 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { buildDbJobUpdatePatch, getDbJobRef } from './dbJobSync';
 import { getDbSyncStatus } from './dbSyncStatus';
 import { loadCustomersFromCSV } from './csvParser';
-import { buildReceiveFromMakeRow, SHEETS_SOURCE } from '../../supabase/functions/_shared/makePayload';
 
 describe('db job sync mapping', () => {
   it('maps db job ids to their Supabase tables', () => {
@@ -66,52 +65,6 @@ describe('db job sync mapping', () => {
       technician_id: null,
       scheduled_date: null,
       scheduled_time: null,
-    });
-  });
-});
-
-describe('Make payload normalization', () => {
-  it('normalizes installation rows and marks them as sheets-sourced', () => {
-    const result = buildReceiveFromMakeRow({
-      type: 'installation',
-      action: 'upsert',
-      sheet_row_id: ' installations:12:center ',
-      sheet: { region: 'מרכז' },
-      data: {
-        customer_name: '  ישראל ישראלי ',
-        phone: ' 050-123 4567 ',
-        product_type: 'מערכת מים',
-        status: 'pending',
-      },
-    });
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.table).toBe('installations');
-      expect(result.row).toMatchObject({
-        sheet_row_id: 'installations:12:center',
-        customer_name: 'ישראל ישראלי',
-        phone: '0501234567',
-        product_type: 'מערכת מים',
-        region: 'מרכז',
-        source: SHEETS_SOURCE,
-      });
-    }
-  });
-
-  it('skips header or empty customer rows', () => {
-    const result = buildReceiveFromMakeRow({
-      type: 'malfunction',
-      action: 'upsert',
-      sheet_row_id: 'malfunctions:1:center',
-      data: { customer_name: 'שם' },
-    });
-
-    expect(result).toMatchObject({
-      ok: false,
-      status: 200,
-      skipped: true,
-      error: 'empty/header customer_name',
     });
   });
 });

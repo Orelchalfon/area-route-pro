@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Job, JOB_TYPE_CONFIG, Customer, SERVICE_TRACK_CONFIG } from '@/types';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Calendar, CalendarIcon, RotateCcw, ClipboardCheck, Printer, ChevronRight, ChevronLeft } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
@@ -143,6 +143,7 @@ export function DailySummaryDialog({ open, onClose, jobs, closedJobs: _closedJob
               <ChevronLeft className="w-4 h-4" />
             </Button>
           </div>
+          <DialogDescription className="sr-only">סיכום הפניות והשעות של יום העבודה הנבחר.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 mt-2">

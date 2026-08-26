@@ -20,7 +20,7 @@ const AGE_TICK_MS = 30_000;
 
 /**
  * Manager side of the live-location feature: watches one technician's row in
- * `technician_locations` (see sql/technician_locations.sql).
+ * `technician_locations` (see supabase/migrations/20260826120000_add_technician_locations.sql).
  *
  * @param technicianId the technician currently selected on the page.
  * @param enabled      pass `isAdmin` — a technician's client must never open this channel.

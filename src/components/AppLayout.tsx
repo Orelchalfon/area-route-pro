@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
@@ -171,6 +172,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     dir='rtl'
                     className='w-72 flex flex-col gap-1'>
                     <SheetTitle className='text-right mb-2'>תפריט</SheetTitle>
+                    <SheetDescription className='sr-only'>קישורים לעמודי המערכת.</SheetDescription>
                     <NavLinks mobile onNavigate={() => setOpen(false)} />
                     {!installed && canOfferInstall && (
                       <Button

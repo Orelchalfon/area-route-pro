@@ -219,7 +219,7 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
 
         {/* Active Jobs */}
         {activeJobs.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-5">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse-soft" />
               משימות פעילות
@@ -228,66 +228,79 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
               const customer = customersList.find(c => c.id === job.customerId);
               const waPhone = normalizeIsraeliPhone(customer?.phone);
               return (
-              <div key={job.id}>
+              <div
+                key={job.id}
+                className={`rounded-xl border bg-card p-3 shadow-card ${
+                  idx === 0
+                    ? 'border-secondary ring-1 ring-secondary/40'
+                    : 'border-border'
+                }`}
+              >
                 <JobCard
                   job={job}
                   variant="technician"
-                  isNext={idx === 0}
                 />
                 {/* Whether the customer confirmed this visit — read-only here; only the
                     manager records it (and RLS has no employee write policy for it). */}
-                <div className="mt-1.5 px-1">
+                <div className="mt-2">
                   <ArrivalConfirmationBadge state={arrivalStateOf(job)} />
                 </div>
                 {/* WhatsApp — pre-filled ETA message to the customer */}
                 {customer && waPhone && (
-                  <div className="mt-2 px-1">
+                  <div className="mt-2">
                     <Button
                       size="sm"
                       className="w-full h-11 bg-[#25D366] hover:bg-[#1da851] text-white"
                       onClick={() => window.open(whatsappUrl(waPhone), '_blank')}
                     >
-                      <MessageCircle className="w-3.5 h-3.5 ml-1" />
+                      <MessageCircle className="w-3.5 h-3.5 me-1" />
                       וואטסאפ — בדרך אליך
                     </Button>
                   </div>
                 )}
-                {/* 3 action buttons — hidden once the manager locks the day */}
-                {dayLocked(job) ? (
-                  <div className="flex items-center gap-1.5 mt-2 px-1 text-sm text-muted-foreground">
-                    <Lock className="w-3.5 h-3.5" />
-                    יום זה נעול לעריכה על ידי המנהל
-                  </div>
-                ) : (
-                  <div className="flex gap-2 mt-2 px-1">
-                    <Button
-                      size="sm"
-                      className="flex-1 h-11 bg-success hover:bg-success/90 text-success-foreground"
-                      onClick={() => openCompletionDialog(job.id, 'done')}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 ml-1" />
-                      בוצע
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 h-11 border-destructive text-destructive hover:bg-destructive/10"
-                      onClick={() => openCompletionDialog(job.id, 'not_done')}
-                    >
-                      <XCircle className="w-3.5 h-3.5 ml-1" />
-                      לא בוצע
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 h-11 border-warning text-warning-strong hover:bg-warning/10"
-                      onClick={() => openCompletionDialog(job.id, 'need_return')}
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 ml-1" />
-                      צריך לחזור
-                    </Button>
-                  </div>
-                )}
+                {/* Report row — separated and named, so it is unmistakably tied to the
+                    card above it even when the previous card is scrolled off screen. */}
+                <div className="mt-3 border-t border-border pt-2.5">
+                  <p className="text-xs text-muted-foreground text-start mb-2">
+                    דיווח עבור {customer?.name || 'הלקוח'}
+                  </p>
+                  {/* 3 action buttons — hidden once the manager locks the day */}
+                  {dayLocked(job) ? (
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Lock className="w-3.5 h-3.5" />
+                      יום זה נעול לעריכה על ידי המנהל
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 min-w-[6.5rem] h-11 bg-success hover:bg-success/90 text-success-foreground"
+                        onClick={() => openCompletionDialog(job.id, 'done')}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 me-1 hidden sm:inline-block" />
+                        בוצע
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 min-w-[6.5rem] h-11 border-destructive text-destructive hover:bg-destructive/10"
+                        onClick={() => openCompletionDialog(job.id, 'not_done')}
+                      >
+                        <XCircle className="w-3.5 h-3.5 me-1 hidden sm:inline-block" />
+                        לא בוצע
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 min-w-[6.5rem] h-11 border-warning text-warning-strong hover:bg-warning/10"
+                        onClick={() => openCompletionDialog(job.id, 'need_return')}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 me-1 hidden sm:inline-block" />
+                        צריך לחזור
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
               );
             })}

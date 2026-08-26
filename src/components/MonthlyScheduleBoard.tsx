@@ -9,19 +9,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AnimatedCount } from "@/components/AnimatedCount";
-import { DocumentedJobChip } from "./monthly-schedule/DocumentedJobChip";
 import {
   documentationForDay,
   useCompletedDayRecords,
 } from "@/hooks/useCompletedDayRecords";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { approvedDayKey } from "@/hooks/useApprovedDays";
 import { getSubArea } from "@/lib/areas";
@@ -56,15 +49,10 @@ import {
 import { he } from "date-fns/locale";
 import {
   AlertTriangle,
-  ArrowLeftRight,
-  CheckCircle,
   ChevronLeft,
   ChevronRight,
   Filter,
-  Lock,
-  MapPin,
   Plus,
-  Trash2,
   Wrench,
   ZoomIn,
   ZoomOut,
@@ -77,10 +65,12 @@ import { AddToApprovedDayDialog } from "./monthly-schedule/dialogs/AddToApproved
 import { DayApprovalDialog } from "./monthly-schedule/dialogs/DayApprovalDialog";
 import { DayDetailDialog } from "./monthly-schedule/dialogs/DayDetailDialog";
 import { UnifiedJobPickerDialog } from "./monthly-schedule/dialogs/UnifiedJobPickerDialog";
-import { MiniJobChip } from "./monthly-schedule/MiniJobChip";
+import { DayCell } from "./monthly-schedule/DayCell";
+import type {
+  DayCellActions,
+  DayCellData,
+} from "./monthly-schedule/dayCellTypes";
 import {
-  REGIONS,
-  UNASSIGNED_REGION,
   cityMatchesAreas,
   jobMatchesAreas,
 } from "./monthly-schedule/regions";
@@ -432,10 +422,13 @@ export function MonthlyScheduleBoard({
   // Area selection is a non-destructive view filter: it only records which areas
   // are shown for the day. Nothing is unassigned, so jobs survive a refresh and
   // reappear when the day is returned to the general (no-area) view.
-  const handleAreaOverride = (dateStr: string, newAreas: string[]) => {
-    setDayAreaOverrides((prev) => new Map(prev).set(dateStr, newAreas));
-    toast.success(`אזורים עודכנו: ${newAreas.join(", ")}`);
-  };
+  const handleAreaOverride = useCallback(
+    (dateStr: string, newAreas: string[]) => {
+      setDayAreaOverrides((prev) => new Map(prev).set(dateStr, newAreas));
+      toast.success(`אזורים עודכנו: ${newAreas.join(", ")}`);
+    },
+    [],
+  );
 
   // Unassigned filter jobs (not yet distributed to any day)
   // Manually assigned jobs (malfunction/installation) for this tech & month — exclude filter jobs which are managed separately
@@ -1147,6 +1140,124 @@ export function MonthlyScheduleBoard({
 
   const today = format(new Date(), "yyyy-MM-dd");
 
+  // One place that turns a calendar day into the shape both surfaces render:
+  // the desktop 7-column DayCell and the mobile MobileDayAgenda card. Every
+  // context read and every filter decision stays here, so the two can never
+  // drift on what a day contains — they only differ in how they draw it.
+  const buildDayData = useCallback(
+    (day: Date, isWeekView: boolean): DayCellData => {
+      const dateStr = format(day, "yyyy-MM-dd");
+      const dow = getDay(day);
+      const isWeekend = dow === 5 || dow === 6;
+      const inCurrentMonth = isWeekView ? true : isSameMonth(day, currentMonth);
+      const dayAreas = !isWeekend && inCurrentMonth ? getDayAreas(dateStr) : [];
+      // Area selection is a non-destructive view filter — hide jobs that
+      // don't match the selected areas (jobMatchesAreas returns true for
+      // all jobs when dayAreas is empty, i.e. the general view).
+      const filterJobs = getFilterDayJobs(dateStr).filter((j) =>
+        jobMatchesAreas(j, dayAreas),
+      );
+      const manualJobs = getManualDayJobs(dateStr).filter((j) =>
+        jobMatchesAreas(j, dayAreas),
+      );
+      const allDayDocumentation =
+        !isWeekend && inCurrentMonth ? getDayDocumentation(dateStr) : [];
+      const documentation = allDayDocumentation.filter((r) =>
+        cityMatchesAreas(r.city, dayAreas),
+      );
+      // The day's real contents, before the area view-filter. Everything that
+      // decides whether the day can be opened or acted on reads this — gating on
+      // the filtered lists would make a full day unreachable the moment the
+      // manager selects an area none of its jobs match.
+      const totalDayJobs =
+        !isWeekend && inCurrentMonth ? dayJobCount(dateStr) : 0;
+
+      return {
+        day,
+        dateStr,
+        isWeekend,
+        isToday: dateStr === today,
+        inCurrentMonth,
+        dayLabel: isWeekend ? "" : format(day, "EEEE d/M", { locale: he }),
+        dayAreas,
+        filterJobs,
+        manualJobs,
+        documentation,
+        totalMinutes:
+          filterJobs.reduce((s, j) => s + j.estimatedDuration, 0) +
+          manualJobs.reduce((s, j) => s + j.estimatedDuration, 0),
+        totalDayJobs,
+        hasDocumentation: allDayDocumentation.length > 0,
+        isOpenable: totalDayJobs > 0 || allDayDocumentation.length > 0,
+        isApproved: approvedDays.has(dateStr),
+        isLocked: lockedDays.has(dateStr),
+        confirmedCount: confirmedArrivalCount(dateStr),
+      };
+    },
+    [
+      approvedDays,
+      confirmedArrivalCount,
+      currentMonth,
+      dayJobCount,
+      getDayAreas,
+      getDayDocumentation,
+      getFilterDayJobs,
+      getManualDayJobs,
+      lockedDays,
+      today,
+    ],
+  );
+
+  // Clicking a day IS the way into it. A day with live work opens the approval
+  // dialog — where the route is arranged and the day is approved. A past day
+  // holding only documentation has nothing to approve, so it opens the detail
+  // view, the only surface that renders the technician's notes and the
+  // close/return-call actions.
+  const openDay = useCallback(
+    (dateStr: string) => {
+      if (dayJobCount(dateStr) > 0) setApprovalState({ open: true, dateStr });
+      else if (getDayDocumentation(dateStr).length > 0)
+        setDetailState({ open: true, dateStr });
+    },
+    [dayJobCount, getDayDocumentation],
+  );
+
+  // Callbacks out of the presentational day components — every one of these is
+  // an existing board handler; no new state and no new persistence path.
+  const dayActions = useMemo<DayCellActions>(
+    () => ({
+      onOpenDay: openDay,
+      onAreaChange: (dateStr, areas) => {
+        if (areas.length > 0) {
+          handleAreaOverride(dateStr, areas);
+        } else {
+          // Allow clearing all areas
+          setDayAreaOverrides((prev) => {
+            const next = new Map(prev);
+            next.delete(dateStr);
+            return next;
+          });
+        }
+      },
+      onAddTask: (dateStr, dayLabel) =>
+        setPickerState({ open: true, dateStr, dayLabel }),
+      onSwapDay: (dateStr) => setPendingDayMove(dateStr),
+      onResetDay: (dateStr) => setPendingDayReset(dateStr),
+      onRemoveJob: (jobId, fromDateStr, isFilter) =>
+        setPendingDelete({ jobId, fromDateStr, isFilter }),
+      onMoveJobNext: (jobId, dateStr, isFilter) =>
+        isFilter
+          ? handleRemoveAndRescheduleFilter(jobId, dateStr)
+          : handleMoveManual(jobId, dateStr),
+    }),
+    [
+      handleAreaOverride,
+      handleMoveManual,
+      handleRemoveAndRescheduleFilter,
+      openDay,
+    ],
+  );
+
   return (
     <div dir='rtl' className='space-y-5'>
       {/* Tech toggle */}
@@ -1310,6 +1421,9 @@ export function MonthlyScheduleBoard({
       ) : (
         (() => {
           const isWeekView = viewMode === "week";
+          // A week cell is ~7x taller than a month cell, so it can list the day in
+          // full; a month cell has room for two chips before it overflows.
+          const maxShow = isWeekView ? 20 : 2;
           const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 0 });
         const displayDays = isWeekView
           ? eachDayOfInterval({ start: currentWeekStart, end: weekEnd })
@@ -1339,333 +1453,16 @@ export function MonthlyScheduleBoard({
               ))}
 
               {displayDays.map((day) => {
-                const dateStr = format(day, "yyyy-MM-dd");
-                const dow = getDay(day);
-                const isWeekend = dow === 5 || dow === 6;
-                const isToday = dateStr === today;
-                const inCurrentMonth = isWeekView
-                  ? true
-                  : isSameMonth(day, currentMonth);
-                const dayAreas =
-                  !isWeekend && inCurrentMonth ? getDayAreas(dateStr) : [];
-                // Area selection is a non-destructive view filter — hide jobs that
-                // don't match the selected areas (jobMatchesAreas returns true for
-                // all jobs when dayAreas is empty, i.e. the general view).
-                const dayFilterJobs = getFilterDayJobs(dateStr).filter((j) =>
-                  jobMatchesAreas(j, dayAreas),
-                );
-                const dayManualJobs = getManualDayJobs(dateStr).filter((j) =>
-                  jobMatchesAreas(j, dayAreas),
-                );
-                const allDayDocumentation =
-                  !isWeekend && inCurrentMonth ? getDayDocumentation(dateStr) : [];
-                const dayDocumentation = allDayDocumentation.filter((r) =>
-                  cityMatchesAreas(r.city, dayAreas),
-                );
-                const totalMinutes =
-                  dayFilterJobs.reduce((s, j) => s + j.estimatedDuration, 0) +
-                  dayManualJobs.reduce((s, j) => s + j.estimatedDuration, 0);
-                const maxShow = isWeekView ? 20 : 2;
-                const isDayApproved = approvedDays.has(dateStr);
-                const isDayLocked = lockedDays.has(dateStr);
-                // The day's real contents, before the area view-filter. Everything that
-                // decides whether the day can be opened or acted on reads this — gating on
-                // the filtered lists would make a full day unreachable the moment the
-                // manager selects an area none of its jobs match.
-                const totalDayJobs =
-                  !isWeekend && inCurrentMonth ? dayJobCount(dateStr) : 0;
-                const isOpenable =
-                  totalDayJobs > 0 || allDayDocumentation.length > 0;
-                const dayLabel = isWeekend
-                  ? ""
-                  : format(day, "EEEE d/M", { locale: he });
-
-                // Clicking the cell IS the way into the day. A day with live work opens the
-                // approval dialog — where the route is arranged and the day is approved. A
-                // past day holding only documentation has nothing to approve, so it opens
-                // the detail view, the only surface that renders the technician's notes and
-                // the close/return-call actions.
-                const openDay = () => {
-                  if (isWeekend || !inCurrentMonth) return;
-                  if (totalDayJobs > 0) setApprovalState({ open: true, dateStr });
-                  else if (allDayDocumentation.length > 0)
-                    setDetailState({ open: true, dateStr });
-                };
-
+                const data = buildDayData(day, isWeekView);
                 return (
-                  <div
-                    key={dateStr}
-                    className={`${isWeekView ? "min-h-[280px]" : "min-h-[130px]"} border-b border-r border-border p-2 transition-colors hover:bg-muted/20 ${
-                      isOpenable ? "cursor-pointer" : ""
-                    } ${
-                      isWeekend ? "bg-muted/30" : ""
-                    } ${isToday ? "ring-2 ring-inset ring-primary" : ""} ${!inCurrentMonth ? "opacity-40" : ""} ${isDayApproved ? "bg-success/5" : ""}`}
-                    onClick={openDay}>
-                    <div className='flex items-center justify-between mb-1'>
-                      <div className='flex items-center gap-1'>
-                        {/* Clicking anywhere on the cell opens the day, but the keyboard
-                            path is this one button: the cell is a container full of real
-                            controls (area popover, job chips, the action row), so giving it
-                            role="button" would nest interactives inside a button and make
-                            the whole thing a tab stop that swallows them. */}
-                        {isOpenable ? (
-                          <button
-                            type='button'
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDay();
-                            }}
-                            aria-label={`${dayLabel}${isDayApproved ? " — אושר" : ""}${
-                              isDayLocked ? ", נעול" : ""
-                            } — ${totalDayJobs > 0 ? "פתח אישור לו״ז" : "פתח תיעוד היום"}`}
-                            className={`rounded text-sm font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isToday ? "text-primary font-bold" : "text-card-foreground"}`}>
-                            {isWeekView ? format(day, "d/M") : day.getDate()}
-                          </button>
-                        ) : (
-                          <span
-                            className={`text-sm font-medium ${isToday ? "text-primary font-bold" : "text-card-foreground"}`}>
-                            {isWeekView ? format(day, "d/M") : day.getDate()}
-                          </span>
-                        )}
-                      </div>
-                      <div className='flex items-center gap-1'>
-                        {totalMinutes > 0 && !isWeekend && (
-                          <span className='text-xs text-muted-foreground'>
-                            {Math.floor(totalMinutes / 60)}:
-                            {String(totalMinutes % 60).padStart(2, "0")}
-                          </span>
-                        )}
-                        {/* Approved / locked are STATUS, not controls — the actions that
-                            used to sit here moved to the action row at the bottom of the
-                            cell and to the approval dialog's menu. The cell's aria-label
-                            carries the same information for screen readers, so these are
-                            hidden from them rather than read as stray icons. */}
-                        {!isWeekend && inCurrentMonth && isDayApproved && (
-                          <span
-                            className='flex items-center'
-                            title='היום אושר — הודעות נשלחו ללקוחות'>
-                            <CheckCircle
-                              className='w-3 h-3 text-success'
-                              aria-hidden='true'
-                            />
-                          </span>
-                        )}
-                        {/* How many of the day's customers have confirmed the visit, so days
-                            still waiting on replies stand out at a glance. */}
-                        {!isWeekend && inCurrentMonth && totalDayJobs > 0 && isDayApproved && (
-                          <span
-                            className={`text-[10px] font-medium leading-none ${
-                              confirmedArrivalCount(dateStr) === dayJobCount(dateStr)
-                                ? "text-success"
-                                : "text-muted-foreground"
-                            }`}
-                            title={`${confirmedArrivalCount(dateStr)} מתוך ${dayJobCount(dateStr)} לקוחות אישרו הגעת טכנאי`}>
-                            ✓{confirmedArrivalCount(dateStr)}/{dayJobCount(dateStr)}
-                          </span>
-                        )}
-                        {/* Locked-day status. Locking blocks the technician's own
-                            completion-report edits (client-side here and in TechnicianView,
-                            and enforced in Supabase RLS triggers); it is toggled from the
-                            approval dialog's menu. */}
-                        {!isWeekend && inCurrentMonth && isDayLocked && (
-                          <span
-                            className='flex items-center'
-                            title='היום נעול — הטכנאי לא יכול לערוך'>
-                            <Lock
-                              className='w-3 h-3 text-primary'
-                              aria-hidden='true'
-                            />
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {!isWeekend && inCurrentMonth && (
-                      <div
-                        className='mb-0.5'
-                        onClick={(e) => e.stopPropagation()}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}>
-                        <Popover modal={false}>
-                          <PopoverTrigger asChild>
-                            <button
-                              className={`h-auto min-h-[20px] px-1.5 py-0.5 text-xs border-0 rounded w-full text-right flex items-center gap-0.5 flex-wrap ${
-                                dayAreas.length > 0
-                                  ? "bg-info/10 text-info hover:bg-info/20"
-                                  : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                              }`}
-                              onClick={(e) => e.stopPropagation()}>
-                              <MapPin className='w-2.5 h-2.5 shrink-0' />
-                              <span className='truncate'>
-                                {dayAreas.length > 0
-                                  ? dayAreas.join(", ")
-                                  : "בחר אזור"}
-                              </span>
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            dir='rtl'
-                            className='w-56 p-2'
-                            align='start'
-                            onOpenAutoFocus={(e) => e.preventDefault()}
-                            onInteractOutside={(e) => {
-                              if (
-                                (e.target as HTMLElement)?.closest?.(
-                                  "[data-radix-popover-content]",
-                                )
-                              )
-                                e.preventDefault();
-                            }}>
-                            <p className='text-xs font-semibold mb-2 text-muted-foreground'>
-                              בחר אזורים ליום:
-                            </p>
-                            <div className='space-y-1 max-h-[200px] overflow-y-auto'>
-                              {[...REGIONS, UNASSIGNED_REGION].map((r) => (
-                                <label
-                                  key={r}
-                                  className='flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-xs'>
-                                  <Checkbox
-                                    checked={dayAreas.includes(r)}
-                                    onCheckedChange={(checked) => {
-                                      const newAreas = checked
-                                        ? [...dayAreas, r]
-                                        : dayAreas.filter((a) => a !== r);
-                                      if (newAreas.length > 0) {
-                                        handleAreaOverride(dateStr, newAreas);
-                                      } else {
-                                        // Allow clearing all areas
-                                        setDayAreaOverrides((prev) => {
-                                          const next = new Map(prev);
-                                          next.delete(dateStr);
-                                          return next;
-                                        });
-                                      }
-                                    }}
-                                  />
-                                  <span>{r}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    )}
-
-                    {!isWeekend && inCurrentMonth && (
-                      <div className='space-y-1'>
-                        {dayFilterJobs.slice(0, maxShow).map((job) => (
-                          <MiniJobChip
-                            key={job.id}
-                            job={job}
-                            isAutoScheduled
-                            onRemove={() =>
-                              setPendingDelete({
-                                jobId: job.id,
-                                fromDateStr: dateStr,
-                                isFilter: true,
-                              })
-                            }
-                            onMoveNext={() =>
-                              handleRemoveAndRescheduleFilter(job.id, dateStr)
-                            }
-                          />
-                        ))}
-                        {dayFilterJobs.length > maxShow && (
-                          <span className='text-xs text-info'>
-                            +{dayFilterJobs.length - maxShow} שירות
-                          </span>
-                        )}
-                        {dayManualJobs.slice(0, maxShow).map((job) => (
-                          <MiniJobChip
-                            key={job.id}
-                            job={job}
-                            onRemove={() =>
-                              setPendingDelete({
-                                jobId: job.id,
-                                fromDateStr: dateStr,
-                                isFilter: false,
-                              })
-                            }
-                            onMoveNext={() => handleMoveManual(job.id, dateStr)}
-                          />
-                        ))}
-                        {dayManualJobs.length > maxShow && (
-                          <span className='text-xs text-muted-foreground'>
-                            +{dayManualJobs.length - maxShow} עוד
-                          </span>
-                        )}
-
-                        {/* Finished visits stay here as documentation, including ones
-                            whose call was already closed. Read-only and muted so they
-                            never compete with the day's live work. */}
-                        {dayDocumentation.slice(0, maxShow).map((record) => (
-                          <DocumentedJobChip key={record.id} record={record} />
-                        ))}
-                        {dayDocumentation.length > maxShow && (
-                          <span className='text-xs text-muted-foreground'>
-                            +{dayDocumentation.length - maxShow} תיעוד
-                          </span>
-                        )}
-
-                        {/* The day's own actions, in one row at a single visual altitude:
-                            add · swap · reset. Everything else lives in the approval
-                            dialog's menu, which the cell click opens.
-                            The two icon buttons are week-view only: a month cell is ~84px of
-                            content across the 7-column min-w-[700px] grid, and three controls
-                            would squeeze '+' down to ~20px. In month view they stay reachable
-                            through that same menu. */}
-                        <div className='mt-1 flex items-stretch gap-1'>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const dayDate = new Date(dateStr + "T00:00:00");
-                              setPickerState({
-                                open: true,
-                                dateStr,
-                                dayLabel: format(dayDate, "EEEE d/M", {
-                                  locale: he,
-                                }),
-                              });
-                            }}
-                            className='flex-1 text-xs text-muted-foreground flex items-center justify-center gap-0.5 py-1 rounded border border-dashed border-border hover:border-primary/50 hover:text-primary transition-colors'
-                            title='הוסף משימה'
-                            aria-label='הוסף משימה'>
-                            <Plus className='w-3 h-3' />
-                          </button>
-                          {/* Swap the whole day with the other technician (this one is sick /
-                              away). Hidden on a locked day — that day's reporting is final,
-                              so there is nothing left to trade. */}
-                          {isWeekView && totalDayJobs > 0 && !isDayLocked && otherTech && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPendingDayMove(dateStr);
-                              }}
-                              className='w-7 shrink-0 flex items-center justify-center py-1 rounded border border-dashed border-border text-muted-foreground hover:border-info/50 hover:text-info transition-colors'
-                              title={`החלף את היום עם ${otherTech.name}`}
-                              aria-label={`החלף את היום עם ${otherTech.name}`}>
-                              <ArrowLeftRight className='w-3 h-3' />
-                            </button>
-                          )}
-                          {/* Reset day — unassign every job on this day back to the pool.
-                              Destructive, so it sits apart from '+' and is guarded by a
-                              confirmation dialog. */}
-                          {isWeekView && totalDayJobs > 0 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPendingDayReset(dateStr);
-                              }}
-                              className='w-7 shrink-0 flex items-center justify-center py-1 rounded border border-dashed border-border text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-colors'
-                              title='אפס יום — הסר את כל המשימות'
-                              aria-label='אפס יום — הסר את כל המשימות'>
-                              <Trash2 className='w-3 h-3' />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <DayCell
+                    key={data.dateStr}
+                    data={data}
+                    isWeekView={isWeekView}
+                    maxShow={maxShow}
+                    otherTechName={otherTech?.name}
+                    {...dayActions}
+                  />
                 );
               })}
             </div>

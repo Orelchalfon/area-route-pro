@@ -1,5 +1,5 @@
 /**
- * Rules for the opt-in live technician location (see sql/technician_locations.sql).
+ * Rules for the opt-in live technician location (see supabase/migrations/20260826120000_add_technician_locations.sql).
  * Kept pure so they can be unit-tested without a map, a browser or Supabase — same reasoning
  * as `arrivalStateFor` in useArrivalConfirmations.ts.
  */

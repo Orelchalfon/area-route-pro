@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { CompletionStatus } from '@/types';
 import { CheckCircle2, RotateCcw, XCircle } from 'lucide-react';
@@ -28,6 +28,7 @@ export function CompletionDialog({
              status === 'not_done' ? 'סימון כלא בוצע' :
              'סימון — צריך לחזור'}
           </DialogTitle>
+          <DialogDescription className="sr-only">עדכון סטטוס הביצוע של הפנייה והוספת הערות.</DialogDescription>
         </DialogHeader>
         <Textarea
           placeholder="הוסף הערות..."

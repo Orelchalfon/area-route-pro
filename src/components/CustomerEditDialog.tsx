@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Customer } from '@/types';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -59,6 +59,7 @@ export function CustomerEditDialog({ customer, open, onOpenChange, onUpdate }: C
             <Pencil className="w-5 h-5" />
             עריכת לקוח — {customer?.name}
           </DialogTitle>
+          <DialogDescription className="sr-only">עריכת פרטי הלקוח ושמירתם במערכת.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="space-y-2">
