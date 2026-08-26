@@ -28,17 +28,23 @@ export function StatusEditPopover({
   onUpdateService: (
     id: string,
     patch: { completion_status?: CompletionStatus | null },
-  ) => void;
+  ) => Promise<boolean>;
   children: ReactNode;
   align?: "start" | "center" | "end";
 }) {
   const [open, setOpen] = useState(false);
   const current = service.completion_status;
 
-  const apply = (value: CompletionStatus | null, label: string) => {
-    onUpdateService(service.id, { completion_status: value });
-    toast.success(value ? `הסטטוס עודכן ל"${label}"` : "הסטטוס נוקה");
+  const apply = async (value: CompletionStatus | null, label: string) => {
     setOpen(false);
+    // Await the write: a status the manager believes he set, but which never reached the
+    // database, is worse than no status at all.
+    const ok = await onUpdateService(service.id, { completion_status: value });
+    if (!ok) {
+      toast.error("עדכון הסטטוס נכשל");
+      return;
+    }
+    toast.success(value ? `הסטטוס עודכן ל"${label}"` : "הסטטוס נוקה");
   };
 
   return (

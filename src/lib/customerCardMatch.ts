@@ -2,9 +2,15 @@ import { customerImportKey } from '@/hooks/useCustomers';
 import { isDbCustomer, isOngoingCustomer } from '@/lib/idConventions';
 import type { Customer } from '@/types';
 
+// Exported because the customer-history lookup needs the SAME rule in reverse
+// (customer -> their job rows) as resolveCustomerCard uses (job -> customer card);
+// two subtly different rules would make a visit visible in one direction only.
+// NOT the same as phoneKey9 in scripts/customerMatch.mjs (last 9 digits) — see
+// scripts/customerMatch.mjs:44-60 for why those two must stay separate.
+//
 // Only digits matter when comparing phone numbers — the same line is written
 // "052-123-4567", "0521234567" and "052 1234567" across the imported data.
-function phoneKey(phone: string | undefined | null): string {
+export function phoneKey(phone: string | undefined | null): string {
   return (phone || '').replace(/\D/g, '');
 }
 
@@ -49,4 +55,58 @@ export function resolveCustomerCard(
   }
 
   return null;
+}
+
+/** A phone key is only trustworthy as an identity above this length. */
+export const MIN_PHONE_KEY_LENGTH = 7;
+
+/**
+ * The stored-string spellings of one phone number, for an equality filter against a
+ * column holding raw human-entered text.
+ *
+ * Needed because malfunctions/installations have no customer_id to join on (until the
+ * backfill runs) and Postgres cannot apply `phoneKey` inside a PostgREST filter — so
+ * the query guesses the spellings and the caller re-filters with `phoneKey` after.
+ * Covers the formats actually present in the imported Israeli data.
+ */
+export function phoneVariants(phone: string | undefined | null): string[] {
+  const d = phoneKey(phone);
+  if (d.length < MIN_PHONE_KEY_LENGTH) return [];
+
+  // Normalise +972 / 972 international forms back to a local 0-prefixed number.
+  const local = d.startsWith('972') ? `0${d.slice(3)}` : d;
+  const out = new Set<string>([d, local]);
+  const trimmed = (phone || '').trim();
+  if (trimmed) out.add(trimmed);
+
+  if (local.length === 10) {
+    out.add(`${local.slice(0, 3)}-${local.slice(3)}`);
+    out.add(`${local.slice(0, 3)}-${local.slice(3, 6)}-${local.slice(6)}`);
+    out.add(`${local.slice(0, 3)} ${local.slice(3)}`);
+    out.add(`+972${local.slice(1)}`);
+  } else if (local.length === 9) {
+    out.add(`${local.slice(0, 2)}-${local.slice(2)}`);
+    out.add(`${local.slice(0, 2)}-${local.slice(2, 5)}-${local.slice(5)}`);
+    out.add(`+972${local.slice(1)}`);
+  }
+  return [...out].filter(Boolean);
+}
+
+/**
+ * True when a job row (which carries only a free-text name + phone) belongs to this
+ * customer. The phone is authoritative; the name is only accepted as a tiebreak when
+ * the row has no usable phone at all, since `customerImportKey` is just a normalised
+ * name and two people can share one.
+ */
+export function jobRowMatchesCustomer(
+  row: { customer_name?: string | null; phone?: string | null },
+  customer: Pick<Customer, 'name' | 'phone'>,
+): boolean {
+  const rowPhone = phoneKey(row.phone);
+  const custPhone = phoneKey(customer.phone);
+  if (rowPhone.length >= MIN_PHONE_KEY_LENGTH && custPhone.length >= MIN_PHONE_KEY_LENGTH) {
+    return rowPhone === custPhone;
+  }
+  if (!row.customer_name?.trim() || !customer.name?.trim()) return false;
+  return customerImportKey(row.customer_name) === customerImportKey(customer.name);
 }

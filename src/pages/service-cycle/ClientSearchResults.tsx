@@ -9,14 +9,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { Customer, Job, JOB_TYPE_CONFIG } from '@/types';
+import { COMPLETION_STATUS_CONFIG, Customer, Job, JOB_TYPE_CONFIG } from '@/types';
 import { OngoingService } from '@/hooks/useOngoingServices';
+import { CustomerHistoryDialog } from '@/components/CustomerHistoryDialog';
 import { format } from 'date-fns';
-import { AlertTriangle, CheckCircle, Filter, Pencil, Search, Trash2, Wrench } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { AlertTriangle, CheckCircle, Filter, History, Pencil, Search, Trash2, Wrench } from 'lucide-react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   ServiceEditDialogs,
+  type ArchiveServiceFn,
   type UpdateCustomerFn,
   type UpdateServiceFn,
 } from './ServiceEditDialogs';
@@ -34,12 +36,6 @@ type PendingDelete =
   | { kind: 'service'; service: OngoingService }
   | { kind: 'job'; job: Job; customerName?: string };
 
-const COMPLETION_LABELS: Record<string, { label: string; cls: string }> = {
-  done: { label: 'בוצע', cls: 'bg-green-100 border-green-300 text-green-800' },
-  not_done: { label: 'לא בוצע', cls: 'bg-red-100 border-red-300 text-red-800' },
-  need_return: { label: 'צריך לחזור', cls: 'bg-amber-100 border-amber-300 text-amber-800' },
-};
-
 function jobDate(job: Job) {
   return job.scheduledDate || job.createdAt;
 }
@@ -55,7 +51,7 @@ export function ClientSearchResults({
   results: SearchResults;
   onUpdateService?: UpdateServiceFn;
   onUpdateCustomer?: UpdateCustomerFn;
-  onArchiveService?: (id: string) => void;
+  onArchiveService?: ArchiveServiceFn;
   onArchiveJob?: (jobId: string) => void;
   customersById?: Map<string, Customer>;
 }) {
@@ -63,15 +59,41 @@ export function ClientSearchResults({
   const installations = results.jobs.filter(r => r.job.type === 'installation');
   const [editing, setEditing] = useState<OngoingService | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
+
+  // The search is per-RECORD and sectioned by type, so there is no customer row to hang
+  // a history button on. This strip is that anchor: the distinct people the hits belong
+  // to, so the manager can pull up someone's full history without leaving the screen.
+  const matchedCustomers = useMemo(() => {
+    const byId = new Map<string, Customer>();
+    results.jobs.forEach((r) => {
+      if (r.customer) byId.set(r.customer.id, r.customer);
+    });
+    results.ongoing.forEach((s) => {
+      const c = s.customer_id ? customersById?.get(s.customer_id) : undefined;
+      if (c) byId.set(c.id, c);
+    });
+    return [...byId.values()];
+  }, [results.jobs, results.ongoing, customersById]);
 
   // Both handlers archive rather than hard-delete — the row is hidden, not destroyed,
   // which is why the confirm copy says "תוסתר".
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!pendingDelete) return;
-    if (pendingDelete.kind === 'service') onArchiveService?.(pendingDelete.service.id);
-    else onArchiveJob?.(pendingDelete.job.id);
-    toast.success('הרשומה נמחקה');
+    const target = pendingDelete;
     setPendingDelete(null);
+    if (target.kind === 'job') {
+      // archiveJob persists in the background and reports failure through its own toast.
+      onArchiveJob?.(target.job.id);
+      toast.success('הרשומה נמחקה');
+      return;
+    }
+    const ok = await onArchiveService?.(target.service.id);
+    if (ok === false) {
+      toast.error('מחיקת הרשומה נכשלה');
+      return;
+    }
+    toast.success('הרשומה נמחקה');
   };
 
   const deleteTargetName =
@@ -90,6 +112,23 @@ export function ClientSearchResults({
 
   return (
     <div className="space-y-6">
+      {matchedCustomers.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">לקוחות תואמים:</span>
+          {matchedCustomers.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setHistoryCustomer(c)}
+              className="inline-flex items-center gap-1 text-xs rounded-full border border-border px-2.5 py-1 hover:bg-muted/40 transition-colors"
+              aria-label={`היסטוריה — ${c.name}`}>
+              <History className="w-3 h-3 text-muted-foreground" aria-hidden />
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Ongoing services — editable (opens the shared edit modal) when a handler is provided */}
       <ResultSection title="שירות שוטף" count={results.ongoing.length} icon={<Filter className="w-4 h-4 text-primary" />}>
         {results.ongoing.map(s => {
@@ -204,6 +243,12 @@ export function ClientSearchResults({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CustomerHistoryDialog
+        customer={historyCustomer}
+        open={!!historyCustomer}
+        onOpenChange={(open) => !open && setHistoryCustomer(null)}
+      />
     </div>
   );
 }
@@ -223,7 +268,7 @@ function ResultSection({ title, count, icon, children }: { title: string; count:
 }
 
 function JobRow({ job, customer, onDelete }: JobResult & { onDelete?: () => void }) {
-  const completion = job.completionStatus ? COMPLETION_LABELS[job.completionStatus] : null;
+  const completion = job.completionStatus ? COMPLETION_STATUS_CONFIG[job.completionStatus] : null;
   const addressParts = [customer?.address, customer?.city || job.city].filter(Boolean).join(', ');
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
@@ -242,7 +287,7 @@ function JobRow({ job, customer, onDelete }: JobResult & { onDelete?: () => void
         <span className="text-xs text-muted-foreground hidden sm:inline">{addressParts}</span>
       )}
       {completion && (
-        <span className={cn('text-xs rounded-full border px-2 py-0.5 flex-shrink-0', completion.cls)}>
+        <span className={cn('text-xs rounded-full border px-2 py-0.5 flex-shrink-0', completion.pill)}>
           {completion.label}
         </span>
       )}

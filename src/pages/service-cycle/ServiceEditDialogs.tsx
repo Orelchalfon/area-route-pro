@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { CompletionStatus, Customer } from '@/types';
 import { Pencil, UserCog } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { STATUS_OPTIONS } from './status';
 
 // Shared handler shapes so every consumer (list view, calendar view, search results) passes the
@@ -20,7 +21,10 @@ export type ServiceUpdatePatch = {
   phone?: string;
   completion_status?: CompletionStatus | null;
 };
-export type UpdateServiceFn = (id: string, patch: ServiceUpdatePatch) => void;
+// Resolves to whether the write actually landed, so callers can tell the manager the
+// truth instead of toasting success over a rejected UPDATE.
+export type UpdateServiceFn = (id: string, patch: ServiceUpdatePatch) => Promise<boolean>;
+export type ArchiveServiceFn = (id: string) => Promise<boolean>;
 export type UpdateCustomerFn = (customerId: string, data: Partial<Customer>) => void;
 
 // Renders the service edit + customer edit dialogs for a controlled `editing` row. Shared by the
@@ -50,17 +54,22 @@ export function ServiceEditDialogs({
         service={editing}
         open={!!editing}
         onOpenChange={(open) => !open && onCloseEdit()}
-        onSave={(patch) => {
-          if (editing) {
-            onUpdateService?.(editing.id, patch);
-            if (
-              linkedCustomer &&
-              patch.phone.trim() !== (linkedCustomer.phone || '').trim()
-            ) {
-              onUpdateCustomer?.(linkedCustomer.id, { phone: patch.phone.trim() });
-            }
-          }
+        onSave={async (patch) => {
+          // Close first — the dialog's job is done either way; the outcome arrives as a toast.
+          const row = editing;
           onCloseEdit();
+          if (!row) return;
+          const ok = await onUpdateService?.(row.id, patch);
+          if (ok === false) {
+            toast.error('שמירת השינויים נכשלה');
+            return;
+          }
+          if (
+            linkedCustomer &&
+            patch.phone.trim() !== (linkedCustomer.phone || '').trim()
+          ) {
+            onUpdateCustomer?.(linkedCustomer.id, { phone: patch.phone.trim() });
+          }
         }}
         linkedCustomer={linkedCustomer}
         onEditCustomer={(customer) => {

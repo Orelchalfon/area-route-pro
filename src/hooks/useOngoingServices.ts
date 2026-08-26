@@ -270,6 +270,10 @@ export function useOngoingServices() {
 
   // Edit a service line (the manager's "current service" table). Optimistically updates
   // local state, then persists; a failed write is rolled back via a refresh.
+  //
+  // Returns whether the write actually landed. Callers MUST check it before showing a
+  // success toast: this used to be fire-and-forget, so a rejected UPDATE (an RLS denial,
+  // say) only reached console.error while the manager was told it had saved.
   const updateOngoingService = useCallback(
     async (
       id: string,
@@ -292,7 +296,9 @@ export function useOngoingServices() {
       if (error) {
         console.error(`Failed to update ongoing service ${id}:`, error);
         void fetchAll();
+        return false;
       }
+      return true;
     },
     [fetchAll],
   );
@@ -308,7 +314,9 @@ export function useOngoingServices() {
     if (error) {
       console.error(`Failed to archive ongoing service ${id}:`, error);
       void fetchAll();
+      return false;
     }
+    return true;
   }, [fetchAll]);
 
   return { services, jobs, customers, loading, loaded, refresh: fetchAll, updateOngoingService, archiveOngoingService };

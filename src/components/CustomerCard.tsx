@@ -8,15 +8,13 @@ import { ServiceTrackBadge } from './ServiceTrackBadge';
 
 interface CustomerCardProps {
   customer: Customer;
-  /** Number of activity-log entries, shown as a badge on the history button. */
-  logCount?: number;
   onEdit?: (customer: Customer) => void;
   onShowHistory?: (customer: Customer) => void;
   /** Opens the read-only full-record dialog. When given, the whole card becomes clickable. */
   onShowDetails?: (customer: Customer) => void;
 }
 
-function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory, onShowDetails }: CustomerCardProps) {
+function CustomerCardComponent({ customer, onEdit, onShowHistory, onShowDetails }: CustomerCardProps) {
   // Everything interactive inside the card stops propagation, so the buttons and the tel:/mailto:
   // links keep doing only their own job instead of also opening the details dialog.
   const stop = (e: React.MouseEvent) => e.stopPropagation();
@@ -56,13 +54,8 @@ function CustomerCardComponent({ customer, logCount = 0, onEdit, onShowHistory, 
               </Button>
             )}
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary" onClick={(e) => { stop(e); onShowHistory?.(customer); }}>
-              <History className="w-4 h-4 ml-1" />
+              <History className="w-4 h-4 me-1" />
               <span className="text-xs">היסטוריה</span>
-              {logCount > 0 && (
-                <span className="mr-1 bg-primary/10 text-primary text-xs font-bold rounded-full px-1.5 py-0.5">
-                  {logCount}
-                </span>
-              )}
             </Button>
           </div>
         </div>

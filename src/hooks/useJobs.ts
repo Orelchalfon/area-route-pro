@@ -46,6 +46,7 @@ import {
 } from "@/lib/idConventions";
 import { buildCalendarServiceData } from "@/lib/ongoingServiceCalendar";
 import {
+  COMPLETION_STATUS_LABELS,
   CompletionStatus,
   Customer,
   Job,
@@ -75,7 +76,7 @@ export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [closedJobs, setClosedJobs] = useState<Job[]>([]);
-  const { activityLogs, addLog, getCustomerLogs } = useActivityLogs();
+  const { activityLogs, addLog, fetchCustomerLogs } = useActivityLogs();
   const [dataLoaded, setDataLoaded] = useState(false);
   const {
     customers: dbBaseCustomers,
@@ -119,6 +120,10 @@ export function useJobs() {
     services: ongoingServices,
     loaded: ongoingLoaded,
     refresh: refreshOngoingServices,
+    // Re-exported below so ServiceCyclePage can edit services through THIS instance
+    // instead of mounting a second useOngoingServices with its own cache.
+    updateOngoingService,
+    archiveOngoingService,
   } = useOngoingServices();
 
   // Calendar-derived service enrichment (filterReplacementMonth / serviceTrack / service
@@ -678,11 +683,7 @@ export function useJobs() {
     completionStatus: CompletionStatus,
     notes: string,
   ) => {
-    const statusLabels: Record<CompletionStatus, string> = {
-      done: "בוצע",
-      not_done: "לא בוצע",
-      need_return: "צריך לחזור",
-    };
+    const statusLabels = COMPLETION_STATUS_LABELS;
     setJobs((prev) => {
       const job = prev.find((j) => j.id === jobId);
       if (job)
@@ -731,10 +732,19 @@ export function useJobs() {
           j.completionStatus,
       );
       dayJobs.forEach((job) => {
+        // Embed the report being destroyed. The source row keeps only ONE mutable
+        // completion triple, so nulling it here is the one place a visit that really
+        // happened could vanish from the record — the log entry is what preserves it.
+        const priorLabel = job.completionStatus
+          ? COMPLETION_STATUS_LABELS[job.completionStatus]
+          : "ללא דיווח";
+        const priorNotes = job.completionNotes?.trim();
         addLog(
           job.customerId,
           "איפוס דיווח",
-          "אישור היום בוטל — הדיווח אופס",
+          `אישור היום בוטל — הדיווח אופס. הדיווח שהיה: ${priorLabel}${
+            priorNotes ? ` — ${priorNotes}` : ""
+          }`,
           job.id,
         );
         if (getDbJobRef(job.id)) {
@@ -1352,6 +1362,12 @@ export function useJobs() {
     dbLastSyncedAt: dbLastSyncedAt || undefined,
     refreshDbJobs,
     refreshAll,
+    refreshOngoingServices,
+    updateOngoingService,
+    archiveOngoingService,
+    // Just the ongoing_services fetch, NOT boardReady: the service-cycle page only needs
+    // this table to paint, and gating it on every source would slow it down for no gain.
+    ongoingServicesLoaded: ongoingLoaded,
     updateJobStatus,
     approveSchedule,
     approveDaySchedule,
@@ -1382,7 +1398,7 @@ export function useJobs() {
     getUnassignedJobs,
     getJobsByArea,
     getJobsByTechnician,
-    getCustomerLogs,
+    fetchCustomerLogs,
     addLog,
     distributeServiceTracks,
     recalcNextServiceDate,

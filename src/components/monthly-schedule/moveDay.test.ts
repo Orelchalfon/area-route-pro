@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Job, CompletionStatus } from '@/types';
-import { buildMoveDayAssignments } from './moveDay';
+import {
+  buildMoveDayAssignments,
+  buildSwapDayPlan,
+  resolveSwapApprovals,
+} from './moveDay';
 import { calculateTimeRanges } from './utils';
 
 // Handing a sick technician's day to the other one. Two rules carry the whole feature:
@@ -166,6 +170,167 @@ describe('buildMoveDayAssignments — reported stops', () => {
     expect(assignments).toEqual([
       { jobId: 'live', technicianId: 't2', scheduledDate: DATE, scheduledTime: '11:00' },
     ]);
+  });
+});
+
+describe('buildSwapDayPlan', () => {
+  it('trades the two days at their exact times — nobody has to re-confirm', () => {
+    const shilo = [job('s1', 60, '10:00'), job('s2', 30, '11:00')];
+    const neria = [job('n1', 45, '10:00'), job('n2', 20, '10:45'), job('n3', 60, '11:05')];
+
+    const { toOther, toSource, assignments } = buildSwapDayPlan(
+      shilo,
+      neria,
+      'shilo',
+      'neria',
+      DATE,
+    );
+
+    expect(toOther.assignments).toEqual([
+      { jobId: 's1', technicianId: 'neria', scheduledDate: DATE, scheduledTime: '10:00' },
+      { jobId: 's2', technicianId: 'neria', scheduledDate: DATE, scheduledTime: '11:00' },
+    ]);
+    expect(toSource.assignments.map((a) => a.scheduledTime)).toEqual([
+      '10:00',
+      '10:45',
+      '11:05',
+    ]);
+    toSource.assignments.forEach((a) => expect(a.technicianId).toBe('shilo'));
+    // One write, and no job can be claimed by both technicians.
+    expect(assignments).toHaveLength(5);
+    expect(new Set(assignments.map((a) => a.jobId)).size).toBe(5);
+  });
+
+  it('degrades to the plain hand-over when the other technician has nothing that day', () => {
+    const shilo = [job('s1', 60, '10:00'), job('s2', 30, '11:00')];
+
+    const { toOther, toSource } = buildSwapDayPlan(shilo, [], 'shilo', 'neria', DATE);
+
+    expect(toOther.assignments).toEqual(
+      buildMoveDayAssignments(shilo, [], 'neria', DATE).assignments,
+    );
+    expect(toSource.assignments).toHaveLength(0);
+    expect(toSource.movedJobs).toHaveLength(0);
+  });
+
+  it('times each incoming block against the reported stops staying on that day', () => {
+    // נריה got through her 10:00 (90m) call before going home; שילה's day is untouched.
+    const neria = [job('n-done', 90, '10:00', 'done'), job('n1', 20, '11:30')];
+    const shilo = [job('s1', 30, '10:00'), job('s2', 45, '10:30')];
+
+    const { toOther, toSource } = buildSwapDayPlan(
+      shilo,
+      neria,
+      'shilo',
+      'neria',
+      DATE,
+    );
+
+    // Into נריה's day: her reported call still owns 10:00–11:30, so שילה's stops start after it.
+    expect(toOther.assignments.map((a) => a.scheduledTime)).toEqual(['11:30', '12:00']);
+    // Into שילה's day: nothing stayed behind, so נריה's live stop keeps its own time.
+    expect(toSource.assignments.map((a) => a.scheduledTime)).toEqual(['11:30']);
+  });
+
+  it('leaves every reported stop with the technician who reported it', () => {
+    const shilo = [job('s-done', 60, '10:00', 'not_done'), job('s1', 30, '11:00')];
+    const neria = [job('n-done', 45, '10:00', 'done'), job('n1', 20, '10:45')];
+
+    const { toOther, toSource } = buildSwapDayPlan(
+      shilo,
+      neria,
+      'shilo',
+      'neria',
+      DATE,
+    );
+
+    expect(toOther.movedJobs.map((j) => j.id)).toEqual(['s1']);
+    expect(toOther.skippedJobs.map((j) => j.id)).toEqual(['s-done']);
+    expect(toSource.movedJobs.map((j) => j.id)).toEqual(['n1']);
+    expect(toSource.skippedJobs.map((j) => j.id)).toEqual(['n-done']);
+  });
+
+  it('still moves work back when the whole source day was already reported', () => {
+    const shilo = [job('s-done', 60, '10:00', 'done')];
+    const neria = [job('n1', 30, '10:00')];
+
+    const { toOther, toSource } = buildSwapDayPlan(
+      shilo,
+      neria,
+      'shilo',
+      'neria',
+      DATE,
+    );
+
+    expect(toOther.movedJobs).toHaveLength(0);
+    // שילה's reported call keeps 10:00–11:00, so נריה's stop lands after it.
+    expect(toSource.assignments).toEqual([
+      { jobId: 'n1', technicianId: 'shilo', scheduledDate: DATE, scheduledTime: '11:00' },
+    ]);
+  });
+});
+
+describe('resolveSwapApprovals', () => {
+  const base = {
+    sourceApproved: false,
+    otherApproved: false,
+    sourceMoved: 0,
+    otherMoved: 0,
+    sourceSkipped: 0,
+    otherSkipped: 0,
+  };
+
+  it('hands the approval over on a plain one-way move — the shipped behaviour', () => {
+    expect(
+      resolveSwapApprovals({ ...base, sourceApproved: true, sourceMoved: 3 }),
+    ).toEqual({ source: false, other: true });
+  });
+
+  it('keeps both days approved when both technicians had an approved route', () => {
+    expect(
+      resolveSwapApprovals({
+        ...base,
+        sourceApproved: true,
+        otherApproved: true,
+        sourceMoved: 2,
+        otherMoved: 3,
+      }),
+    ).toEqual({ source: true, other: true });
+  });
+
+  it('keeps the source approved while its reported stops stay behind', () => {
+    expect(
+      resolveSwapApprovals({
+        ...base,
+        sourceApproved: true,
+        sourceMoved: 2,
+        sourceSkipped: 1,
+      }),
+    ).toEqual({ source: true, other: true });
+  });
+
+  it('does not approve a day that receives nothing', () => {
+    // Every stop on the approved source day was already reported — nothing leaves it.
+    expect(
+      resolveSwapApprovals({ ...base, sourceApproved: true, sourceSkipped: 2 }),
+    ).toEqual({ source: true, other: false });
+  });
+
+  it('revokes the approval of a technician who takes over an unapproved route', () => {
+    expect(
+      resolveSwapApprovals({
+        ...base,
+        sourceApproved: true,
+        sourceMoved: 2,
+        otherMoved: 3,
+      }),
+    ).toEqual({ source: false, other: true });
+  });
+
+  it('leaves two unapproved days unapproved', () => {
+    expect(
+      resolveSwapApprovals({ ...base, sourceMoved: 2, otherMoved: 3 }),
+    ).toEqual({ source: false, other: false });
   });
 });
 

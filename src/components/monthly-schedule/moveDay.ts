@@ -28,9 +28,13 @@ export type MoveDayPlan = {
  * 2. Times only change when they have to. An empty target day keeps every stop's exact
  *    scheduledTime, which preserves the saved route order and — since arrivalStateFor
  *    compares date+time only — keeps the customers' arrival confirmations valid. A target
- *    day that already holds work gets the moved stops appended after its last one, using
+ *    day that still holds work gets the moved stops appended after its last one, using
  *    the same nextFreeMinutes + cumulative-duration arithmetic as appending to an approved
  *    day (see scheduleTimes.test.ts for the invariant that makes that a single safe write).
+ *
+ * `targetExistingJobs` is what will *still* be on the receiving day once the move lands, not
+ * what is on it right now — in a swap (buildSwapDayPlan) the receiving technician's own live
+ * stops all leave, so only their reported stay-behinds occupy time there.
  */
 export function buildMoveDayAssignments(
   dayJobs: Job[],
@@ -70,4 +74,81 @@ export function buildMoveDayAssignments(
   });
 
   return { movedJobs, assignments, skippedJobs };
+}
+
+export type SwapDayPlan = {
+  /** What the selected technician hands to the other one. */
+  toOther: MoveDayPlan;
+  /** What comes back the other way. */
+  toSource: MoveDayPlan;
+  /** Both directions in one list — safe to write in a single pass, the id sets are disjoint. */
+  assignments: DayAssignment[];
+};
+
+/**
+ * Plan swapping a date between the two technicians: each one's live stops become the other's.
+ *
+ * The swap is two mirrored moves, and the mirroring is what makes it cheap: because every live
+ * stop leaves its day, each incoming block is timed against nothing but the receiving
+ * technician's *reported* stay-behinds. With none — the usual case — both sides keep their exact
+ * scheduledTimes, so the routes stay in order and every customer arrival confirmation survives.
+ */
+export function buildSwapDayPlan(
+  sourceDayJobs: Job[],
+  otherDayJobs: Job[],
+  sourceTechId: string,
+  otherTechId: string,
+  dateStr: string,
+): SwapDayPlan {
+  const sourceSkipped = sourceDayJobs.filter((j) => j.completionStatus);
+  const otherSkipped = otherDayJobs.filter((j) => j.completionStatus);
+
+  const toOther = buildMoveDayAssignments(
+    sourceDayJobs,
+    otherSkipped,
+    otherTechId,
+    dateStr,
+  );
+  const toSource = buildMoveDayAssignments(
+    otherDayJobs,
+    sourceSkipped,
+    sourceTechId,
+    dateStr,
+  );
+
+  return {
+    toOther,
+    toSource,
+    assignments: [...toOther.assignments, ...toSource.assignments],
+  };
+}
+
+/**
+ * Where each technician's day approval lands after a swap.
+ *
+ * A day is approved when the technician has work on it the manager has signed off on —
+ * TechnicianView only shows days approved for that technician, so the approval has to follow the
+ * work. Two ways to end up approved: you receive stops that came off an approved day, or you keep
+ * reported stops from your own approved day (they still need their day visible to you).
+ *
+ * Both incoming terms are gated on that direction actually moving something. Without the gate a
+ * day whose stops were all already reported — nothing to send — would still approve the other
+ * technician on a day where they have nothing.
+ */
+export function resolveSwapApprovals(input: {
+  sourceApproved: boolean;
+  otherApproved: boolean;
+  sourceMoved: number;
+  otherMoved: number;
+  sourceSkipped: number;
+  otherSkipped: number;
+}): { source: boolean; other: boolean } {
+  return {
+    source:
+      (input.otherApproved && input.otherMoved > 0) ||
+      (input.sourceApproved && input.sourceSkipped > 0),
+    other:
+      (input.sourceApproved && input.sourceMoved > 0) ||
+      (input.otherApproved && input.otherSkipped > 0),
+  };
 }

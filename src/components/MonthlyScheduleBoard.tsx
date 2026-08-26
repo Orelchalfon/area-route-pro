@@ -91,7 +91,10 @@ import {
   minutesToTime,
   nextFreeMinutes,
 } from "./monthly-schedule/utils";
-import { buildMoveDayAssignments } from "./monthly-schedule/moveDay";
+import {
+  buildSwapDayPlan,
+  resolveSwapApprovals,
+} from "./monthly-schedule/moveDay";
 
 interface MonthlyScheduleBoardProps {
   jobs: Job[];
@@ -947,53 +950,79 @@ export function MonthlyScheduleBoard({
     setPendingDayReset(null);
   };
 
-  // The technician a day would be handed to — there are exactly two, so the target is
+  // The technician a day is swapped with — there are exactly two, so the counterpart is
   // never ambiguous and needs no picker.
   const otherTech = technicians.find((t) => t.id !== selectedTechId);
+  const selectedTechName =
+    technicians.find((t) => t.id === selectedTechId)?.name ?? "הטכנאי";
 
-  // Hand a whole day over to the other technician (the assigned one is sick / away).
-  // Goes through onApproveDaySchedule rather than a loop of onAssignJob: it is the only
-  // path that routes by id, so synthetic filter-… jobs reach scheduled_filter_services
-  // instead of being silently dropped by persistDbJob.
-  const handleMoveDayToOtherTech = (dateStr: string) => {
+  // The other technician's days, indexed by date. extraFilterAssignments is cleared on every
+  // technician switch (see the tech buttons below), so it never holds *their* staged jobs —
+  // global `jobs` is the complete picture for them. Returned calls are excluded for the same
+  // reason manualJobsByDate excludes them: they keep a date as documentation but are no
+  // longer work on that day.
+  const otherTechJobsByDate = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    if (!otherTech) return map;
+    jobs.forEach((j) => {
+      if (
+        j.technicianId !== otherTech.id ||
+        !j.scheduledDate ||
+        isReturnedForReschedule(j)
+      )
+        return;
+      const list = map.get(j.scheduledDate);
+      if (list) list.push(j);
+      else map.set(j.scheduledDate, [j]);
+    });
+    return map;
+  }, [jobs, otherTech]);
+
+  // Swap a whole day between the two technicians — one is sick / away, or the manager wants
+  // their routes exchanged. Goes through onApproveDaySchedule rather than a loop of
+  // onAssignJob: it is the only path that routes by id, so synthetic filter-… jobs reach
+  // scheduled_filter_services instead of being silently dropped by persistDbJob. Both
+  // directions go in one call, so there is no intermediate state where a job has two owners.
+  const handleSwapDayWithOtherTech = (dateStr: string) => {
     if (!otherTech) return;
-    // A locked target day is closed for reporting (client-side and via RLS triggers), so
-    // stops appended there could never be reported. Read off the raw keys — `lockedDays`
-    // is derived for the selected technician only.
+    // A locked day is closed for reporting (client-side and via RLS triggers), so stops
+    // landing there could never be reported. Read off the raw keys — `lockedDays` is derived
+    // for the selected technician only, whose side is already guarded by the button.
     if (lockedDayKeys.has(approvedDayKey(otherTech.id, dateStr))) {
-      toast.error(`היום של ${otherTech.name} נעול — יש לשחרר אותו לפני העברת משימות`);
+      toast.error(`היום של ${otherTech.name} נעול — יש לשחרר אותו לפני החלפת הימים`);
       return;
     }
-    const dayJobs = [...getFilterDayJobs(dateStr), ...getManualDayJobs(dateStr)];
-    // The target's own day — getFilterDayJobs/getManualDayJobs are scoped to the
-    // selected (source) technician, so it has to be read off `jobs` directly. Returned
-    // calls are skipped for the same reason manualJobsByDate skips them: they keep a
-    // date as documentation but are no longer work on that day.
-    const targetExistingJobs = jobs.filter(
-      (j) =>
-        j.technicianId === otherTech.id &&
-        j.scheduledDate === dateStr &&
-        !isReturnedForReschedule(j),
-    );
+    const sourceDayJobs = [
+      ...getFilterDayJobs(dateStr),
+      ...getManualDayJobs(dateStr),
+    ];
+    const otherDayJobs = otherTechJobsByDate.get(dateStr) ?? EMPTY_JOBS;
 
-    const { movedJobs, assignments, skippedJobs } = buildMoveDayAssignments(
-      dayJobs,
-      targetExistingJobs,
+    const { toOther, toSource, assignments } = buildSwapDayPlan(
+      sourceDayJobs,
+      otherDayJobs,
+      selectedTechId,
       otherTech.id,
       dateStr,
     );
 
-    if (movedJobs.length === 0) {
-      toast.info("אין משימות להעברה — כל המשימות ביום כבר דווחו");
+    // Combined, not per-direction: a day whose own stops were all reported can still receive
+    // the other technician's work.
+    if (toOther.movedJobs.length + toSource.movedJobs.length === 0) {
+      toast.info("אין משימות להחלפה — כל המשימות של שני הטכנאים כבר דווחו");
       return;
     }
 
-    onApproveDaySchedule(assignments, movedJobs);
+    onApproveDaySchedule(assignments, [
+      ...toOther.movedJobs,
+      ...toSource.movedJobs,
+    ]);
 
-    // Drop the moved jobs from the session-local map. It is keyed by date only (not by
-    // technician), so leaving them there would keep painting them on the source
-    // technician's board until the next tech switch.
-    const movedIds = new Set(movedJobs.map((j) => j.id));
+    // Drop the outgoing jobs from the session-local map. It is keyed by date only (not by
+    // technician), so leaving them there would keep painting them on the source technician's
+    // board until the next tech switch. The incoming ones need no entry — they arrive through
+    // the global branch of getFilterDayJobs.
+    const movedIds = new Set(toOther.movedJobs.map((j) => j.id));
     setExtraFilterAssignments((prev) => {
       const dayJobsLocal = prev.get(dateStr);
       if (!dayJobsLocal) return prev;
@@ -1004,33 +1033,58 @@ export function MonthlyScheduleBoard({
       return next;
     });
 
-    // Carry the approval across so the receiving technician sees the route immediately —
-    // TechnicianView only shows days approved for that technician. The lock is not
-    // carried: unapproveDay deletes the source row and with it the lock. The source
-    // approval is only revoked once the day is actually empty — reported stops left
-    // behind still need their day approved to stay visible to the technician who did them.
-    if (approvedDays.has(dateStr)) {
-      approveDay(otherTech.id, dateStr);
-      if (skippedJobs.length === 0) unapproveDay(selectedTechId, dateStr);
+    // The approval follows the work — TechnicianView only shows days approved for that
+    // technician. Applied only where it changes: re-upserting an approved row would risk its
+    // `locked` flag, and unapproveDay deletes the row (and with it the lock), which is why a
+    // lock is never carried across a swap.
+    const nextApproval = resolveSwapApprovals({
+      sourceApproved: approvedDays.has(dateStr),
+      otherApproved: approvedDayKeys.has(approvedDayKey(otherTech.id, dateStr)),
+      sourceMoved: toOther.movedJobs.length,
+      otherMoved: toSource.movedJobs.length,
+      sourceSkipped: toOther.skippedJobs.length,
+      otherSkipped: toSource.skippedJobs.length,
+    });
+    // Raw approveDay/unapproveDay, never handleUnapproveDay — that one can reset the day's
+    // completions, and the reports on stay-behind stops have to survive the swap.
+    if (nextApproval.source !== approvedDays.has(dateStr)) {
+      if (nextApproval.source) approveDay(selectedTechId, dateStr);
+      else unapproveDay(selectedTechId, dateStr);
+    }
+    const otherKey = approvedDayKey(otherTech.id, dateStr);
+    if (nextApproval.other !== approvedDayKeys.has(otherKey)) {
+      if (nextApproval.other) approveDay(otherTech.id, dateStr);
+      else unapproveDay(otherTech.id, dateStr);
     }
 
+    // A swap with an empty day on one side is a plain hand-over — say so rather than
+    // reporting "0 משימות" in one of the two directions.
+    const outgoing = toOther.movedJobs.length;
+    const incoming = toSource.movedJobs.length;
     toast.success(
-      movedJobs.length > 1
-        ? `${movedJobs.length} משימות הועברו ל${otherTech.name}`
-        : `המשימה הועברה ל${otherTech.name}`,
+      incoming === 0
+        ? outgoing > 1
+          ? `${outgoing} משימות הועברו ל${otherTech.name}`
+          : `המשימה הועברה ל${otherTech.name}`
+        : outgoing === 0
+          ? incoming > 1
+            ? `${incoming} משימות של ${otherTech.name} עברו ל${selectedTechName}`
+            : `משימה של ${otherTech.name} עברה ל${selectedTechName}`
+          : `הימים הוחלפו — ${outgoing} משימות ל${otherTech.name}, ${incoming} משימות ל${selectedTechName}`,
     );
-    if (skippedJobs.length > 0) {
+    const reported = toOther.skippedJobs.length + toSource.skippedJobs.length;
+    if (reported > 0) {
       toast.info(
-        skippedJobs.length > 1
-          ? `${skippedJobs.length} משימות שכבר דווחו נשארו אצל ${technicians.find((t) => t.id === selectedTechId)?.name ?? "הטכנאי"}`
-          : `משימה שכבר דווחה נשארה אצל ${technicians.find((t) => t.id === selectedTechId)?.name ?? "הטכנאי"}`,
+        reported > 1
+          ? `${reported} משימות שכבר דווחו נשארו אצל הטכנאים שביצעו אותן`
+          : "משימה שכבר דווחה נשארה אצל הטכנאי שביצע אותה",
       );
     }
   };
 
   const confirmDayMove = () => {
     if (!pendingDayMove) return;
-    handleMoveDayToOtherTech(pendingDayMove);
+    handleSwapDayWithOtherTech(pendingDayMove);
     setPendingDayMove(null);
   };
 
@@ -1038,8 +1092,8 @@ export function MonthlyScheduleBoard({
   // Close it first and defer the next one a tick: Radix locks <body> pointer-events while
   // a modal is open and restores it on unmount, and mounting the replacement in the same
   // commit can leave that lock behind (same reason the print item defers window.print()).
-  // It is also the honest thing to show — a reset empties the day and a hand-over gives it
-  // away, so the route sitting behind the confirmation would be stale either way.
+  // It is also the honest thing to show — a reset empties the day and a swap trades it away,
+  // so the route sitting behind the confirmation would be stale either way.
   const swapDialog = (next: () => void) => {
     setApprovalState(null);
     window.setTimeout(next, 0);
@@ -1554,7 +1608,7 @@ export function MonthlyScheduleBoard({
                         )}
 
                         {/* The day's own actions, in one row at a single visual altitude:
-                            add · hand over · reset. Everything else lives in the approval
+                            add · swap · reset. Everything else lives in the approval
                             dialog's menu, which the cell click opens.
                             The two icon buttons are week-view only: a month cell is ~84px of
                             content across the 7-column min-w-[700px] grid, and three controls
@@ -1578,9 +1632,9 @@ export function MonthlyScheduleBoard({
                             aria-label='הוסף משימה'>
                             <Plus className='w-3 h-3' />
                           </button>
-                          {/* Hand the whole day to the other technician (this one is sick /
+                          {/* Swap the whole day with the other technician (this one is sick /
                               away). Hidden on a locked day — that day's reporting is final,
-                              so there is nothing left to hand over. */}
+                              so there is nothing left to trade. */}
                           {isWeekView && totalDayJobs > 0 && !isDayLocked && otherTech && (
                             <button
                               onClick={(e) => {
@@ -1588,8 +1642,8 @@ export function MonthlyScheduleBoard({
                                 setPendingDayMove(dateStr);
                               }}
                               className='w-7 shrink-0 flex items-center justify-center py-1 rounded border border-dashed border-border text-muted-foreground hover:border-info/50 hover:text-info transition-colors'
-                              title={`העבר את היום ל${otherTech.name}`}
-                              aria-label={`העבר את היום ל${otherTech.name}`}>
+                              title={`החלף את היום עם ${otherTech.name}`}
+                              aria-label={`החלף את היום עם ${otherTech.name}`}>
                               <ArrowLeftRight className='w-3 h-3' />
                             </button>
                           )}
@@ -1884,7 +1938,7 @@ export function MonthlyScheduleBoard({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Move-day-to-the-other-technician confirmation */}
+      {/* Swap-the-day-with-the-other-technician confirmation */}
       <AlertDialog
         open={!!pendingDayMove}
         onOpenChange={(o) => {
@@ -1893,44 +1947,60 @@ export function MonthlyScheduleBoard({
         <AlertDialogContent dir='rtl'>
           <AlertDialogHeader>
             <AlertDialogTitle className='text-right'>
-              העברת יום לטכנאי אחר
+              החלפת ימים בין הטכנאים
             </AlertDialogTitle>
             <AlertDialogDescription className='text-right'>
               {(() => {
                 if (!pendingDayMove || !otherTech) return "";
                 if (lockedDayKeys.has(approvedDayKey(otherTech.id, pendingDayMove))) {
-                  return `היום הזה נעול אצל ${otherTech.name} — יש לשחרר את הנעילה לפני העברת משימות אליו.`;
+                  return `היום הזה נעול אצל ${otherTech.name} — יש לשחרר את הנעילה לפני החלפת הימים.`;
                 }
-                const dayJobs = [
-                  ...getFilterDayJobs(pendingDayMove),
-                  ...getManualDayJobs(pendingDayMove),
-                ];
-                const movable = dayJobs.filter((j) => !j.completionStatus);
-                const reported = dayJobs.length - movable.length;
                 const label = format(
                   new Date(pendingDayMove + "T00:00:00"),
                   "EEEE d/M",
                   { locale: he },
                 );
-                const targetHasJobs = jobs.some(
-                  (j) =>
-                    j.technicianId === otherTech.id &&
-                    j.scheduledDate === pendingDayMove &&
-                    !isReturnedForReschedule(j),
-                );
-                const lines = [
-                  `להעביר את ${movable.length} המשימות של ${label} ל${otherTech.name}?`,
-                  targetHasJobs
-                    ? `ל${otherTech.name} כבר יש משימות באותו יום — המשימות המועברות ייווספו לסוף המסלול שלו, והלקוחות שלהן יצטרכו לאשר שוב את שעת ההגעה.`
-                    : "השעות של כל המשימות נשמרות כמו שהן, כולל אישורי ההגעה של הלקוחות.",
+                const sourceJobs = [
+                  ...getFilterDayJobs(pendingDayMove),
+                  ...getManualDayJobs(pendingDayMove),
                 ];
-                if (approvedDays.has(pendingDayMove)) {
-                  lines.push(`אישור היום יעבור ל${otherTech.name}, כך שיראה את המסלול מיד.`);
-                }
-                if (reported > 0) {
+                const otherJobs =
+                  otherTechJobsByDate.get(pendingDayMove) ?? EMPTY_JOBS;
+                const sourceMovable = sourceJobs.filter((j) => !j.completionStatus);
+                const otherMovable = otherJobs.filter((j) => !j.completionStatus);
+                const sourceReported = sourceJobs.length - sourceMovable.length;
+                const otherReported = otherJobs.length - otherMovable.length;
+
+                const lines: string[] = [];
+                if (otherMovable.length === 0) {
+                  // Nothing comes back — this is the plain hand-over.
                   lines.push(
-                    `${reported} משימות שכבר דווחו יישארו אצל ${technicians.find((t) => t.id === selectedTechId)?.name ?? "הטכנאי"}.`,
+                    `להעביר את ${sourceMovable.length} המשימות של ${label} ל${otherTech.name}?`,
                   );
+                } else if (sourceMovable.length === 0) {
+                  // Nothing goes out — everything here was already reported.
+                  lines.push(
+                    `להעביר את ${otherMovable.length} המשימות של ${otherTech.name} ב${label} ל${selectedTechName}?`,
+                  );
+                } else {
+                  lines.push(
+                    `להחליף בין הימים של ${label}? ${sourceMovable.length} משימות של ${selectedTechName} יעברו ל${otherTech.name}, ו-${otherMovable.length} משימות של ${otherTech.name} יעברו ל${selectedTechName}.`,
+                  );
+                }
+                if (sourceReported + otherReported === 0) {
+                  lines.push(
+                    "השעות של כל המשימות נשמרות כמו שהן, כולל אישורי ההגעה של הלקוחות.",
+                  );
+                } else {
+                  lines.push(
+                    `${sourceReported + otherReported} משימות שכבר דווחו יישארו אצל הטכנאים שביצעו אותן ושומרות את מקומן במסלול, והמשימות שעוברות אליהם ייקבעו אחריהן — הלקוחות שלהן יצטרכו לאשר שוב את שעת ההגעה.`,
+                  );
+                }
+                if (
+                  approvedDays.has(pendingDayMove) ||
+                  approvedDayKeys.has(approvedDayKey(otherTech.id, pendingDayMove))
+                ) {
+                  lines.push("אישור היום עובר יחד עם המשימות, כך שכל טכנאי יראה את המסלול החדש שלו מיד.");
                 }
                 return lines.join(" ");
               })()}
@@ -1945,7 +2015,7 @@ export function MonthlyScheduleBoard({
                 !!otherTech &&
                 lockedDayKeys.has(approvedDayKey(otherTech.id, pendingDayMove))
               }>
-              העבר יום
+              החלף ימים
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
