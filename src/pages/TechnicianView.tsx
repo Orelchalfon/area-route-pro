@@ -15,8 +15,10 @@ import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, addWeeks } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { normalizeIsraeliPhone, whatsappUrl } from '@/lib/whatsapp';
+import { jobMatchesSearch } from '@/lib/jobSearch';
 import { CompletionDialog } from './technician-view/CompletionDialog';
 import { EditReportDialog } from './technician-view/EditReportDialog';
+import { JobSearchBar } from './technician-view/JobSearchBar';
 import { WeekDaySelector } from './technician-view/WeekDaySelector';
 
 const getTodayStr = () => format(new Date(), 'yyyy-MM-dd');
@@ -63,6 +65,10 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<CompletionStatus>('done');
   const [editNotes, setEditNotes] = useState('');
+  // Deliberately NOT reset when the day or the technician changes: carrying the name
+  // across days is useful, and a silent state reset is more surprising than an empty
+  // list that says why it's empty and offers to clear itself.
+  const [searchQuery, setSearchQuery] = useState('');
   const todayStr = getTodayStr();
 
   const tech = technicians.find(t => t.id === activeTechId);
@@ -87,9 +93,20 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
     .filter(j => j.technicianId === activeTechId && j.scheduledDate === selectedDay && dayApproved(j))
     .sort((a, b) => (a.scheduledTime || '').localeCompare(b.scheduledTime || ''));
 
+  // Unfiltered — these describe the DAY, not the query, so they must not move while
+  // the technician is typing (summary counters, the "הבא בתור" banner, day counts).
   const activeJobs = techJobs.filter(j => j.status === 'confirmed');
   const completedJobs = techJobs.filter(j => j.status === 'completed');
   const nextJob = activeJobs[0];
+
+  // What's actually rendered. One customer lookup map instead of a .find() per job.
+  const customersById = new Map(customersList.map(c => [c.id, c]));
+  const matchesSearch = (j: Job) =>
+    jobMatchesSearch(j, customersById.get(j.customerId), searchQuery);
+  const shownActive = activeJobs.filter(matchesSearch);
+  const shownCompleted = completedJobs.filter(matchesSearch);
+  const shownCount = shownActive.length + shownCompleted.length;
+  const isSearching = searchQuery.trim().length > 0;
 
   const handleComplete = () => {
     if (!completingJobId) return;
@@ -209,6 +226,18 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           onResetToToday={() => { setWeekOffset(0); setSelectedDay(todayStr); }}
         />
 
+        {/* Search — filters the selected day's lists. Hidden on an empty day, where
+            there is nothing to filter. */}
+        {techJobs.length > 0 && (
+          <JobSearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            resultLabel={
+              isSearching ? `מציג ${shownCount} מתוך ${techJobs.length} משימות` : ''
+            }
+          />
+        )}
+
         {/* Next Task Banner */}
         {nextJob && selectedDay === todayStr && (
           <div className="bg-secondary/10 border border-secondary/20 rounded-lg p-3 flex items-center gap-2">
@@ -218,20 +247,24 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
         )}
 
         {/* Active Jobs */}
-        {activeJobs.length > 0 && (
+        {shownActive.length > 0 && (
           <div className="space-y-5">
             <h2 className="font-semibold text-foreground flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-secondary animate-pulse-soft" />
               משימות פעילות
+              {isSearching && ` (${shownActive.length})`}
             </h2>
-            {activeJobs.map((job, idx) => {
-              const customer = customersList.find(c => c.id === job.customerId);
+            {shownActive.map((job) => {
+              const customer = customersById.get(job.customerId);
               const waPhone = normalizeIsraeliPhone(customer?.phone);
+              // Keyed off the day's real next job, not the filtered list's first row —
+              // otherwise a search would move the "next" emphasis onto whatever matched.
+              const isNext = job.id === nextJob?.id;
               return (
               <div
                 key={job.id}
                 className={`rounded-xl border bg-card p-3 shadow-card ${
-                  idx === 0
+                  isNext
                     ? 'border-secondary ring-1 ring-secondary/40'
                     : 'border-border'
                 }`}
@@ -308,13 +341,13 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
         )}
 
         {/* Completed */}
-        {completedJobs.length > 0 && (
+        {shownCompleted.length > 0 && (
           <div className="space-y-3">
             <h2 className="font-semibold text-muted-foreground flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-success" />
-              דווחו ({completedJobs.length})
+              דווחו ({shownCompleted.length})
             </h2>
-            {completedJobs.map(job => {
+            {shownCompleted.map(job => {
               const statusColor = job.completionStatus === 'done' ? 'bg-success/10 border-success/30' :
                 job.completionStatus === 'not_done' ? 'bg-destructive/10 border-destructive/30' :
                 job.completionStatus === 'need_return' ? 'bg-warning/10 border-warning/30' : 'bg-muted/10';
@@ -347,11 +380,25 @@ export default function TechnicianView({ jobs, onMarkCompletion }: TechnicianVie
           </div>
         )}
 
-        {activeJobs.length === 0 &&
-          completedJobs.length === 0 &&
+        {shownActive.length === 0 &&
+          shownCompleted.length === 0 &&
           // Don't claim the day is empty until everything has actually loaded — that
-          // message is otherwise indistinguishable from a failed sync.
-          (boardReady ? (
+          // message is otherwise indistinguishable from a failed sync. And "no matches"
+          // is only knowable once the day actually HAS jobs to search — otherwise it
+          // would be shown over a day that simply hasn't loaded yet.
+          (isSearching && techJobs.length > 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
+              <p className="font-medium">לא נמצאו משימות התואמות את החיפוש</p>
+              <Button
+                variant="link"
+                className="text-sm h-auto p-0 mt-1"
+                onClick={() => setSearchQuery('')}
+              >
+                נקה חיפוש
+              </Button>
+            </div>
+          ) : boardReady ? (
             <div className="text-center py-12 text-muted-foreground">
               <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
               <p className="font-medium">אין משימות מתוזמנות</p>
