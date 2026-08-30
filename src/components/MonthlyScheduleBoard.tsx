@@ -1388,7 +1388,7 @@ export function MonthlyScheduleBoard({
         <div className='bg-card rounded-xl shadow-card overflow-x-auto'>
           {/* Day headers stay real; only the cells are placeholders so the whole
               board reveals at once when every job source has loaded. */}
-          <div className='grid grid-cols-7 border-b border-border min-w-[700px]'>
+          <div className='grid grid-cols-7 border-b border-border min-w-175'>
             {DAY_HEADERS.map((d, i) => (
               <div
                 key={i}
@@ -1397,13 +1397,13 @@ export function MonthlyScheduleBoard({
               </div>
             ))}
           </div>
-          <div className='grid grid-cols-7 min-w-[700px]'>
+          <div className='grid grid-cols-7 min-w-175'>
             {Array.from({
               length: viewMode === "week" ? 7 : startDow + allDays.length,
             }).map((_, i) => (
               <div
                 key={`sk-${i}`}
-                className={`${viewMode === "week" ? "min-h-[280px]" : "min-h-[130px]"} border-b border-r border-border p-1.5 space-y-1.5`}>
+                className={`${viewMode === "week" ? "min-h-70" : "min-h-32.5"} border-b border-r border-border p-1.5 space-y-1.5`}>
                 <Skeleton className='h-4 w-5' />
                 <Skeleton className='h-5 w-full' />
                 <Skeleton className='h-5 w-2/3' />
@@ -1426,7 +1426,7 @@ export function MonthlyScheduleBoard({
         return (
           <div className='bg-card rounded-xl shadow-card overflow-x-auto'>
             {/* Day headers — min-width lets the 7-col grid scroll on mobile instead of crushing */}
-            <div className='grid grid-cols-7 border-b border-border min-w-[700px]'>
+            <div className='grid grid-cols-7 border-b border-border min-w-175'>
               {DAY_HEADERS.map((d, i) => (
                 <div
                   key={i}
@@ -1437,11 +1437,11 @@ export function MonthlyScheduleBoard({
             </div>
 
             {/* Calendar cells */}
-            <div className='grid grid-cols-7 min-w-[700px]'>
+            <div className='grid grid-cols-7 min-w-175'>
               {Array.from({ length: emptyBefore }).map((_, i) => (
                 <div
                   key={`empty-${i}`}
-                  className={`${isWeekView ? "min-h-[280px]" : "min-h-[130px]"} border-b border-r border-border bg-muted/20`}
+                  className={`${isWeekView ? "min-h-70" : "min-h-32.5"} border-b border-r border-border bg-muted/20`}
                 />
               ))}
 
