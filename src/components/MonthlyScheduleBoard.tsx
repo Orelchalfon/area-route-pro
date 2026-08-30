@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJobsContext } from "@/contexts/JobsContext";
+import { ongoingCustomerName } from "@/hooks/useOngoingServices";
 import { approvedDayKey } from "@/hooks/useApprovedDays";
 import { getSubArea } from "@/lib/areas";
 import { technicians } from "@/data/technicians";
@@ -500,6 +501,11 @@ export function MonthlyScheduleBoard({
           : makeOngoingCustomerId(s.id),
         estimatedDuration: 20,
         phone: s.phone || undefined,
+        // A calendar row's db-ongoing-cust- id points at a customer nobody creates (this
+        // pool is built from `services`, and useOngoingServices only emits customers for
+        // rows it turns into jobs). Carry the name here, the same way `phone` is carried,
+        // or the picker has nothing to render and falls back to "—".
+        customerName: ongoingCustomerName(s),
         location: s.location,
         city: s.location,
         notes: s.task_description,

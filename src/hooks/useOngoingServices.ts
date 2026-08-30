@@ -17,6 +17,9 @@ export interface OngoingService {
   completion_status: CompletionStatus | null;
   // App-created (שירות שוטף) rows carry a customer_id; calendar-derived rows don't.
   customer_id: string | null;
+  // Null on calendar rows — their client name is embedded in task_description instead.
+  // Read through ongoingCustomerName(), never directly, so every surface picks the same one.
+  customer_name: string | null;
   // Set once the manager schedules the service onto a day (via the monthly board).
   // Used to keep already-scheduled rows out of the picker's "to schedule" pool.
   scheduled_date: string | null;
@@ -75,6 +78,24 @@ const ONGOING_SERVICE_COLUMNS = [
   'source',
 ].join(',');
 
+/**
+ * The customer name for an ongoing_services row.
+ *
+ * Calendar-derived rows have no customer_name — their task_description embeds the client
+ * (e.g. "יאיר כהן -ביקור שירות"), which is exactly what the service-cycle pages already
+ * render as the row title (see service-cycle/MonthViews.tsx, ClientSearchResults.tsx).
+ *
+ * Exported so the monthly board's picker pool derives the name the SAME way instead of
+ * re-deriving it: that pool is built straight from `services` (not from `jobs`), and when
+ * it dropped the name every calendar row in the picker's 'שירות' tab rendered "—".
+ */
+export function ongoingCustomerName(row: {
+  customer_name?: string | null;
+  task_description?: string | null;
+}): string {
+  return row.customer_name || row.task_description || 'ללא שם';
+}
+
 // Only rows created through the app's "פניה חדשה" flow (they carry a customer_id)
 // become schedulable jobs. Calendar/follow-up rows stay out of the board.
 function ongoingToJobAndCustomer(row: OngoingServiceRow): { job: Job; customer: Customer } {
@@ -87,9 +108,7 @@ function ongoingToJobAndCustomer(row: OngoingServiceRow): { job: Job; customer: 
     : makeOngoingCustomerId(row.id);
   const customer: Customer = {
     id: customerId,
-    // Calendar-derived rows have no customer_name — their task_description embeds the
-    // client (e.g. "יאיר כהן -ביקור שירות"), so fall back to it to keep board cards readable.
-    name: row.customer_name || row.task_description || 'ללא שם',
+    name: ongoingCustomerName(row),
     phone: row.phone || '',
     address: row.address || '',
     city: row.city || row.location || '',
@@ -163,6 +182,7 @@ export function useOngoingServices() {
           status_label: r.status_label,
           completion_status: mapCompletionStatus(r.completion_status) ?? null,
           customer_id: r.customer_id,
+          customer_name: r.customer_name,
           scheduled_date: r.scheduled_date,
           phone: r.phone,
         })),

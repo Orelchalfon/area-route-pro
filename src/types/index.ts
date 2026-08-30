@@ -89,6 +89,10 @@ export interface Job {
   // Optional contact phone carried on ongoing-service picker items whose customer is
   // not in customersList (calendar rows). Otherwise resolved from the customer record.
   phone?: string;
+  // Same idea as `phone`, for the display name: a calendar row has no customer record at
+  // all, so the name travels on the job itself (see ongoingCustomerName). Otherwise
+  // resolved from the customer record — never a substitute for customerId.
+  customerName?: string;
   notes: string;
   completionNotes?: string;
   completionStatus?: CompletionStatus;

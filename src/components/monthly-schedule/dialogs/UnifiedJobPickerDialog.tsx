@@ -28,6 +28,10 @@ import {
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { jobMatchesPickerSearch } from "./jobPickerSearch";
+import {
+  buildUniquePhoneCardIndex,
+  resolvePickerCustomerName,
+} from "./pickerCustomerName";
 import { getPickerAssignment, PickerAssignment } from "./pickerAssignment";
 import { jobMatchesAreas } from "../regions";
 import {
@@ -278,8 +282,16 @@ export function UnifiedJobPickerDialog({
     onClose();
   };
 
+  // Built once per customer list, not per row: the 'שירות' tab is mostly calendar rows
+  // with no customer record, and each one would otherwise scan all ~7k customers.
+  const uniquePhoneCards = useMemo(
+    () => buildUniquePhoneCardIndex(customers),
+    [customers],
+  );
+
   const listProps = {
     customers,
+    uniquePhoneCards,
     otherDayIds,
     selectedJobIds,
     onToggleJob: toggleJob,
@@ -384,6 +396,7 @@ export function UnifiedJobPickerDialog({
 function IncrementalJobList({
   items,
   customers,
+  uniquePhoneCards,
   otherDayIds,
   selectedJobIds,
   onToggleJob,
@@ -395,6 +408,7 @@ function IncrementalJobList({
 }: {
   items: PickerRow[];
   customers: Customer[];
+  uniquePhoneCards: Map<string, Customer>;
   otherDayIds: Set<string>;
   selectedJobIds: Set<string>;
   onToggleJob: (jobId: string) => void;
@@ -436,9 +450,22 @@ function IncrementalJobList({
           const customer = customers.find((c) => c.id === job.customerId);
           const isFromOther = otherDayIds.has(job.id);
           const isOngoing = isOngoingJob(job.id);
-          const taskDescription = isOngoing
+          // A calendar row has no customer record, so its name comes off the job itself
+          // (or off a card whose phone uniquely matches) — see resolvePickerCustomerName.
+          const customerName = resolvePickerCustomerName(
+            job,
+            customer,
+            uniquePhoneCards,
+          );
+          const rawTaskDescription = isOngoing
             ? (job.notes || "").split(" | ")[0]
             : undefined;
+          // When the name FELL BACK to the description, printing both lines would show the
+          // same text twice — keep the title and drop the duplicate.
+          const taskDescription =
+            rawTaskDescription && rawTaskDescription !== customerName
+              ? rawTaskDescription
+              : undefined;
           const serviceDate = isOngoing
             ? job.scheduledDate || job.createdAt
             : undefined;
@@ -494,8 +521,8 @@ function IncrementalJobList({
                 <div className='flex min-w-0 items-center gap-2'>
                   <span
                     className='min-w-0 truncate text-sm font-medium'
-                    title={customer?.name}>
-                    {customer?.name || "—"}
+                    title={customerName}>
+                    {customerName || "—"}
                   </span>
                   {isOngoing ? (
                     <span className='inline-flex shrink-0 items-center px-1.5 py-0.5 text-xs font-medium rounded-full bg-warning/15 text-warning-strong'>
@@ -591,7 +618,7 @@ function IncrementalJobList({
                     isEditing ? onCancelEdit() : onStartEdit(job.id)
                   }
                   className='flex shrink-0 items-center px-3 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60'
-                  aria-label={`ערוך פרטים — ${customer?.name || "משימה"}`}
+                  aria-label={`ערוך פרטים — ${customerName || "משימה"}`}
                   aria-expanded={isEditing}
                   title='ערוך פרטים'>
                   <Pencil className='h-5 w-5' />
