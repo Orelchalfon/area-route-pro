@@ -22,46 +22,67 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { arrivalStateFor } from "@/hooks/useArrivalConfirmations";
+import type { DayDocumentationRecord } from "@/hooks/useCompletedDayRecords";
 import { getCustomerCoords } from "@/lib/customerCoords";
 import { isOngoingJob } from "@/lib/idConventions";
 import { optimizeStopOrder, type LatLng } from "@/lib/routeOptimizer";
 import { cn } from "@/lib/utils";
 import { normalizeIsraeliPhone, whatsappUrl } from "@/lib/whatsapp";
-import { Job, JOB_TYPE_CONFIG, JobType } from "@/types";
+import { CompletionStatus, Job, JOB_TYPE_CONFIG, JobType } from "@/types";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import {
   AlertTriangle,
+  Archive,
   ArrowLeftRight,
   CheckCircle,
   CheckCircle2,
+  ChevronDown,
   Circle,
   Clock,
   GripVertical,
-  ListChecks,
   Lock,
   LockOpen,
   MessageCircle,
   MoreHorizontal,
+  Navigation,
+  Pencil,
   Printer,
   RotateCcw,
   Save,
   Trash2,
+  Undo2,
   Wand2,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { AddressAutocomplete } from "../../AddressAutocomplete";
 import { CustomerInfoPopover } from "../../CustomerInfoPopover";
 import { DayRouteMap } from "../../DayRouteMap";
 import { DayRouteSheet } from "../DayRouteSheet";
 import { FollowUpTasksPopover } from "../FollowUpTasksPopover";
 import { typeColors, typeIcons } from "../constants";
 import { useDragReorder } from "../hooks/useDragReorder";
+import { useJobEditForm } from "../hooks/useJobEditForm";
 import { buildRouteSheetRows } from "../routeSheet";
 import { calculateTimeRanges } from "../utils";
+
+const DOCUMENTED_OUTCOME: Record<CompletionStatus, string> = {
+  done: "✓ בוצע",
+  not_done: "✗ לא בוצע",
+  need_return: "↻ צריך לחזור",
+};
+
+const COMPLETION_COLORS: Record<CompletionStatus, string> = {
+  done: "border-success bg-success/10",
+  not_done: "border-destructive bg-destructive/10",
+  need_return: "border-warning bg-warning/10",
+};
 
 // Day approval dialog: proposes an efficient route, lets the manager rearrange it, and
 // persists that arrangement.
@@ -84,7 +105,10 @@ export function DayApprovalDialog({
   onAddJob,
   dayAreas,
   technicianName,
-  onOpenDetails,
+  documentation = [],
+  onRemoveJob,
+  onCloseJob,
+  onReturnJob,
   onResetDay,
   onMoveDayToOtherTech,
   otherTechName,
@@ -116,12 +140,17 @@ export function DayApprovalDialog({
   // and whose sheet this is.
   dayAreas: string[];
   technicianName: string;
-  // The day's remaining actions, grouped in this dialog's overflow menu now that the day
-  // cell itself only carries add / transfer / reset. Each one replaces this dialog with
-  // another one, so the board closes this dialog before opening the next.
-  // Not optional: this dialog is the only way into the detail view, which owns per-job
-  // editing, closing/returning a call, and the day's completion documentation.
-  onOpenDetails: () => void;
+  // Per-job detail work, folded in from the day-detail dialog this replaced: the manager
+  // fixes an address, drops a stop, or acts on a technician's report without leaving the
+  // route they just arranged. All of it is the board's logic, passed straight through.
+  /** Finished visits for this day, including ones whose call was already closed. */
+  documentation?: DayDocumentationRecord[];
+  onRemoveJob: (jobId: string) => void;
+  onCloseJob?: (jobId: string) => void;
+  onReturnJob?: (jobId: string) => void;
+  // The remaining day-level actions, grouped in this dialog's overflow menu now that the
+  // day cell itself only carries add / transfer / reset. Each one replaces this dialog
+  // with another one, so the board closes this dialog before opening the next.
   onResetDay?: () => void;
   /** Swap this day with the other technician — each one's live stops become the other's. */
   onMoveDayToOtherTech?: () => void;
@@ -164,6 +193,19 @@ export function DayApprovalDialog({
     handleDragEnd,
     handleDrop: reorderOnDrop,
   } = useDragReorder(setOrderedJobs);
+  // Same hook the detail dialog used, handed this dialog's own list: an edited duration
+  // flows straight into timeRanges, so the times and the map update as they are typed.
+  const {
+    editingJobId,
+    editForm,
+    setEditForm,
+    setPendingEditCoords,
+    isEditSaving,
+    startEditingJob,
+    closeEditingJob,
+    handleSaveEditedJob,
+  } = useJobEditForm(setOrderedJobs);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const dayDate = new Date(dateStr + "T00:00:00");
   const dayLabel = format(dayDate, "EEEE d/M", { locale: he });
   const dayDateText = format(dayDate, "d/M/yyyy");
@@ -346,7 +388,9 @@ export function DayApprovalDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {orderedJobs.length === 0 ? (
+        {/* Nothing at all to show — no live stops AND no finished visits. A day with
+            only documentation still opens, so the manager can read what was reported. */}
+        {orderedJobs.length === 0 && documentation.length === 0 ? (
           <p className='text-sm text-muted-foreground text-center py-6'>
             אין משימות ליום זה
           </p>
@@ -356,11 +400,19 @@ export function DayApprovalDialog({
             style={{ direction: "ltr" }}>
             {/* Map - LEFT side */}
             <div className='rounded-xl overflow-hidden border border-border order-first h-[45vh] lg:h-[70vh]'>
-              <DayRouteMap
-                jobs={orderedJobs}
-                height='100%'
-                onCoordsResolved={handleCoordsResolved}
-              />
+              {orderedJobs.length > 0 ? (
+                <DayRouteMap
+                  jobs={orderedJobs}
+                  height='100%'
+                  onCoordsResolved={handleCoordsResolved}
+                />
+              ) : (
+                <div className='flex items-center justify-center h-full bg-muted/20'>
+                  <p className='text-sm text-muted-foreground'>
+                    אין משימות להצגה
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Job list - RIGHT side */}
@@ -392,7 +444,9 @@ export function DayApprovalDialog({
               </div>
 
               {/* Re-optimize — always an explicit act, never something that happens
-                  to a manually arranged route on its own. */}
+                  to a manually arranged route on its own. Hidden outright on a day with
+                  no live stops, which reaches this dialog for its documentation alone. */}
+              {orderedJobs.length > 0 && (
               <Button
                 variant='outline'
                 size='sm'
@@ -411,6 +465,7 @@ export function DayApprovalDialog({
                   </>
                 )}
               </Button>
+              )}
 
               {/* Scrollable timeline */}
               <div className='flex-1 overflow-y-auto space-y-1 min-h-0'>
@@ -430,170 +485,465 @@ export function DayApprovalDialog({
                   )?.trim();
                   const isDragging = dragIdx === i;
                   const isOver = overIdx === i && dragIdx !== i;
+                  const isCompleted = job.status === "completed";
+                  const isEditing = editingJobId === job.id;
+                  const isExpanded = expandedJobId === job.id;
+                  // A stop the technician already reported is coloured by its outcome
+                  // rather than its type — the rule the detail view used, now that this
+                  // list is also the detail view.
+                  const borderClass = job.completionStatus
+                    ? COMPLETION_COLORS[job.completionStatus]
+                    : typeColors[job.type];
                   return (
-                    <div
-                      key={job.id}
-                      draggable
-                      onDragStart={() => handleDragStart(i)}
-                      onDragOver={(e) => handleDragOver(e, i)}
-                      onDrop={() => handleDrop(i)}
-                      onDragEnd={handleDragEnd}
-                      className={cn(
-                        `p-3 rounded-lg border ${typeColors[job.type]} cursor-grab active:cursor-grabbing transition-all`,
-                        isDragging && "opacity-40 scale-95",
-                        isOver && "ring-2 ring-primary ring-offset-2",
-                      )}>
-                      <div className='flex items-center justify-between mb-1'>
-                        <div className='flex items-center gap-2'>
-                          <div className='w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-primary shrink-0'>
-                            {i + 1}
+                    <div key={job.id}>
+                      <div
+                        draggable={!isEditing}
+                        onDragStart={() => handleDragStart(i)}
+                        onDragOver={(e) => handleDragOver(e, i)}
+                        onDrop={() => handleDrop(i)}
+                        onDragEnd={handleDragEnd}
+                        className={cn(
+                          `p-3 rounded-lg border ${borderClass} transition-all`,
+                          isEditing
+                            ? "cursor-default"
+                            : "cursor-grab active:cursor-grabbing",
+                          isDragging && "opacity-40 scale-95",
+                          isOver && "ring-2 ring-primary ring-offset-2",
+                        )}>
+                        <div className='flex items-center justify-between mb-1'>
+                          <div className='flex items-center gap-2'>
+                            <div className='w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white bg-primary shrink-0'>
+                              {i + 1}
+                            </div>
+                            <GripVertical className='w-4 h-4 text-muted-foreground/40' />
+                            {typeIcons[job.type]}
+                            {customer ? (
+                              <CustomerInfoPopover customer={customer}>
+                                <span className='font-medium text-sm'>
+                                  {customer.name}
+                                </span>
+                              </CustomerInfoPopover>
+                            ) : (
+                              <span className='font-medium text-sm'>—</span>
+                            )}
                           </div>
-                          <GripVertical className='w-4 h-4 text-muted-foreground/40' />
-                          {typeIcons[job.type]}
-                          {customer ? (
-                            <CustomerInfoPopover customer={customer}>
-                              <span className='font-medium text-sm'>
-                                {customer.name}
+                          <div className='flex items-center gap-1.5'>
+                            <div className='flex items-center gap-1.5 text-xs font-mono'>
+                              <Clock className='w-3 h-3' />
+                              <span>
+                                {startTime} – {endTime}
                               </span>
-                            </CustomerInfoPopover>
-                          ) : (
-                            <span className='font-medium text-sm'>—</span>
-                          )}
+                            </div>
+                            {/* Per-stop actions, folded in from the day-detail dialog.
+                                draggable={false} on each one: an <a> is a native drag
+                                source, so without it a grab near the icon drags the URL
+                                away instead of reordering the stop. */}
+                            <div className='flex items-center gap-0.5 shrink-0'>
+                              <button
+                                draggable={false}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEditingJob(job);
+                                }}
+                                className='p-1 rounded hover:bg-info/10 transition-colors'
+                                title='ערוך משימה'>
+                                <Pencil className='w-3.5 h-3.5 text-info' />
+                              </button>
+                              {customer && (
+                                <a
+                                  draggable={false}
+                                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.address + ", " + customer.city)}`}
+                                  target='_blank'
+                                  rel='noopener noreferrer'
+                                  className='p-1 rounded hover:bg-primary/10 transition-colors'
+                                  title='נווט'
+                                  onClick={(e) => e.stopPropagation()}>
+                                  <Navigation className='w-3.5 h-3.5 text-primary' />
+                                </a>
+                              )}
+                              {!isCompleted && (
+                                <button
+                                  draggable={false}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveJob(job.id);
+                                  }}
+                                  className='p-1 rounded hover:bg-destructive/10'
+                                  title='הסר מהלו״ז'>
+                                  <X className='w-3.5 h-3.5 text-destructive' />
+                                </button>
+                              )}
+                              {/* Only a reported stop has anything behind the chevron:
+                                  the technician's notes and the close/return actions. */}
+                              {isCompleted && (
+                                <button
+                                  draggable={false}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedJobId(isExpanded ? null : job.id);
+                                  }}
+                                  className='p-1 rounded hover:bg-muted transition-colors'
+                                  aria-expanded={isExpanded}
+                                  title={isExpanded ? "הסתר דיווח טכנאי" : "הצג דיווח טכנאי"}>
+                                  <ChevronDown
+                                    className={cn(
+                                      "w-3.5 h-3.5 text-muted-foreground transition-transform",
+                                      isExpanded && "rotate-180",
+                                    )}
+                                  />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className='flex items-center gap-1.5 text-xs font-mono'>
-                          <Clock className='w-3 h-3' />
+                        <div className='flex items-center justify-between text-xs opacity-70'>
                           <span>
-                            {startTime} – {endTime}
+                            {typeConfig.label} · {job.estimatedDuration} דק׳
+                          </span>
+                          <span
+                            title={[job.location, job.city]
+                              .filter(Boolean)
+                              .join(", ")}>
+                            {job.location}
+                            {job.city ? `, ${job.city}` : ""}
                           </span>
                         </div>
+                        {noteText && (
+                          <p
+                            className='text-xs opacity-70 mt-1 line-clamp-2'
+                            title={noteText}>
+                            {noteText}
+                          </p>
+                        )}
+                        {phone && (
+                          <div className='text-xs opacity-60 mt-0.5'>
+                            📱 <span dir='ltr'>{phone}</span>
+                          </div>
+                        )}
+                        {isCompleted && job.completionStatus && (
+                          <p className='text-xs font-medium mt-0.5'>
+                            {DOCUMENTED_OUTCOME[job.completionStatus]}
+                          </p>
+                        )}
+                        {/* WhatsApp — fades in once the day is approved; coordinates the appointment a week ahead */}
+                        {isApproved &&
+                          (() => {
+                            const waPhone = normalizeIsraeliPhone(phone);
+                            if (!waPhone) return null;
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(
+                                    whatsappUrl(waPhone),
+                                    "_blank",
+                                  );
+                                }}
+                                className='mt-2 w-full flex items-center justify-center gap-1.5 h-8 rounded-md bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-300'>
+                                <MessageCircle className='w-3.5 h-3.5' />
+                                תאם בוואטסאפ
+                              </button>
+                            );
+                          })()}
+                        {/* Did the customer actually agree? Recorded by the manager after the
+                            WhatsApp reply comes back. Deliberately NOT gated on having a phone —
+                            plenty of customers confirm by voice. One click either way. */}
+                        {isApproved &&
+                          (() => {
+                            const state = arrivalStateOf(job, startTime);
+                            const confirmation = arrivalConfirmations.get(job.id);
+                            const isConfirmed = state === "confirmed";
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isConfirmed) {
+                                    unconfirmArrival(job.id);
+                                    return;
+                                  }
+                                  confirmArrival(
+                                    job.id,
+                                    dateStr,
+                                    startTime,
+                                    job.technicianId,
+                                  );
+                                }}
+                                title={
+                                  isConfirmed && confirmation
+                                    ? `אושר ב-${new Date(confirmation.confirmedAt).toLocaleString("he-IL")} — לחץ לביטול`
+                                    : "סמן שהלקוח אישר את הגעת הטכנאי"
+                                }
+                                className={cn(
+                                  "mt-1.5 w-full flex items-center justify-center gap-1.5 h-8 rounded-md border text-xs font-medium transition-colors",
+                                  isConfirmed
+                                    ? "bg-success/10 border-success/30 text-success hover:bg-success/20"
+                                    : state === "stale"
+                                      ? "bg-warning/10 border-warning/30 text-warning hover:bg-warning/20"
+                                      : "border-border text-muted-foreground hover:bg-muted",
+                                )}>
+                                {isConfirmed ? (
+                                  <>
+                                    <CheckCircle2 className='w-3.5 h-3.5' />
+                                    אושרה הגעת טכנאי
+                                  </>
+                                ) : state === "stale" ? (
+                                  <>
+                                    <AlertTriangle className='w-3.5 h-3.5' />
+                                    אושר ל-{confirmation?.scheduledTime} · המועד השתנה
+                                  </>
+                                ) : (
+                                  <>
+                                    <Circle className='w-3.5 h-3.5' />
+                                    סמן שהלקוח אישר
+                                  </>
+                                )}
+                              </button>
+                            );
+                          })()}
+                        {/* Follow-up tasks (משימות להמשך) — only for a job the technician
+                            already reported as done. Creates the next annual service
+                            (שנה מהיום) and re-affirms the current job as done. */}
+                        {job.completionStatus === "done" && onAddJob && (
+                          <div className='mt-2 flex' onClick={(e) => e.stopPropagation()}>
+                            <FollowUpTasksPopover
+                              job={job}
+                              customers={customers}
+                              onAddJob={(data) => {
+                                markJobCompletion(
+                                  job.id,
+                                  "done",
+                                  job.completionNotes || "",
+                                );
+                                // Returned so the popover can offer to revert what it created.
+                                return onAddJob(data);
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
-                      <div className='flex items-center justify-between text-xs opacity-70'>
-                        <span>
-                          {typeConfig.label} · {job.estimatedDuration} דק׳
-                        </span>
-                        <span
-                          title={[job.location, job.city]
-                            .filter(Boolean)
-                            .join(", ")}>
-                          {job.location}
-                          {job.city ? `, ${job.city}` : ""}
-                        </span>
-                      </div>
-                      {noteText && (
-                        <p
-                          className='text-xs opacity-70 mt-1 line-clamp-2'
-                          title={noteText}>
-                          {noteText}
-                        </p>
-                      )}
-                      {phone && (
-                        <div className='text-xs opacity-60 mt-0.5'>
-                          📱 <span dir='ltr'>{phone}</span>
+                      {/* Outside the draggable card on purpose: a draggable ancestor
+                          swallows text selection inside its inputs. */}
+                      {isEditing && (
+                        <div className='mt-1 p-3 rounded-lg bg-info/5 border border-info/30 space-y-2'>
+                          <div>
+                            <label className='text-xs font-semibold text-muted-foreground'>
+                              כתובת
+                            </label>
+                            <AddressAutocomplete
+                              value={editForm.location}
+                              onChange={(val) => {
+                                setEditForm((f) => ({ ...f, location: val }));
+                                setPendingEditCoords(null);
+                              }}
+                              onPlaceSelect={(place) => {
+                                setEditForm((f) => ({
+                                  ...f,
+                                  location: place.address,
+                                  city: place.city,
+                                }));
+                                setPendingEditCoords({
+                                  lat: place.lat,
+                                  lng: place.lng,
+                                  placeId: place.placeId,
+                                });
+                              }}
+                              placeholder='הקלד כתובת...'
+                              className='h-8 text-xs'
+                            />
+                          </div>
+                          <div className='grid grid-cols-2 gap-2'>
+                            <div>
+                              <label className='text-xs font-semibold text-muted-foreground'>
+                                עיר
+                              </label>
+                              <Input
+                                value={editForm.city}
+                                onChange={(e) => {
+                                  setEditForm((f) => ({
+                                    ...f,
+                                    city: e.target.value,
+                                  }));
+                                  setPendingEditCoords(null);
+                                }}
+                                className='h-8 text-xs'
+                              />
+                            </div>
+                            <div>
+                              <label className='text-xs font-semibold text-muted-foreground'>
+                                טלפון
+                              </label>
+                              <Input
+                                type='tel'
+                                dir='ltr'
+                                value={editForm.phone}
+                                onChange={(e) =>
+                                  setEditForm((f) => ({
+                                    ...f,
+                                    phone: e.target.value,
+                                  }))
+                                }
+                                className='h-8 text-xs'
+                              />
+                            </div>
+                          </div>
+                          <div className='grid grid-cols-2 gap-2'>
+                            <div className='w-full'>
+                              <label className='text-xs font-semibold text-muted-foreground'>
+                                משך (דקות)
+                              </label>
+                              <Input
+                                type='number'
+                                value={editForm.estimatedDuration}
+                                onChange={(e) =>
+                                  setEditForm((f) => ({
+                                    ...f,
+                                    estimatedDuration:
+                                      parseInt(e.target.value) || 0,
+                                  }))
+                                }
+                                className='h-8 text-xs'
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className='text-xs font-semibold text-muted-foreground'>
+                              הערות
+                            </label>
+                            <Input
+                              value={editForm.notes}
+                              onChange={(e) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  notes: e.target.value,
+                                }))
+                              }
+                              className='h-8 text-xs'
+                            />
+                          </div>
+                          {/* Saving a duration rewrites every stop time below it, so the
+                              route legitimately reads as unsaved right afterwards. */}
+                          <div className='flex gap-2 pt-1'>
+                            <Button
+                              size='sm'
+                              className='text-xs gap-1'
+                              onClick={() => void handleSaveEditedJob(job)}
+                              disabled={isEditSaving}>
+                              <Save className='w-3 h-3' />
+                              {isEditSaving ? "שומר..." : "שמור"}
+                            </Button>
+                            <Button
+                              size='sm'
+                              variant='ghost'
+                              className='text-xs'
+                              onClick={closeEditingJob}
+                              disabled={isEditSaving}>
+                              ביטול
+                            </Button>
+                          </div>
                         </div>
                       )}
-                      {/* WhatsApp — fades in once the day is approved; coordinates the appointment a week ahead */}
-                      {isApproved &&
-                        (() => {
-                          const waPhone = normalizeIsraeliPhone(phone);
-                          if (!waPhone) return null;
-                          return (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.open(
-                                  whatsappUrl(waPhone),
-                                  "_blank",
-                                );
-                              }}
-                              className='mt-2 w-full flex items-center justify-center gap-1.5 h-8 rounded-md bg-[#25D366] hover:bg-[#1da851] text-white text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-300'>
-                              <MessageCircle className='w-3.5 h-3.5' />
-                              תאם בוואטסאפ
-                            </button>
-                          );
-                        })()}
-                      {/* Did the customer actually agree? Recorded by the manager after the
-                          WhatsApp reply comes back. Deliberately NOT gated on having a phone —
-                          plenty of customers confirm by voice. One click either way. */}
-                      {isApproved &&
-                        (() => {
-                          const state = arrivalStateOf(job, startTime);
-                          const confirmation = arrivalConfirmations.get(job.id);
-                          const isConfirmed = state === "confirmed";
-                          return (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (isConfirmed) {
-                                  unconfirmArrival(job.id);
-                                  return;
-                                }
-                                confirmArrival(
-                                  job.id,
-                                  dateStr,
-                                  startTime,
-                                  job.technicianId,
-                                );
-                              }}
-                              title={
-                                isConfirmed && confirmation
-                                  ? `אושר ב-${new Date(confirmation.confirmedAt).toLocaleString("he-IL")} — לחץ לביטול`
-                                  : "סמן שהלקוח אישר את הגעת הטכנאי"
-                              }
-                              className={cn(
-                                "mt-1.5 w-full flex items-center justify-center gap-1.5 h-8 rounded-md border text-xs font-medium transition-colors",
-                                isConfirmed
-                                  ? "bg-success/10 border-success/30 text-success hover:bg-success/20"
-                                  : state === "stale"
-                                    ? "bg-warning/10 border-warning/30 text-warning hover:bg-warning/20"
-                                    : "border-border text-muted-foreground hover:bg-muted",
-                              )}>
-                              {isConfirmed ? (
-                                <>
-                                  <CheckCircle2 className='w-3.5 h-3.5' />
-                                  אושרה הגעת טכנאי
-                                </>
-                              ) : state === "stale" ? (
-                                <>
-                                  <AlertTriangle className='w-3.5 h-3.5' />
-                                  אושר ל-{confirmation?.scheduledTime} · המועד השתנה
-                                </>
-                              ) : (
-                                <>
-                                  <Circle className='w-3.5 h-3.5' />
-                                  סמן שהלקוח אישר
-                                </>
+                      {/* The technician's report and what the manager does with it.
+                          FollowUpTasksPopover is deliberately NOT repeated here — the
+                          card above already renders one, wrapped in markJobCompletion. */}
+                      {isExpanded && isCompleted && !isEditing && (
+                        <div className='mt-1 p-3 rounded-lg bg-muted/50 border border-border space-y-2'>
+                          {job.completionNotes && (
+                            <div>
+                              <p className='text-xs font-semibold text-muted-foreground mb-0.5'>
+                                הערות טכנאי:
+                              </p>
+                              <p className='text-sm'>{job.completionNotes}</p>
+                            </div>
+                          )}
+                          <div className='flex flex-wrap gap-2'>
+                            {onCloseJob && (
+                              <Button
+                                size='sm'
+                                variant='outline'
+                                className='flex-1 text-xs'
+                                onClick={() => {
+                                  onCloseJob(job.id);
+                                  toast.success("הקריאה נסגרה והועברה להיסטוריה");
+                                }}>
+                                <Archive className='w-3 h-3 ml-1' />
+                                סגור קריאה
+                              </Button>
+                            )}
+                            {onReturnJob &&
+                              (job.completionStatus === "not_done" ||
+                                job.completionStatus === "need_return") && (
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  className='flex-1 text-xs border-warning text-warning-strong hover:bg-warning/10'
+                                  onClick={() => {
+                                    onReturnJob(job.id);
+                                    toast.success(
+                                      job.type === "filter_replacement"
+                                        ? "המשימה הוחזרה לשיבוץ"
+                                        : "הקריאה הוחזרה לטבלה",
+                                    );
+                                  }}>
+                                  <Undo2 className='w-3 h-3 ml-1' />
+                                  החזר קריאה
+                                </Button>
                               )}
-                            </button>
-                          );
-                        })()}
-                      {/* Follow-up tasks (משימות להמשך) — only for a job the technician
-                          already reported as done. Creates the next annual service
-                          (שנה מהיום) and re-affirms the current job as done. */}
-                      {job.completionStatus === "done" && onAddJob && (
-                        <div className='mt-2 flex' onClick={(e) => e.stopPropagation()}>
-                          <FollowUpTasksPopover
-                            job={job}
-                            customers={customers}
-                            onAddJob={(data) => {
-                              markJobCompletion(
-                                job.id,
-                                "done",
-                                job.completionNotes || "",
-                              );
-                              // Returned so the popover can offer to revert what it created.
-                              return onAddJob(data);
-                            }}
-                          />
+                          </div>
                         </div>
                       )}
                     </div>
                   );
                 })}
+
+                {orderedJobs.length === 0 && (
+                  <p className='text-sm text-muted-foreground text-center py-4'>
+                    אין משימות ליום זה
+                  </p>
+                )}
+
+                {/* Visits already finished (and possibly closed) on this day. They are no
+                    longer work, so they sit below the route as a read-only record. */}
+                {documentation.length > 0 && (
+                  <div className='pt-3 mt-3 border-t border-border space-y-2'>
+                    <p className='text-xs font-semibold text-muted-foreground'>
+                      תיעוד — משימות שהושלמו ({documentation.length})
+                    </p>
+                    {documentation.map((record) => (
+                      <div
+                        key={record.id}
+                        className='rounded-lg border border-dashed border-border bg-muted/20 p-2'>
+                        <div className='flex items-center justify-between gap-2'>
+                          <span className='truncate text-sm font-medium'>
+                            {record.customerName}
+                          </span>
+                          <span className='shrink-0 text-xs text-muted-foreground'>
+                            {DOCUMENTED_OUTCOME[record.completionStatus]}
+                          </span>
+                        </div>
+                        {[record.location, record.city].filter(Boolean).length > 0 && (
+                          <p className='truncate text-xs text-muted-foreground'>
+                            {[record.location, record.city]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </p>
+                        )}
+                        <p className='mt-1 whitespace-pre-wrap text-xs'>
+                          <span className='font-medium'>הערות טכנאי: </span>
+                          {record.completionNotes || "לא נרשמו הערות"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Day actions. One row, laid out right-to-left by the enclosing dir='rtl':
                   primary action · save · everything else behind a menu. An unapproved day
-                  has only the one button, so it keeps the full width and the full label. */}
+                  has only the one button, so it keeps the full width and the full label.
+                  Hidden entirely on a day with no live stops: it reached this dialog for
+                  its documentation alone, and there is nothing left to approve, print,
+                  transfer or reset — the same read-only record the detail view showed. */}
+              {orderedJobs.length > 0 && (
               <div className='shrink-0 space-y-2'>
                 {isApproved && (
                   <div className='flex items-center justify-center gap-2 p-3 bg-success/10 rounded-lg text-success text-sm font-medium'>
@@ -648,10 +998,10 @@ export function DayApprovalDialog({
                       </span>
                     </Button>
                   )}
-                  {/* Every remaining action for this day, in one menu — the day cell keeps
-                      only add / transfer / reset. Rendered for an unapproved day too: the
-                      detail view and the reset are reachable from nowhere else once the
-                      cell's icon buttons are gone. */}
+                  {/* Every remaining day-level action, in one menu — the day cell keeps
+                      only add / transfer / reset. Rendered for an unapproved day too:
+                      the reset is reachable from nowhere else once the cell's icon
+                      buttons are gone. */}
                   {/* dir belongs on the root, not on Content: Radix reads it for arrow-key
                       direction and passes it down to the rendered element. */}
                   <DropdownMenu dir='rtl'>
@@ -670,10 +1020,6 @@ export function DayApprovalDialog({
                     {/* Fixed width: the item set changes between an approved and an
                         unapproved day, and an auto-sized menu would jump between them. */}
                     <DropdownMenuContent align='end' className='w-64'>
-                      <DropdownMenuItem onSelect={onOpenDetails}>
-                        <ListChecks className='w-4 h-4' />
-                        פרטי היום ועריכת משימות
-                      </DropdownMenuItem>
                       {isApproved && (
                         <DropdownMenuItem onSelect={onToggleLock}>
                           {isLocked ? (
@@ -736,6 +1082,7 @@ export function DayApprovalDialog({
                   </DropdownMenu>
                 </div>
               </div>
+              )}
             </div>
           </div>
         )}

@@ -63,7 +63,6 @@ import { DAY_HEADERS, MONTH_NAMES } from "./monthly-schedule/constants";
 import { arrivalStateFor } from "@/hooks/useArrivalConfirmations";
 import { AddToApprovedDayDialog } from "./monthly-schedule/dialogs/AddToApprovedDayDialog";
 import { DayApprovalDialog } from "./monthly-schedule/dialogs/DayApprovalDialog";
-import { DayDetailDialog } from "./monthly-schedule/dialogs/DayDetailDialog";
 import { UnifiedJobPickerDialog } from "./monthly-schedule/dialogs/UnifiedJobPickerDialog";
 import { DayCell } from "./monthly-schedule/DayCell";
 import type {
@@ -180,10 +179,6 @@ export function MonthlyScheduleBoard({
     jobId: string;
     fromDateStr: string;
     isFilter: boolean;
-  } | null>(null);
-  const [detailState, setDetailState] = useState<{
-    open: boolean;
-    dateStr: string;
   } | null>(null);
   const [approvalState, setApprovalState] = useState<{
     open: boolean;
@@ -1208,16 +1203,14 @@ export function MonthlyScheduleBoard({
     ],
   );
 
-  // Clicking a day IS the way into it. A day with live work opens the approval
-  // dialog — where the route is arranged and the day is approved. A past day
-  // holding only documentation has nothing to approve, so it opens the detail
-  // view, the only surface that renders the technician's notes and the
-  // close/return-call actions.
+  // Clicking a day IS the way into it, and there is now one dialog behind that
+  // click. A day with live work opens on its route; a past day holding only
+  // documentation opens on the technician's notes and the close/return-call
+  // actions, which the approval dialog absorbed from the old detail view.
   const openDay = useCallback(
     (dateStr: string) => {
-      if (dayJobCount(dateStr) > 0) setApprovalState({ open: true, dateStr });
-      else if (getDayDocumentation(dateStr).length > 0)
-        setDetailState({ open: true, dateStr });
+      if (dayJobCount(dateStr) > 0 || getDayDocumentation(dateStr).length > 0)
+        setApprovalState({ open: true, dateStr });
     },
     [dayJobCount, getDayDocumentation],
   );
@@ -1569,37 +1562,6 @@ export function MonthlyScheduleBoard({
           );
         })()}
 
-      {/* Day detail dialog */}
-      {detailState && (
-        <DayDetailDialog
-          open={detailState.open}
-          onClose={() => setDetailState(null)}
-          dateStr={detailState.dateStr}
-          dayJobs={getManualDayJobs(detailState.dateStr)}
-          filterJobs={getFilterDayJobs(detailState.dateStr)}
-          documentation={getDayDocumentation(detailState.dateStr)}
-          onRemoveJob={(jobId) => {
-            const isFilter = filterJobs.some((j) => j.id === jobId);
-            setPendingDelete({
-              jobId,
-              fromDateStr: detailState.dateStr,
-              isFilter,
-            });
-          }}
-          onMoveJob={(jobId) => {
-            const isFilter = filterJobs.some((j) => j.id === jobId);
-            if (isFilter) {
-              handleRemoveAndRescheduleFilter(jobId, detailState.dateStr);
-            } else {
-              handleMoveManual(jobId, detailState.dateStr);
-            }
-          }}
-          onCloseJob={onCloseJob}
-          onReturnJob={onReturnJob}
-          onAddJob={onAddJob}
-        />
-      )}
-
       {/* Day approval dialog */}
       {approvalState && (
         <DayApprovalDialog
@@ -1619,11 +1581,17 @@ export function MonthlyScheduleBoard({
           technicianName={
             technicians.find((t) => t.id === selectedTechId)?.name || "הטכנאי"
           }
-          onOpenDetails={() =>
-            swapDialog(() =>
-              setDetailState({ open: true, dateStr: approvalState.dateStr }),
-            )
-          }
+          documentation={getDayDocumentation(approvalState.dateStr)}
+          onRemoveJob={(jobId) => {
+            const isFilter = filterJobs.some((j) => j.id === jobId);
+            setPendingDelete({
+              jobId,
+              fromDateStr: approvalState.dateStr,
+              isFilter,
+            });
+          }}
+          onCloseJob={onCloseJob}
+          onReturnJob={onReturnJob}
           onResetDay={() =>
             swapDialog(() => setPendingDayReset(approvalState.dateStr))
           }
