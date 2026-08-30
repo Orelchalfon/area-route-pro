@@ -28,6 +28,7 @@ import { useJobsContext } from "@/contexts/JobsContext";
 import { arrivalStateFor } from "@/hooks/useArrivalConfirmations";
 import type { DayDocumentationRecord } from "@/hooks/useCompletedDayRecords";
 import { getCustomerCoords } from "@/lib/customerCoords";
+import { buildDayExportRows } from "@/lib/dayExport/rows";
 import { isOngoingJob } from "@/lib/idConventions";
 import { optimizeStopOrder, type LatLng } from "@/lib/routeOptimizer";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,8 @@ import {
   ChevronDown,
   Circle,
   Clock,
+  FileDown,
+  FileText,
   GripVertical,
   Lock,
   LockOpen,
@@ -363,6 +366,53 @@ export function DayApprovalDialog({
     [timeRanges, customers],
   );
 
+  // The same stops, in the same on-screen order, shaped for the downloadable table. Kept
+  // separate from sheetRows: that one feeds the printed hand-fill form, which carries far
+  // less (no times, no outcome, no technician report).
+  const exportRows = useMemo(
+    () => buildDayExportRows(timeRanges, customers),
+    [timeRanges, customers],
+  );
+
+  // PDF/Word generation pulls in jspdf + docx, so both exporters are loaded on demand —
+  // DayApprovalDialog itself is not lazy, and a static import would put them in the
+  // monthly-schedule chunk every manager downloads on login.
+  const handleExport = useCallback(
+    async (fileFormat: "pdf" | "docx") => {
+      const meta = {
+        dayLabel,
+        dateText: dayDateText,
+        technicianName,
+        areas: dayAreas,
+      };
+      const filename = `דף-יום-${dateStr}.${fileFormat}`;
+      // The first export of a session also downloads the embedded Hebrew font, so there
+      // is a beat with nothing on screen; the toast is replaced in place by its result.
+      const toastId = toast.loading("מכין את הקובץ…");
+      try {
+        if (fileFormat === "pdf") {
+          const { exportDayPdf } = await import("@/lib/dayExport/exportDayPdf");
+          await exportDayPdf(meta, exportRows, filename);
+        } else {
+          const { exportDayDocx } = await import(
+            "@/lib/dayExport/exportDayDocx"
+          );
+          await exportDayDocx(meta, exportRows, filename);
+        }
+        toast.success(`הקובץ הורד — ${exportRows.length} משימות`, {
+          id: toastId,
+        });
+      } catch (error) {
+        console.error("day export failed", error);
+        toast.error("הפקת הקובץ נכשלה — נסה שוב", {
+          id: toastId,
+          description: error instanceof Error ? error.message : undefined,
+        });
+      }
+    },
+    [dayLabel, dayDateText, technicianName, dayAreas, dateStr, exportRows],
+  );
+
   const arrivalCounts = useMemo(() => {
     const counts = { confirmed: 0, stale: 0, none: 0 };
     timeRanges.forEach(({ job, startTime }) => {
@@ -626,6 +676,20 @@ export function DayApprovalDialog({
                             {DOCUMENTED_OUTCOME[job.completionStatus]}
                           </p>
                         )}
+                        {/* What the technician actually wrote, on the card rather than
+                            behind the chevron — a manager reading the day should not have
+                            to open every reported stop one at a time. Clamped like the
+                            job's own notes above it, with the full text in the tooltip and
+                            behind the chevron; `?.trim()` rather than a truthy check so a
+                            whitespace-only note renders no labelled block at all. */}
+                        {job.completionNotes?.trim() && (
+                          <p
+                            className='text-xs mt-0.5 whitespace-pre-wrap line-clamp-3'
+                            title={job.completionNotes}>
+                            <span className='font-medium'>הערות טכנאי: </span>
+                            {job.completionNotes}
+                          </p>
+                        )}
                         {/* WhatsApp — fades in once the day is approved; coordinates the appointment a week ahead */}
                         {isApproved &&
                           (() => {
@@ -861,7 +925,9 @@ export function DayApprovalDialog({
                               <p className='text-xs font-semibold text-muted-foreground mb-0.5'>
                                 הערות טכנאי:
                               </p>
-                              <p className='text-sm'>{job.completionNotes}</p>
+                              <p className='text-sm whitespace-pre-wrap'>
+                                {job.completionNotes}
+                              </p>
                             </div>
                           )}
                           <div className='flex flex-wrap gap-2'>
@@ -1058,6 +1124,20 @@ export function DayApprovalDialog({
                           הדפס דף יום
                         </DropdownMenuItem>
                       )}
+                      {/* The same day as a file rather than as paper: every column the
+                          stop cards show, including the times, the reported outcome and
+                          the technician's note — none of which fit the hand-fill sheet
+                          above. Not gated on isApproved: the action row is already hidden
+                          on a day with no stops, so this is reachable exactly when there
+                          is a route to export, a day still being planned included. */}
+                      <DropdownMenuItem onSelect={() => void handleExport("pdf")}>
+                        <FileDown className='w-4 h-4' />
+                        הורד דף יום — PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => void handleExport("docx")}>
+                        <FileText className='w-4 h-4' />
+                        הורד דף יום — Word
+                      </DropdownMenuItem>
                       {onMoveDayToOtherTech && otherTechName && !isLocked && (
                         <DropdownMenuItem
                           onSelect={onMoveDayToOtherTech}
