@@ -67,6 +67,11 @@ export interface Customer {
   lng?: number;
   placeId?: string;
   notes?: string;
+  // Soft deletion. `isActive: false` hides the customer from every surface that starts
+  // NEW work; existing jobs keep resolving their name from the same list, so history is
+  // unaffected. `deletedAt` is the audit stamp, cleared on restore.
+  isActive?: boolean;
+  deletedAt?: string | null;
 }
 
 export interface Job {

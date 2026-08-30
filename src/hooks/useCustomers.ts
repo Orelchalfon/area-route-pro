@@ -19,6 +19,8 @@ export type CustomerRow = {
   lat: number | null;
   lng: number | null;
   place_id: string | null;
+  is_active: boolean | null;
+  deleted_at: string | null;
 };
 
 export const CUSTOMER_COLUMNS = [
@@ -36,6 +38,8 @@ export const CUSTOMER_COLUMNS = [
   'lat',
   'lng',
   'place_id',
+  'is_active',
+  'deleted_at',
 ].join(',');
 
 const SERVICE_TRACKS: ServiceTrack[] = ['annual_filter', 'external_filter', 'bypass_siliphos', 'service_visit'];
@@ -60,6 +64,9 @@ export function rowToCustomer(row: CustomerRow): Customer {
     lng: row.lng ?? undefined,
     placeId: row.place_id || undefined,
     notes: row.notes || undefined,
+    // NOT NULL DEFAULT true in the schema, so only an explicit false means deleted.
+    isActive: row.is_active !== false,
+    deletedAt: row.deleted_at || undefined,
   };
 }
 
@@ -72,7 +79,7 @@ export function customerImportKey(name: string): string {
 
 // Map the app Customer shape onto the DB column names. Only defined fields are
 // included so partial updates don't clobber existing columns with nulls.
-function customerToRow(data: Partial<Customer>): Partial<TablesInsert<'customers'>> {
+export function customerToRow(data: Partial<Customer>): Partial<TablesInsert<'customers'>> {
   const row: Partial<TablesInsert<'customers'>> = {};
   if (data.name !== undefined) row.name = data.name;
   if (data.phone !== undefined) row.phone = data.phone;
@@ -87,7 +94,16 @@ function customerToRow(data: Partial<Customer>): Partial<TablesInsert<'customers
   if (data.lat !== undefined) row.lat = data.lat ?? null;
   if (data.lng !== undefined) row.lng = data.lng ?? null;
   if (data.placeId !== undefined) row.place_id = data.placeId ?? null;
+  if (data.isActive !== undefined) row.is_active = data.isActive;
+  if (data.deletedAt !== undefined) row.deleted_at = data.deletedAt ?? null;
   return row;
+}
+
+// May this customer be offered for NEW work? Soft-deleted customers stay in the shared
+// customersList so existing jobs keep resolving their name — only the surfaces that
+// create new work filter on this.
+export function isSelectableCustomer(customer: Customer): boolean {
+  return customer.isActive !== false;
 }
 
 // Strip the db-cust- prefix back to the raw UUID used as the customers PK.

@@ -1,6 +1,32 @@
 import { Customer, Job } from "@/types";
 import { format } from "date-fns";
-import { makeFilterJobId } from "@/lib/idConventions";
+import { isSelectableCustomer } from "@/hooks/useCustomers";
+import { isFilterJob, makeFilterJobId } from "@/lib/idConventions";
+
+/**
+ * Customers that still produce an annual-filter reminder.
+ *
+ * A soft-deleted customer stops generating NEW reminders, but one whose filter job is
+ * already on the board keeps it. Those scheduled jobs live in scheduled_filter_services
+ * keyed by job_key === the synthetic `filter-{year}-{month}-{customerId}` id, and they
+ * only render while generateFilterJobs still emits that id — so dropping the customer
+ * from generation would silently erase an already-planned (possibly already-approved)
+ * stop from a technician's day.
+ */
+export function filterEligibleCustomers(
+  allCustomers: Customer[],
+  jobs: Job[],
+): Customer[] {
+  // Nothing is soft-deleted in the overwhelmingly common case — skip the work entirely
+  // and keep the same array identity, so the caller's useMemo stays cheap.
+  if (allCustomers.every(isSelectableCustomer)) return allCustomers;
+  const scheduled = new Set(
+    jobs.filter((j) => isFilterJob(j.id)).map((j) => j.customerId),
+  );
+  return allCustomers.filter(
+    (c) => isSelectableCustomer(c) || scheduled.has(c.id),
+  );
+}
 
 // Generate filter replacement jobs for a given month based on customer data
 export function generateFilterJobs(

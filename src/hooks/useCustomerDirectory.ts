@@ -69,9 +69,15 @@ interface UseCustomerDirectoryArgs {
   search: string;
   /** Activity-log appender from the app-wide store, so edits show in the history dialog. */
   addLog?: AddLog;
+  /** Show the soft-deleted customers instead of the active ones (the "הצג מחוקים" view). */
+  showDeleted?: boolean;
 }
 
-export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArgs) {
+export function useCustomerDirectory({
+  search,
+  addLog,
+  showDeleted = false,
+}: UseCustomerDirectoryArgs) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [unassignedCount, setUnassignedCount] = useState(0);
@@ -80,6 +86,9 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
   const [error, setError] = useState<string | null>(null);
 
   const term = sanitizeTerm(search);
+  // Soft deletion: is_active is NOT NULL DEFAULT true, so a plain equality is enough.
+  // This page is the only surface that can show deleted customers at all.
+  const activeFlag = !showDeleted;
 
   // Monotonic request token: any response whose token is stale (search changed or
   // a refetch superseded it) is discarded so out-of-order responses can't clobber
@@ -87,8 +96,8 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
   const reqIdRef = useRef(0);
   const loadingMoreRef = useRef(false);
   // Latest values for callbacks that must not capture stale closures (realtime).
-  const stateRef = useRef({ term, len: 0 });
-  stateRef.current = { term, len: customers.length };
+  const stateRef = useRef({ term, len: 0, activeFlag });
+  stateRef.current = { term, len: customers.length, activeFlag };
 
   const hasMore = customers.length < totalCount;
 
@@ -96,6 +105,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
     const { count, error: countError } = await supabase
       .from('customers')
       .select('id', { count: 'exact', head: true })
+      .eq('is_active', true)
       .is('service_track', null);
     if (!countError && typeof count === 'number') setUnassignedCount(count);
   }, []);
@@ -110,6 +120,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
       let query = supabase
         .from('customers')
         .select(CUSTOMER_COLUMNS, { count: 'exact' })
+        .eq('is_active', activeFlag)
         .order('name', { ascending: true })
         .range(0, PAGE_SIZE - 1);
       if (term) query = query.or(orFilter(term));
@@ -127,7 +138,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
       setTotalCount(count ?? rows.length);
       setLoading(false);
     })();
-  }, [term]);
+  }, [term, activeFlag]);
 
   useEffect(() => {
     void fetchUnassignedCount();
@@ -148,6 +159,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
       let query = supabase
         .from('customers')
         .select(CUSTOMER_COLUMNS, { count: 'exact' })
+        .eq('is_active', activeFlag)
         .order('name', { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
       if (term) query = query.or(orFilter(term));
@@ -174,13 +186,14 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
   // Re-fetch exactly the pages currently loaded (0..len) so a realtime change or a
   // mutation reconciles without losing the user's scroll depth.
   const refetchLoaded = useCallback(async () => {
-    const { term: curTerm, len } = stateRef.current;
+    const { term: curTerm, len, activeFlag: curActive } = stateRef.current;
     const reqId = ++reqIdRef.current;
     const upTo = Math.max(len, PAGE_SIZE) - 1;
 
     let query = supabase
       .from('customers')
       .select(CUSTOMER_COLUMNS, { count: 'exact' })
+      .eq('is_active', curActive)
       .order('name', { ascending: true })
       .range(0, upTo);
     if (curTerm) query = query.or(orFilter(curTerm));
@@ -263,6 +276,52 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
     [addLog],
   );
 
+  // Soft-delete a customer: never a real DELETE. ongoing_services.customer_id and
+  // scheduled_filter_services.customer_id are plain text with NO foreign key, so a real
+  // delete would silently orphan them; malfunctions/installations would have their
+  // customer_id nulled by ON DELETE SET NULL, losing the link. Flipping is_active keeps
+  // every reference intact and every historical job rendering its customer's name.
+  const setCustomerActive = useCallback(
+    async (customerId: string, active: boolean): Promise<boolean> => {
+      const uuid = customerDbId(customerId);
+      if (!uuid) return false;
+      try {
+        await updateCustomerRow(uuid, {
+          isActive: active,
+          deletedAt: active ? null : new Date().toISOString(),
+        });
+      } catch (e) {
+        console.error('Failed to change customer active state:', e);
+        return false;
+      }
+      // The row leaves this view either way (the list shows one side of the flag).
+      setCustomers(prev => {
+        const gone = prev.find(c => c.id === customerId);
+        if (gone && !gone.serviceTrack) setUnassignedCount(c => Math.max(0, c - 1));
+        return prev.filter(c => c.id !== customerId);
+      });
+      setTotalCount(c => Math.max(0, c - 1));
+      addLog?.(
+        customerId,
+        active ? 'שחזור לקוח' : 'מחיקת לקוח',
+        active ? 'הלקוח שוחזר ומופיע שוב ברשימות' : 'הלקוח הועבר לארכיון ולא יוצע לעבודות חדשות',
+      );
+      void fetchUnassignedCount();
+      return true;
+    },
+    [addLog, fetchUnassignedCount],
+  );
+
+  const softDeleteCustomer = useCallback(
+    (customerId: string) => setCustomerActive(customerId, false),
+    [setCustomerActive],
+  );
+
+  const restoreCustomer = useCallback(
+    (customerId: string) => setCustomerActive(customerId, true),
+    [setCustomerActive],
+  );
+
   // Fetch every unassigned customer (full rows) for Smart Distribution, which needs
   // the whole eligible set, not just the loaded page.
   const fetchAllUnassigned = useCallback(async (): Promise<Customer[]> => {
@@ -274,6 +333,7 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
       const { data, error: queryError } = await supabase
         .from('customers')
         .select(CUSTOMER_COLUMNS)
+        .eq('is_active', true)
         .is('service_track', null)
         .order('name', { ascending: true })
         .range(from, from + SIZE - 1);
@@ -332,6 +392,8 @@ export function useCustomerDirectory({ search, addLog }: UseCustomerDirectoryArg
     error,
     addCustomer,
     updateCustomer,
+    softDeleteCustomer,
+    restoreCustomer,
     distributeServiceTracks,
     fetchAllUnassigned,
   };

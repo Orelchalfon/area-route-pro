@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Customer } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Phone, Mail, MapPin, Package, History, CalendarClock, StickyNote, Pencil } from 'lucide-react';
+import { Phone, Mail, MapPin, Package, History, CalendarClock, StickyNote, Pencil, Trash2, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ServiceTrackBadge } from './ServiceTrackBadge';
 
@@ -12,9 +12,20 @@ interface CustomerCardProps {
   onShowHistory?: (customer: Customer) => void;
   /** Opens the read-only full-record dialog. When given, the whole card becomes clickable. */
   onShowDetails?: (customer: Customer) => void;
+  /** Soft-delete (archive) this customer. The caller owns the confirm dialog. */
+  onDelete?: (customer: Customer) => void;
+  /** Bring a soft-deleted customer back. Shown instead of delete in the "מחוקים" view. */
+  onRestore?: (customer: Customer) => void;
 }
 
-function CustomerCardComponent({ customer, onEdit, onShowHistory, onShowDetails }: CustomerCardProps) {
+function CustomerCardComponent({
+  customer,
+  onEdit,
+  onShowHistory,
+  onShowDetails,
+  onDelete,
+  onRestore,
+}: CustomerCardProps) {
   // Everything interactive inside the card stops propagation, so the buttons and the tel:/mailto:
   // links keep doing only their own job instead of also opening the details dialog.
   const stop = (e: React.MouseEvent) => e.stopPropagation();
@@ -57,6 +68,16 @@ function CustomerCardComponent({ customer, onEdit, onShowHistory, onShowDetails 
               <History className="w-4 h-4 me-1" />
               <span className="text-xs">היסטוריה</span>
             </Button>
+            {onRestore && (
+              <Button variant="ghost" size="sm" aria-label={`שחזור ${customer.name}`} className="text-muted-foreground hover:text-primary" onClick={(e) => { stop(e); onRestore(customer); }}>
+                <Undo2 className="w-4 h-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="ghost" size="sm" aria-label={`מחיקת ${customer.name}`} className="text-muted-foreground hover:text-destructive" onClick={(e) => { stop(e); onDelete(customer); }}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
         {customer.nextServiceDate && (

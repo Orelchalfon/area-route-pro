@@ -85,6 +85,61 @@ describe('resolveCustomerCard', () => {
   });
 });
 
+// Regression: useJobs.ensureCustomerInDb now calls resolveCustomerCard BEFORE writing,
+// and the duplicate-customer bug lived exactly in the gap this closes. A follow-up task
+// inherits its source installation's synthesized customer, which used to go straight to
+// upsertCustomerByImportKey — and a card created inside the app has import_key NULL,
+// which never conflicts on a unique index, so the upsert inserted a second identical
+// customer instead of finding the first. Every real duplicate in the database had this
+// exact shape: same name, same phone, one row keyed NULL and one keyed 'name:<name>'.
+describe('resolveCustomerCard — duplicate-customer regression', () => {
+  const inAppCard = customer({
+    id: 'db-cust-be7cb0a2-d33d-4fdc-899a-aa1561570040',
+    name: 'מיכאל ספר',
+    phone: '0542278205',
+  });
+
+  it('finds the in-app card behind a follow-up task, so no second row is written', () => {
+    // The installation row's free-text customer_name carried a trailing space.
+    const fromFollowUp = customer({
+      id: 'db-inst-cust-b334446e-a883-4ebe-afaf-dcecb114061b',
+      name: 'מיכאל ספר ',
+      phone: '0542278205',
+    });
+    expect(resolveCustomerCard(fromFollowUp, [inAppCard])).toBe(inAppCard);
+  });
+
+  it('still matches when only the phone survives the job row', () => {
+    const fromFollowUp = customer({
+      id: 'db-inst-cust-abc',
+      name: 'ספר מיכאל',
+      phone: '054-227-8205',
+    });
+    expect(resolveCustomerCard(fromFollowUp, [inAppCard])).toBe(inAppCard);
+  });
+
+  // useJobs.updateCustomer deliberately runs this ONLY for db-malf-cust-* / db-inst-cust-*
+  // ids. An ics-c* customer's name is a calendar summary and its phone is free text, so
+  // resolving one could write the edit onto a different real customer's card — the hook
+  // gates on the prefix rather than relying on resolveCustomerCard to refuse. This test
+  // documents that resolveCustomerCard itself does NOT refuse, which is why the gate exists.
+  it('does match an ics customer by name — hence the caller-side prefix gate', () => {
+    const ics = customer({ id: 'ics-c5', name: 'מיכאל ספר' });
+    expect(resolveCustomerCard(ics, [inAppCard])).toBe(inAppCard);
+  });
+
+  // The other half of the contract: a genuinely new customer must NOT resolve, or the
+  // guard would swallow real new cards instead of only preventing duplicates.
+  it('returns null for a customer who really is new', () => {
+    const brandNew = customer({
+      id: 'db-inst-cust-abc',
+      name: 'לקוח חדש לגמרי',
+      phone: '0509999999',
+    });
+    expect(resolveCustomerCard(brandNew, [inAppCard])).toBeNull();
+  });
+});
+
 describe('phoneKey', () => {
   it('collapses the spellings the imported data actually uses', () => {
     const keys = ['052-123-4567', '0521234567', '052 1234567'].map(phoneKey);

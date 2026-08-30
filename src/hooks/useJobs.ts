@@ -3,6 +3,7 @@ import { useApprovedDays } from "@/hooks/useApprovedDays";
 import { useArrivalConfirmations } from "@/hooks/useArrivalConfirmations";
 import {
   customerDbId,
+  isSelectableCustomer,
   updateCustomerRow,
   upsertCustomerByImportKey,
   useCustomers,
@@ -13,6 +14,7 @@ import { useResumeRefresh } from "@/hooks/useResumeRefresh";
 import { useScheduledFilterServices } from "@/hooks/useScheduledFilterServices";
 import { supabase } from "@/integrations/supabase/client";
 import { loadCustomersFromCSV } from "@/lib/csvParser";
+import { resolveCustomerCard } from "@/lib/customerCardMatch";
 import { formatHebrewDateTime } from "@/lib/dates";
 import {
   buildDbJobUpdatePatch,
@@ -27,7 +29,6 @@ import { getDbSyncStatus } from "@/lib/dbSyncStatus";
 import { joinJobNotes, splitJobNotes } from "@/lib/jobNotes";
 import { isReturnedForReschedule } from "@/pages/job-category/assignmentBuckets";
 import {
-  isDbCustomer,
   isFilterJob,
   isIcsCustomer,
   isIcsJob,
@@ -1047,12 +1048,19 @@ export function useJobs() {
   };
 
   // Back up a customer to the customers table so every request links to a persisted
-  // customer. No-op (returns as-is) for customers already in the table. Keyed on
-  // import_key so it is idempotent across CSV/ICS imports and repeat saves.
+  // customer. No-op for customers already in the table.
+  //
+  // resolveCustomerCard FIRST is load-bearing, not a nicety. A job-derived customer
+  // (db-malf-cust-* / db-inst-cust-*, e.g. the one a follow-up task inherits from its
+  // source job) has no row of its own, so it used to go straight to the import_key
+  // upsert. But a card created inside the app has import_key NULL, and NULL never
+  // conflicts on a unique index — so the upsert could not see the existing customer and
+  // INSERTed a second, identical one. That is where every duplicate customer came from.
   const ensureCustomerInDb = useCallback(
     async (customer?: Customer): Promise<Customer | undefined> => {
       if (!customer) return undefined;
-      if (isDbCustomer(customer.id)) return customer;
+      const card = resolveCustomerCard(customer, customersList);
+      if (card) return card;
       try {
         return await upsertCustomerByImportKey(customer);
       } catch (e) {
@@ -1060,7 +1068,7 @@ export function useJobs() {
         return customer;
       }
     },
-    [],
+    [customersList],
   );
 
   // Create a new request ("פניה חדשה"). It is written to its source table
@@ -1262,7 +1270,9 @@ export function useJobs() {
       addLog(customerId, "עדכון פרטים", "פרטי הלקוח עודכנו");
 
       // Persist the edit. db-cust- customers update their row directly; in-memory
-      // (CSV/ICS) or job-derived customers get upserted so the edit is backed up.
+      // (CSV/ICS) or job-derived customers resolve to their real card first and update
+      // that — falling straight to the import_key upsert would mint a duplicate row
+      // whenever the card was created in-app (import_key NULL never conflicts).
       const uuid = customerDbId(customerId);
       if (uuid) {
         updateCustomerRow(uuid, nextData).catch((e) =>
@@ -1271,9 +1281,27 @@ export function useJobs() {
       } else {
         const existing = customersList.find((c) => c.id === customerId);
         if (existing) {
-          upsertCustomerByImportKey({ ...existing, ...nextData }).catch((e) =>
-            console.error("Failed to back up customer:", e),
-          );
+          // Only malfunction/installation-derived customers resolve to a card here. They
+          // carry the real customer's own name and phone off the job row, so the match is
+          // trustworthy. An ics-c* customer does NOT: its name comes from a calendar
+          // summary and its phone from free text, so resolving it could write the edit
+          // onto some other real customer's card. Those keep the old upsert-by-name path.
+          const jobDerived =
+            isMalfunctionCustomer(existing.id) ||
+            isInstallationCustomer(existing.id);
+          const card = jobDerived
+            ? resolveCustomerCard(existing, customersList)
+            : null;
+          const cardUuid = card ? customerDbId(card.id) : null;
+          if (cardUuid) {
+            updateCustomerRow(cardUuid, nextData).catch((e) =>
+              console.error("Failed to update customer:", e),
+            );
+          } else {
+            upsertCustomerByImportKey({ ...existing, ...nextData }).catch((e) =>
+              console.error("Failed to back up customer:", e),
+            );
+          }
         }
       }
     },
@@ -1349,9 +1377,19 @@ export function useJobs() {
     return jobs.filter((j) => j.technicianId === techId);
   };
 
+  // Customers that may be picked for NEW work. Soft-deleted customers stay in
+  // `customersList` on purpose — every existing job resolves its display name from that
+  // list, so filtering them out there would blank the name on all their history.
+  // Job-derived customers (db-malf-cust-* etc.) carry no flag and are always active.
+  const activeCustomers = useMemo(
+    () => customersList.filter(isSelectableCustomer),
+    [customersList],
+  );
+
   return {
     jobs,
     customersList,
+    activeCustomers,
     closedJobs,
     ongoingServices,
     activityLogs,

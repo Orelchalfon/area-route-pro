@@ -66,6 +66,7 @@ export default function ServiceCyclePage() {
     archiveOngoingService,
     jobs,
     customersList,
+    activeCustomers,
     addJob,
     updateCustomer,
     archiveJob,
@@ -314,7 +315,7 @@ export default function ServiceCyclePage() {
 
   const openServiceCallDialog = (
     <OpenServiceCallDialog
-      customers={customersList}
+      customers={activeCustomers}
       defaultDate={defaultServiceDate}
       onAdd={handleOpenServiceCalls}
     />

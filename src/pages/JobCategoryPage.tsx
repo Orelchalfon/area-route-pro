@@ -50,6 +50,7 @@ export default function JobCategoryPage({
   const {
     jobs,
     customersList,
+    activeCustomers,
     addJob,
     archiveJob,
     unassignJob,
@@ -156,7 +157,7 @@ export default function JobCategoryPage({
           {canOpenRequest && (
             <OpenJobDialog
               type={config.type as "malfunction" | "installation"}
-              customers={customersList}
+              customers={activeCustomers}
               onAdd={addJob}
             />
           )}

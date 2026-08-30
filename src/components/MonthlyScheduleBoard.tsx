@@ -76,6 +76,7 @@ import {
 import {
   DAY_START_MINUTES,
   distributeFilterJobs,
+  filterEligibleCustomers,
   generateFilterJobs,
   minutesToTime,
   nextFreeMinutes,
@@ -315,9 +316,16 @@ export function MonthlyScheduleBoard({
     rangeEnd,
   );
 
+  // Soft-deleted customers stop producing NEW annual-filter reminders, but keep any
+  // whose filter job is already scheduled onto a day — see filterEligibleCustomers.
+  const eligibleForFilterJobs = useMemo(
+    () => filterEligibleCustomers(customersList, jobs),
+    [customersList, jobs],
+  );
+
   // Auto-generated filter jobs for this month, merged with global state + redistributed overdue jobs
   const filterJobs = useMemo(() => {
-    const generated = generateFilterJobs(month, year, customersList);
+    const generated = generateFilterJobs(month, year, eligibleForFilterJobs);
     const jobMap = new Map(jobs.map((j) => [j.id, j]));
     const generatedIds = new Set(generated.map((g) => g.id));
     const generatedCustomerIds = new Set(generated.map((g) => g.customerId));
@@ -345,7 +353,7 @@ export function MonthlyScheduleBoard({
         j.createdAt.startsWith(`${year}-${String(month).padStart(2, "0")}`),
     );
     return [...merged, ...redistributed];
-  }, [month, year, jobs, customersList]);
+  }, [month, year, jobs, eligibleForFilterJobs]);
 
   // Generate filter jobs for a 2-week range around a given date (for the picker)
   const getFilterJobsInRange = useCallback(
@@ -370,7 +378,7 @@ export function MonthlyScheduleBoard({
 
       monthsInRange.forEach((key) => {
         const [y, m] = key.split("-").map(Number);
-        const generated = generateFilterJobs(m, y, customersList);
+        const generated = generateFilterJobs(m, y, eligibleForFilterJobs);
         generated.forEach((gj) => {
           if (seenCustomerIds.has(gj.customerId)) return;
           seenCustomerIds.add(gj.customerId);
@@ -390,7 +398,7 @@ export function MonthlyScheduleBoard({
 
       return allRangeJobs;
     },
-    [customersList, jobs],
+    [eligibleForFilterJobs, jobs],
   );
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<
     Map<string, Job[]>

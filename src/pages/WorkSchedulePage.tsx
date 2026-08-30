@@ -13,7 +13,7 @@ import { AddTaskToScheduleDialog } from './work-schedule/AddTaskToScheduleDialog
 import { DAY_NAMES, getRegion } from './work-schedule/regions';
 
 export default function WorkSchedulePage() {
-  const { jobs, customersList, addJob } = useJobsContext();
+  const { jobs, customersList, activeCustomers, addJob } = useJobsContext();
   const [weekOffset, setWeekOffset] = useState(0);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [addTaskState, setAddTaskState] = useState<{ techId: string; dateStr: string } | null>(null);
@@ -248,7 +248,7 @@ export default function WorkSchedulePage() {
           techId={addTaskState.techId}
           dateStr={addTaskState.dateStr}
           existingJobs={getJobsForDayAndTech(addTaskState.dateStr, addTaskState.techId)}
-          customersList={customersList}
+          customersList={activeCustomers}
           onAdd={(customerId, type, afterJobId, notes) => {
             const customer = customersList.find(c => c.id === customerId);
             if (!customer) return;
