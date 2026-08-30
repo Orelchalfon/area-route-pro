@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useJobsContext } from "@/contexts/JobsContext";
 import { arrivalStateFor } from "@/hooks/useArrivalConfirmations";
 import type { DayDocumentationRecord } from "@/hooks/useCompletedDayRecords";
@@ -805,11 +806,19 @@ export function DayApprovalDialog({
                               />
                             </div>
                           </div>
+                          {/* Free text that runs long — a fault description, the gist of a
+                              call with the customer. text-base below md matches the base
+                              Input component and keeps iOS from zooming the page on focus;
+                              resize-y lets it grow taller without breaking this 35% column. */}
                           <div>
-                            <label className='text-xs font-semibold text-muted-foreground'>
+                            <label
+                              htmlFor={`edit-notes-${job.id}`}
+                              className='text-xs font-semibold text-muted-foreground'>
                               הערות
                             </label>
-                            <Input
+                            <Textarea
+                              id={`edit-notes-${job.id}`}
+                              rows={4}
                               value={editForm.notes}
                               onChange={(e) =>
                                 setEditForm((f) => ({
@@ -817,7 +826,7 @@ export function DayApprovalDialog({
                                   notes: e.target.value,
                                 }))
                               }
-                              className='h-8 text-xs'
+                              className='text-base md:text-xs resize-y'
                             />
                           </div>
                           {/* Saving a duration rewrites every stop time below it, so the
