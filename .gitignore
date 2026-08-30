@@ -62,4 +62,5 @@ tal_hermon_make_blueprints/
 supabase/config.toml
 supabase/.env.local 
 *.csv
-sql/
+sql/**
+supabase
