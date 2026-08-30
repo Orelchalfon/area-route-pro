@@ -55,10 +55,12 @@ export type Database = {
           address: string | null
           city: string | null
           created_at: string
+          deleted_at: string | null
           email: string | null
           filter_replacement_month: number | null
           id: string
           import_key: string | null
+          is_active: boolean
           lat: number | null
           lng: number | null
           name: string
@@ -75,10 +77,12 @@ export type Database = {
           address?: string | null
           city?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string | null
           filter_replacement_month?: number | null
           id?: string
           import_key?: string | null
+          is_active?: boolean
           lat?: number | null
           lng?: number | null
           name: string
@@ -95,10 +99,12 @@ export type Database = {
           address?: string | null
           city?: string | null
           created_at?: string
+          deleted_at?: string | null
           email?: string | null
           filter_replacement_month?: number | null
           id?: string
           import_key?: string | null
+          is_active?: boolean
           lat?: number | null
           lng?: number | null
           name?: string
