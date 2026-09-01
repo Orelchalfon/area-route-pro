@@ -44,6 +44,12 @@ export type JobSyncPatch = Partial<
   // from `notes` so an edit doesn't write the joined string back into `notes` and
   // duplicate the description on refetch — see src/lib/jobNotes.ts.
   description?: string | null;
+  // ongoing_services ONLY (enforced in buildDbJobUpdatePatch). Calendar rows arrive with
+  // customer_name NULL, so ongoingCustomerName() names them after task_description — which
+  // makes the description double as the customer's identity: a chip reads "תלת", and
+  // editing the notes renames the job on the board. Writing a name we resolved some other
+  // way gives identity its own column and stops that fallback firing.
+  customerName?: string | null;
 };
 
 export function getDbJobRef(jobId: string): DbJobRef | null {
@@ -190,6 +196,15 @@ export function buildDbJobUpdatePatch<TTable extends DbJobTable>(
         (patch as OngoingServiceJobUpdate).task_description = data.description ?? '';
         break;
     }
+  }
+
+  // Identity, and ONLY for ongoing_services — scoped inside this guard on purpose.
+  // malfunctions.customer_name / installations.customer_name are the authoritative name
+  // for those rows (buildMalfunctionInsert writes it from the request form); nothing may
+  // ever infer them from a phone match. Assigning generically would also mean any future
+  // caller spreading a `Job` into a patch silently overwrites them.
+  if (table === 'ongoing_services' && data.customerName !== undefined) {
+    (patch as OngoingServiceJobUpdate).customer_name = data.customerName;
   }
   if (data.phone !== undefined) patch.phone = data.phone;
   if (data.priority !== undefined) patch.priority = data.priority;

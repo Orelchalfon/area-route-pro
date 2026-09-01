@@ -61,6 +61,38 @@ export function resolveCustomerCard(
 export const MIN_PHONE_KEY_LENGTH = 7;
 
 /**
+ * Real customer cards indexed by phone, keeping ONLY phones that identify exactly one card.
+ *
+ * A phone shared by several customers (spouses at one address are common in this data) is
+ * dropped rather than resolved to whichever row happened to come first — showing a
+ * confidently wrong name is worse than showing the row's own description.
+ *
+ * Only `db-cust-*` cards are indexed: job-derived customers carry the free-text name off a
+ * job row, so matching against them would just move the guess one step back.
+ *
+ * Lives here rather than beside the picker because useJobs needs the same index when it
+ * names an ongoing_services row at scheduling time — one rule, one implementation.
+ */
+export function buildUniquePhoneCardIndex(
+  customersList: Customer[],
+): Map<string, Customer> {
+  const byPhone = new Map<string, Customer | null>();
+  for (const customer of customersList) {
+    if (!isDbCustomer(customer.id)) continue;
+    const key = phoneKey(customer.phone);
+    if (key.length < MIN_PHONE_KEY_LENGTH) continue;
+    // null marks "ambiguous" — seen more than once, so it can never resolve.
+    byPhone.set(key, byPhone.has(key) ? null : customer);
+  }
+
+  const unique = new Map<string, Customer>();
+  for (const [key, customer] of byPhone) {
+    if (customer) unique.set(key, customer);
+  }
+  return unique;
+}
+
+/**
  * The stored-string spellings of one phone number, for an equality filter against a
  * column holding raw human-entered text.
  *

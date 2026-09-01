@@ -14,7 +14,12 @@ import { useResumeRefresh } from "@/hooks/useResumeRefresh";
 import { useScheduledFilterServices } from "@/hooks/useScheduledFilterServices";
 import { supabase } from "@/integrations/supabase/client";
 import { loadCustomersFromCSV } from "@/lib/csvParser";
-import { resolveCustomerCard } from "@/lib/customerCardMatch";
+import {
+  buildUniquePhoneCardIndex,
+  MIN_PHONE_KEY_LENGTH,
+  phoneKey,
+  resolveCustomerCard,
+} from "@/lib/customerCardMatch";
 import { formatHebrewDateTime } from "@/lib/dates";
 import {
   buildDbJobUpdatePatch,
@@ -941,6 +946,38 @@ export function useJobs() {
     });
   };
 
+  // A name for an ongoing_services row that has none of its own.
+  //
+  // Calendar rows arrive with customer_id AND customer_name null, so
+  // ongoingCustomerName() names them after task_description — which is why a board chip can
+  // read "תלת" or "BB", and why editing the job's notes renames it there: the description
+  // is doubling as the customer's identity. When the row's phone belongs to exactly one
+  // customer card we can name it independently of its description, so the name is persisted
+  // into customer_name the moment the row is scheduled. That is a NAME, not a link:
+  // customer_id is never written, so nothing here asserts two records are the same customer.
+  //
+  // Returns undefined — leaving the row untouched — unless every condition holds, because a
+  // wrong confident name is worse than a description.
+  const resolveOngoingIdentity = (job: Job): string | undefined => {
+    if (!isOngoingJob(job.id)) return undefined;
+
+    const customer = customersList.find((c) => c.id === job.customerId);
+    // A db-cust- customer means the row has a real customer_id; leave those alone.
+    if (!customer || !isOngoingCustomer(customer.id)) return undefined;
+
+    // The only client-side way to tell "customer_name is null" from "customer_name is set":
+    // when it is null the derived name IS the task description, which is the first half of
+    // the displayed notes. A row that already carries its own name is never overwritten.
+    if (customer.name !== splitJobNotes(job.notes).description) return undefined;
+
+    const key = phoneKey(job.phone || customer.phone);
+    if (key.length < MIN_PHONE_KEY_LENGTH) return undefined;
+
+    const card = buildUniquePhoneCardIndex(customersList).get(key);
+    if (!card?.name || card.name === customer.name) return undefined;
+    return card.name;
+  };
+
   const assignJob = (
     jobId: string,
     technicianId: string,
@@ -953,6 +990,9 @@ export function useJobs() {
     // the point where the old visit's record is released (one row, one visit).
     const job = jobs.find((j) => j.id === jobId);
     const clearsPreviousVisit = !!job && isReturnedForReschedule(job);
+    // Scheduling is where an ongoing row first needs a name on the board, so it is where
+    // we give it one. Undefined for every other job type and for rows already named.
+    const resolvedName = job ? resolveOngoingIdentity(job) : undefined;
 
     setJobs((prev) =>
       prev.map((j) =>
@@ -973,10 +1013,20 @@ export function useJobs() {
           : j,
       ),
     );
+    // Show the resolved name straight away. The realtime refresh that re-derives it from
+    // the row is debounced, so without this the chip keeps showing the task description for
+    // a beat after it lands on the day.
+    if (resolvedName && job) {
+      setCustomersList((prev) =>
+        prev.map((c) => (c.id === job.customerId ? { ...c, name: resolvedName } : c)),
+      );
+    }
+
     persistDbJobSafely(jobId, {
       technicianId,
       scheduledDate,
       scheduledTime,
+      ...(resolvedName ? { customerName: resolvedName } : {}),
       ...(clearsPreviousVisit
         ? {
             status: "confirmed" as JobStatus,
@@ -1023,7 +1073,13 @@ export function useJobs() {
       }),
     );
 
-    persistDbJobSafely(jobId, data);
+    // `customerName` is identity, not an editable job field — only assignJob sets it, from
+    // a phone match. Strip it here so a field added to the day-approval edit form can never
+    // ride a spread into the patch and let a note edit rename the job on the board. That is
+    // precisely the bug this whole path exists to close, so it is guarded structurally
+    // rather than left to the caller's type.
+    const { customerName: _ignored, ...persistable } = data as JobSyncPatch;
+    persistDbJobSafely(jobId, persistable);
   };
 
   const unassignJob = (jobId: string) => {

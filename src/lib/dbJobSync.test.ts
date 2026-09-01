@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildOngoingServiceInsert, type NewJobInsertInput } from './dbJobSync';
+import {
+  buildDbJobUpdatePatch,
+  buildOngoingServiceInsert,
+  type NewJobInsertInput,
+} from './dbJobSync';
 
 const input = (over: Partial<NewJobInsertInput> = {}): NewJobInsertInput => ({
   customerName: 'ישראל ישראלי',
@@ -65,5 +69,48 @@ describe('buildOngoingServiceInsert', () => {
     expect(row.scheduled_date).toBeNull();
     expect(row.technician_id).toBeNull();
     expect(row.status).toBe('draft');
+  });
+});
+
+describe('buildDbJobUpdatePatch — customer_name', () => {
+  // A calendar row has customer_name null, so the app names it after task_description.
+  // Persisting a name we resolved some other way is what stops the description doubling
+  // as the customer's identity on the board.
+  it('writes a resolved name to ongoing_services.customer_name', () => {
+    expect(
+      buildDbJobUpdatePatch('ongoing_services', { customerName: 'אלעד נתני' }).customer_name,
+    ).toBe('אלעד נתני');
+  });
+
+  // malfunctions/installations get customer_name from the request form — it is the
+  // authoritative name for those rows and must never be inferred from a phone match.
+  it('never touches customer_name on malfunctions or installations', () => {
+    expect(
+      buildDbJobUpdatePatch('malfunctions', { customerName: 'אלעד נתני' }),
+    ).not.toHaveProperty('customer_name');
+    expect(
+      buildDbJobUpdatePatch('installations', { customerName: 'אלעד נתני' }),
+    ).not.toHaveProperty('customer_name');
+  });
+
+  // The bug this whole change exists for: editing the notes in the day-approval modal
+  // sends `description`, which lands in task_description. That must not carry an identity
+  // change with it, or the chip on the control panel gets renamed by a note.
+  it('leaves customer_name alone when only the notes are edited', () => {
+    const patch = buildDbJobUpdatePatch('ongoing_services', {
+      description: 'תלת',
+      notes: 'לתאם מראש',
+    });
+    expect(patch.task_description).toBe('תלת');
+    expect(patch).not.toHaveProperty('customer_name');
+  });
+
+  it('does not invent the column on an ordinary scheduling write', () => {
+    expect(
+      buildDbJobUpdatePatch('ongoing_services', {
+        technicianId: 't1',
+        scheduledDate: '2026-09-01',
+      }),
+    ).not.toHaveProperty('customer_name');
   });
 });

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildUniquePhoneCardIndex,
-  resolvePickerCustomerName,
-} from "./pickerCustomerName";
+import { buildUniquePhoneCardIndex } from "@/lib/customerCardMatch";
+import { resolvePickerCustomerName } from "./pickerCustomerName";
 import { ongoingCustomerName } from "@/hooks/useOngoingServices";
 import type { Customer, Job } from "@/types";
 

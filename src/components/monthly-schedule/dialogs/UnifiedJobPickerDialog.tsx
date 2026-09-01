@@ -28,10 +28,8 @@ import {
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { jobMatchesPickerSearch } from "./jobPickerSearch";
-import {
-  buildUniquePhoneCardIndex,
-  resolvePickerCustomerName,
-} from "./pickerCustomerName";
+import { buildUniquePhoneCardIndex } from "@/lib/customerCardMatch";
+import { resolvePickerCustomerName } from "./pickerCustomerName";
 import { getPickerAssignment, PickerAssignment } from "./pickerAssignment";
 import { jobMatchesAreas } from "../regions";
 import {
