@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { format } from "date-fns";
+import { nameMatchesAllTokens, nameSearchTokens } from "@/lib/nameSearch";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ClientSearchResults } from "./service-cycle/ClientSearchResults";
@@ -164,6 +165,8 @@ export default function ServiceCyclePage() {
 
     const matches = (...fields: (string | null | undefined)[]) =>
       fields.some((f) => f && f.toLowerCase().includes(q));
+    // Hoisted: tokenise once per query, not once per row — this list runs long.
+    const tokens = nameSearchTokens(q);
 
     const customersById = new Map(customersList.map((c) => [c.id, c]));
 
@@ -174,8 +177,8 @@ export default function ServiceCyclePage() {
     const jobMatches = jobs
       .filter((j) => j.type === "malfunction" || j.type === "installation")
       .map((j) => ({ job: j, customer: customersById.get(j.customerId) }))
-      .filter(({ job, customer }) =>
-        matches(
+      .filter(({ job, customer }) => {
+        const textMatch = matches(
           customer?.name,
           customer?.phone,
           customer?.address,
@@ -183,8 +186,15 @@ export default function ServiceCyclePage() {
           job.notes,
           job.city,
           job.location,
-        ),
-      )
+        );
+        if (textMatch) return true;
+
+        // A multi-word query also matches the customer's name with the words in
+        // any order — the same person is stored as both "נילי אגסי" and "אגסי נילי".
+        // Name only, so a word from the name and a word from the city can never
+        // combine into a hit.
+        return nameMatchesAllTokens(customer?.name, tokens);
+      })
       .sort((a, b) =>
         (b.job.scheduledDate || b.job.createdAt).localeCompare(
           a.job.scheduledDate || a.job.createdAt,

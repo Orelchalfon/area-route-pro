@@ -1,4 +1,5 @@
 import { phoneKey } from "@/lib/customerCardMatch";
+import { nameMatchesAllTokens, nameSearchTokens } from "@/lib/nameSearch";
 import type { Customer, Job } from "@/types";
 
 /**
@@ -39,6 +40,13 @@ export function jobMatchesSearch(
     job.city,
   ].some((field) => field && field.toLowerCase().includes(q));
   if (textMatch) return true;
+
+  // A multi-word query also matches the customer's name with the words in any
+  // order, because the same person is stored as both "נילי אגסי" and "אגסי נילי".
+  // Name only -- not the address or the job's own fields -- so this can't produce
+  // a hit where one word came from the name and another from the city.
+  const tokens = nameSearchTokens(q);
+  if (nameMatchesAllTokens(customer?.name, tokens)) return true;
 
   // Only digits matter when comparing phone numbers — the same line is written
   // "052-123-4567", "0521234567" and "052 1234567" across the imported data.

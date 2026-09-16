@@ -65,4 +65,34 @@ describe("job picker search", () => {
   it("excludes jobs that do not match the query", () => {
     expect(jobMatchesPickerSearch(baseJob, customer, "אשדוד")).toBe(false);
   });
+
+  // The same person is stored under both word orders — see nameSearch.ts.
+  describe("multi-word name queries", () => {
+    const reversed: Customer = { ...customer, name: "אגסי נילי" };
+
+    it("matches a customer name stored in the opposite word order", () => {
+      expect(jobMatchesPickerSearch(baseJob, reversed, "נילי אגסי")).toBe(true);
+    });
+
+    it("matches the name carried on a calendar row with no customer record", () => {
+      const calendarRow: Job = {
+        ...baseJob,
+        id: "job-4",
+        type: "filter_replacement",
+        customerName: "אגסי נילי",
+      };
+
+      expect(jobMatchesPickerSearch(calendarRow, undefined, "נילי אגסי")).toBe(true);
+    });
+
+    it("does not match when only one of the words is in the name", () => {
+      const other: Customer = { ...customer, name: "נילי כהן" };
+      expect(jobMatchesPickerSearch(baseJob, other, "נילי אגסי")).toBe(false);
+    });
+
+    it("does not combine a word from the name with a word from another field", () => {
+      // "ישראל" is the name, "חיפה" the city — cross-field AND stays off.
+      expect(jobMatchesPickerSearch(baseJob, customer, "ישראל חיפה")).toBe(false);
+    });
+  });
 });

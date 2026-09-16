@@ -3,10 +3,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { technicians } from '@/data/technicians';
+import { nameMatchesAllTokens, nameSearchTokens } from '@/lib/nameSearch';
 import { Customer, Job, JobType } from '@/types';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DAY_NAMES } from './regions';
 
 // Dialog to add a task to an approved schedule
@@ -30,14 +31,21 @@ export function AddTaskToScheduleDialog({
   const tech = technicians.find(t => t.id === techId);
   const dayOfWeek = new Date(dateStr + 'T00:00:00').getDay();
 
-  const filteredCustomers = customersList.filter(c => {
-    if (!search) return true;
+  const filteredCustomers = useMemo(() => {
+    if (!search) return customersList;
     const q = search.toLowerCase();
-    return c.name?.toLowerCase().includes(q) ||
+    // A multi-word query also matches the name with the words in any order — the
+    // same person is stored as both "נילי אגסי" and "אגסי נילי". Name only, so a word
+    // from the name and a word from the city can never combine into a hit.
+    const tokens = nameSearchTokens(q);
+    return customersList.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
       c.phone?.includes(q) ||
       c.city?.toLowerCase().includes(q) ||
-      c.address?.toLowerCase().includes(q);
-  });
+      c.address?.toLowerCase().includes(q) ||
+      nameMatchesAllTokens(c.name, tokens),
+    );
+  }, [customersList, search]);
 
   return (
     <Dialog open onOpenChange={() => onClose()}>

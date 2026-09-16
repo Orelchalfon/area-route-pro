@@ -9,6 +9,7 @@ import {
   type CustomerRow,
   CUSTOMER_COLUMNS,
 } from '@/hooks/useCustomers';
+import { nameSearchTokens } from '@/lib/nameSearch';
 
 const PAGE_SIZE = 100;
 
@@ -23,8 +24,45 @@ function sanitizeTerm(search: string): string {
   return search.replace(/[,()%]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function orFilter(term: string): string {
-  return SEARCH_COLUMNS.map(col => `${col}.ilike.%${term}%`).join(',');
+/**
+ * The PostgREST `or=` filter for a (already sanitized) search term.
+ *
+ * The first branches are the untouched original behaviour: the whole term as one
+ * `ilike` pattern against each searchable column. A multi-word term adds ONE extra
+ * branch requiring every token to appear in `name`, in any order — that is what
+ * makes "נילי אגסי" also find the card stored as "אגסי נילי". Only ever
+ * additive, so no query returns fewer rows than it did before.
+ *
+ * Tokens need no escaping: `nameSearchTokens` keeps only digits/latin/Hebrew, so a
+ * token can never carry a character that is reserved in the filter grammar.
+ * Nested `and(...)` inside `or(...)` was verified against this project's instance.
+ *
+ * Exported for tests — a rejected filter surfaces as an error/empty state rather
+ * than a crash, so the exact string is worth pinning down.
+ */
+export function buildCustomerSearchFilter(term: string): string {
+  const branches = SEARCH_COLUMNS.map(col => `${col}.ilike.%${term}%`);
+
+  const tokens = nameSearchTokens(term);
+  if (tokens.length >= 2) {
+    branches.push(`and(${tokens.map(t => `name.ilike.%${t}%`).join(',')})`);
+  }
+
+  return branches.join(',');
+}
+
+/**
+ * Applied identically by all three queries below (initial load, loadMore,
+ * refetchLoaded). They must agree: a term on one but not another duplicates or skips
+ * rows as the user scrolls past the first page, and leaves `count` disagreeing with
+ * the list.
+ */
+function applyCustomerSearch<T extends { or: (filter: string) => T }>(
+  query: T,
+  term: string,
+): T {
+  if (!term) return query;
+  return query.or(buildCustomerSearchFilter(term));
 }
 
 // Editing the address/city without supplying fresh coords means the stored
@@ -123,7 +161,7 @@ export function useCustomerDirectory({
         .eq('is_active', activeFlag)
         .order('name', { ascending: true })
         .range(0, PAGE_SIZE - 1);
-      if (term) query = query.or(orFilter(term));
+      query = applyCustomerSearch(query, term);
 
       const { data, error: queryError, count } = await query;
       if (reqId !== reqIdRef.current) return; // superseded
@@ -162,7 +200,7 @@ export function useCustomerDirectory({
         .eq('is_active', activeFlag)
         .order('name', { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
-      if (term) query = query.or(orFilter(term));
+      query = applyCustomerSearch(query, term);
 
       const { data, error: queryError, count } = await query;
       loadingMoreRef.current = false;
@@ -196,7 +234,7 @@ export function useCustomerDirectory({
       .eq('is_active', curActive)
       .order('name', { ascending: true })
       .range(0, upTo);
-    if (curTerm) query = query.or(orFilter(curTerm));
+    query = applyCustomerSearch(query, curTerm);
 
     const { data, error: queryError, count } = await query;
     if (reqId !== reqIdRef.current) return;

@@ -1,3 +1,4 @@
+import { nameMatchesAllTokens, nameSearchTokens } from "@/lib/nameSearch";
 import { Customer, Job } from "@/types";
 
 export function jobMatchesPickerSearch(
@@ -8,7 +9,7 @@ export function jobMatchesPickerSearch(
   const q = query.trim().toLowerCase();
   if (!q) return true;
 
-  return [
+  const textMatch = [
     customer?.name,
     customer?.phone,
     customer?.address,
@@ -21,4 +22,13 @@ export function jobMatchesPickerSearch(
     job.location,
     job.phone,
   ].some((field) => field && field.toLowerCase().includes(q));
+  if (textMatch) return true;
+
+  // A multi-word query also matches the name with the words in any order: the same
+  // person is stored as both "נילי אגסי" and "אגסי נילי". Name fields only, so a
+  // word from the name and a word from the city can never combine into a hit.
+  const tokens = nameSearchTokens(q);
+  return [customer?.name, job.customerName].some((name) =>
+    nameMatchesAllTokens(name, tokens),
+  );
 }

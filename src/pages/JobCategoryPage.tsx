@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useJobsContext } from "@/contexts/JobsContext";
+import { nameMatchesAllTokens, nameSearchTokens } from "@/lib/nameSearch";
 import { Job, JobType } from "@/types";
 import {
   CheckCircle2,
@@ -107,10 +108,12 @@ export default function JobCategoryPage({
     const customersById = new Map(customersList.map((c) => [c.id, c]));
     const matches = (...fields: (string | null | undefined)[]) =>
       fields.some((f) => f && f.toLowerCase().includes(q));
+    // Hoisted: tokenise once per query, not once per job.
+    const tokens = nameSearchTokens(q);
 
     return allOfType.filter((job) => {
       const customer = customersById.get(job.customerId);
-      return matches(
+      const textMatch = matches(
         customer?.name,
         customer?.phone,
         customer?.address,
@@ -119,6 +122,13 @@ export default function JobCategoryPage({
         job.city,
         job.location,
       );
+      if (textMatch) return true;
+
+      // A multi-word query also matches the customer's name with the words in
+      // any order — the same person is stored as both "נילי אגסי" and "אגסי נילי".
+      // Name only, so a word from the name and a word from the city can never
+      // combine into a hit.
+      return nameMatchesAllTokens(customer?.name, tokens);
     });
   }, [allOfType, customersList, searchQuery]);
 

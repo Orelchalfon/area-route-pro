@@ -98,4 +98,37 @@ describe('jobMatchesSearch', () => {
     expect(jobMatchesSearch(job(), customer(), 'דליפה')).toBe(false);
     expect(jobMatchesSearch(job(), customer(), 'תקלה')).toBe(false);
   });
+
+  // The same person is stored under both word orders — see nameSearch.ts.
+  describe('multi-word name queries', () => {
+    it('matches a name stored in the opposite word order', () => {
+      const c = customer({ name: 'אגסי נילי' });
+      expect(jobMatchesSearch(job(), c, 'נילי אגסי')).toBe(true);
+    });
+
+    it('matches with another word in between', () => {
+      const c = customer({ name: 'אגסי משה נילי' });
+      expect(jobMatchesSearch(job(), c, 'נילי אגסי')).toBe(true);
+    });
+
+    it('does not match when only one of the words is in the name', () => {
+      const c = customer({ name: 'נילי כהן' });
+      expect(jobMatchesSearch(job(), c, 'נילי אגסי')).toBe(false);
+    });
+
+    it('does not combine a word from the name with a word from the city', () => {
+      // 'משה' is the name, 'שומרון' is the city — cross-field AND stays off.
+      expect(jobMatchesSearch(job(), customer(), 'משה שומרון')).toBe(false);
+    });
+
+    it('does not token-match the address or the job fields', () => {
+      const c = customer({ name: 'אגסי נילי' });
+      expect(jobMatchesSearch(job(), c, 'הרצל שומרון')).toBe(false);
+    });
+
+    it('leaves the phone branch alone', () => {
+      const c = customer({ name: 'אגסי נילי' });
+      expect(jobMatchesSearch(job(), c, '052-123')).toBe(true);
+    });
+  });
 });
