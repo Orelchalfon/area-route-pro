@@ -2,7 +2,7 @@ import { useJobsContext } from "@/contexts/JobsContext";
 import { useGoogleMapsKey } from "@/hooks/useGoogleMapsKey";
 import { geocodeAddress } from "@/lib/geocodeAddress";
 import { isOngoingCustomer } from "@/lib/idConventions";
-import { splitJobNotes } from "@/lib/jobNotes";
+import { splitJobNotes, withEditedNotes } from "@/lib/jobNotes";
 import { Customer, Job } from "@/types";
 import {
   type Dispatch,
@@ -56,7 +56,11 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
         location: job.location,
         city: job.city,
         phone: job.phone || customer?.phone || "",
-        notes: job.notes,
+        // The notes HALF only. `job.notes` is the joined "description | notes" display
+        // string, and seeding the box with all of it is what let a note edit rewrite the
+        // description — which, on a calendar row with customer_name NULL, IS the name on
+        // the board. The description is shown read-only beside the box instead.
+        notes: splitJobNotes(job.notes).notes,
         estimatedDuration: job.estimatedDuration,
       });
       setPendingEditCoords(null);
@@ -110,21 +114,23 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
 
         const nextJobData: Partial<
           Pick<Job, "location" | "city" | "phone" | "notes" | "estimatedDuration">
-        > & { lat?: number; lng?: number; description?: string } = {
+          // No `description` key on purpose: this form must not be able to write a
+          // description (see the notes block below), and the type is what enforces it.
+        > & { lat?: number; lng?: number } = {
           ...editForm,
           location: nextLocation,
           city: nextCity,
           phone: nextPhone,
         };
 
-        // `editForm.notes` is the DISPLAY string, joined by the loaders from two
-        // columns (description/product_type/task_description + notes). Persisting it
-        // whole duplicates the description on refetch, so split it back — only when
-        // edited, so an unrelated save never shuffles text between the columns.
-        if (editForm.notes !== (job.notes || "")) {
-          const split = splitJobNotes(editForm.notes);
-          nextJobData.description = split.description;
-          nextJobData.notes = split.notes;
+        // Notes ONLY — this form never sends `description`, so buildDbJobUpdatePatch can
+        // never write ongoing_services.task_description from here. Editing the technician's
+        // notes must not be able to rename a job on the monthly board; the תיאור field in
+        // PickerJobEditForm is the editor that legitimately changes a description.
+        // Compared against the notes half so an unrelated save (address, duration) still
+        // sends no notes at all.
+        if (editForm.notes !== splitJobNotes(job.notes).notes) {
+          nextJobData.notes = editForm.notes;
         } else {
           delete nextJobData.notes;
         }
@@ -139,13 +145,17 @@ export function useJobEditForm(setOrderedJobs: Dispatch<SetStateAction<Job[]>>) 
         }
 
         updateJob(job.id, nextJobData);
-        // The local list holds Jobs, whose `notes` is the joined display string —
-        // patch it with what the textarea shows, not with the split-out half.
-        const { description: _description, ...displayPatch } = nextJobData;
+        // The local list holds Jobs, whose `notes` is the joined display string — re-join
+        // rather than storing the half, or the card text would flip on save and flip back
+        // on the next refetch.
         setOrderedJobs((prev) =>
           prev.map((j) =>
             j.id === job.id
-              ? { ...j, ...displayPatch, notes: editForm.notes }
+              ? {
+                  ...j,
+                  ...nextJobData,
+                  notes: withEditedNotes(j.notes, editForm.notes),
+                }
               : j,
           ),
         );

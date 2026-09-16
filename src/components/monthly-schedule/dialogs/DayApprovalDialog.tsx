@@ -30,6 +30,7 @@ import type { DayDocumentationRecord } from "@/hooks/useCompletedDayRecords";
 import { getCustomerCoords } from "@/lib/customerCoords";
 import { buildDayExportRows } from "@/lib/dayExport/rows";
 import { isOngoingJob } from "@/lib/idConventions";
+import { splitJobNotes } from "@/lib/jobNotes";
 import { optimizeStopOrder, type LatLng } from "@/lib/routeOptimizer";
 import { cn } from "@/lib/utils";
 import { normalizeIsraeliPhone, whatsappUrl } from "@/lib/whatsapp";
@@ -874,6 +875,20 @@ export function DayApprovalDialog({
                               call with the customer. text-base below md matches the base
                               Input component and keeps iOS from zooming the page on focus;
                               resize-y lets it grow taller without breaking this 35% column. */}
+                          {/* Read-only: on a calendar row with no customer_name this
+                              description IS the name on the board, so it must not be
+                              reachable from the notes editor. The תיאור field in the
+                              picker edit form is where it is changed on purpose. */}
+                          {splitJobNotes(job.notes).description && (
+                            <div className='mb-2'>
+                              <span className='text-xs font-semibold text-muted-foreground'>
+                                תיאור המשימה
+                              </span>
+                              <p className='whitespace-pre-wrap text-xs text-foreground'>
+                                {splitJobNotes(job.notes).description}
+                              </p>
+                            </div>
+                          )}
                           <div>
                             <label
                               htmlFor={`edit-notes-${job.id}`}

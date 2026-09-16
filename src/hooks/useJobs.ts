@@ -575,8 +575,22 @@ export function useJobs() {
     }[],
     jobObjects?: Job[],
   ) => {
+    const assignmentMap = new Map(assignments.map((a) => [a.jobId, a]));
+
+    // Approving a day schedules rows too, so it has to name them exactly as assignJob
+    // does. Without this an ongoing row reaches the board with customer_name still NULL
+    // and its chip falls back to the task description — which is the whole reason
+    // customer_name exists. This is the path the manager actually uses (day approval,
+    // "add to an approved day", moving a day), so skipping it here left a steady trickle
+    // of unnamed chips that a one-off backfill had to keep mopping up.
+    const resolvedNames = new Map<string, string>();
+    for (const job of [...jobs, ...(jobObjects ?? [])]) {
+      if (!assignmentMap.has(job.id) || resolvedNames.has(job.id)) continue;
+      const name = resolveOngoingIdentity(job);
+      if (name) resolvedNames.set(job.id, name);
+    }
+
     setJobs((prev) => {
-      const assignmentMap = new Map(assignments.map((a) => [a.jobId, a]));
       const existingIds = new Set(prev.map((j) => j.id));
 
       // Update existing jobs
@@ -594,11 +608,13 @@ export function useJobs() {
           // to scheduled_filter_services and their real row never got status:'confirmed'
           // (the ongoing merge then reverted them to 'draft' → dropped from the tech view).
           if (getDbJobRef(j.id)) {
+            const resolvedName = resolvedNames.get(j.id);
             persistDbJobSafely(j.id, {
               status: "confirmed",
               technicianId: assignment.technicianId,
               scheduledDate: assignment.scheduledDate,
               scheduledTime: assignment.scheduledTime,
+              ...(resolvedName ? { customerName: resolvedName } : {}),
             });
           } else if (isFilterJob(j.id)) {
             persistFilterServiceRowSafely(
@@ -634,11 +650,13 @@ export function useJobs() {
               // Route by id (see the update loop above): db-ongoing-* must persist to
               // ongoing_services, not scheduled_filter_services, despite its type.
               if (getDbJobRef(job.id)) {
+                const resolvedName = resolvedNames.get(job.id);
                 persistDbJobSafely(job.id, {
                   status: "confirmed",
                   technicianId: assignment.technicianId,
                   scheduledDate: assignment.scheduledDate,
                   scheduledTime: assignment.scheduledTime,
+                  ...(resolvedName ? { customerName: resolvedName } : {}),
                 });
               } else if (isFilterJob(job.id)) {
                 persistFilterServiceRowSafely(
@@ -662,6 +680,21 @@ export function useJobs() {
 
       return updated;
     });
+
+    // Show the resolved names straight away — the realtime refresh that re-derives them
+    // from the rows is debounced (same reason as in assignJob).
+    if (resolvedNames.size > 0) {
+      const byCustomerId = new Map<string, string>();
+      for (const job of [...jobs, ...(jobObjects ?? [])]) {
+        const name = resolvedNames.get(job.id);
+        if (name) byCustomerId.set(job.customerId, name);
+      }
+      setCustomersList((prev) =>
+        prev.map((c) =>
+          byCustomerId.has(c.id) ? { ...c, name: byCustomerId.get(c.id)! } : c,
+        ),
+      );
+    }
   };
 
   const completeJob = (jobId: string, notes: string) => {

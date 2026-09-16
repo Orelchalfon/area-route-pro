@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { joinJobNotes, splitJobNotes } from './jobNotes';
+import { joinJobNotes, splitJobNotes, withEditedNotes } from './jobNotes';
 
 describe('splitJobNotes', () => {
   it('splits a joined description + notes on the first separator', () => {
@@ -49,5 +49,54 @@ describe('round-trip', () => {
   ])('is stable for %j', (value) => {
     const { description, notes } = splitJobNotes(value);
     expect(joinJobNotes(description, notes)).toBe(value);
+  });
+});
+
+// The הערות box in the day-approval / day-detail dialog edits the notes half only.
+// Before this, it was seeded with the whole joined string, so text typed into a field
+// labelled "הערות" was written back as the DESCRIPTION — and on a calendar row with no
+// customer_name the description is the name on the monthly board, so a note renamed the job.
+describe('technician notes editor', () => {
+  // The real row from the report: a calendar title with no separator in it.
+  const CALENDAR_ROW = 'קומה 3 דירה 22      חוץ+תלת';
+
+  it('seeds the box EMPTY for a row that has no notes yet', () => {
+    // Not the description — that is the whole point.
+    expect(splitJobNotes(CALENDAR_ROW).notes).toBe('');
+  });
+
+  it('seeds the box with the notes half when there are notes', () => {
+    expect(splitJobNotes('תיאור | לתאם מראש').notes).toBe('לתאם מראש');
+  });
+
+  describe('withEditedNotes', () => {
+    it('keeps a separator-free description intact when notes are added', () => {
+      expect(withEditedNotes(CALENDAR_ROW, 'להביא סולם')).toBe(
+        `${CALENDAR_ROW} | להביא סולם`,
+      );
+    });
+
+    it('replaces existing notes without touching the description', () => {
+      expect(withEditedNotes('תיאור | ישן', 'חדש')).toBe('תיאור | חדש');
+    });
+
+    it('clearing the notes leaves the description alone', () => {
+      expect(withEditedNotes('תיאור | ישן', '')).toBe('תיאור');
+      expect(withEditedNotes(CALENDAR_ROW, '')).toBe(CALENDAR_ROW);
+    });
+
+    it('never lets typed text become the description', () => {
+      // Whatever is typed, the first half is unchanged — the board label is safe.
+      for (const typed of ['אבי פרטוש', 'קומה 3', '', 'a | b']) {
+        expect(splitJobNotes(withEditedNotes(CALENDAR_ROW, typed)).description).toBe(
+          CALENDAR_ROW,
+        );
+      }
+    });
+
+    it('handles a missing joined string', () => {
+      expect(withEditedNotes(undefined, 'הערה')).toBe('הערה');
+      expect(withEditedNotes(null, '')).toBe('');
+    });
   });
 });

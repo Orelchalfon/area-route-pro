@@ -33,3 +33,21 @@ export function splitJobNotes(joined: string | undefined | null): SplitJobNotes 
 export function joinJobNotes(description: string, notes: string): string {
   return [description, notes].filter(Boolean).join(JOB_NOTES_SEPARATOR);
 }
+
+/**
+ * The joined display string with ONLY the notes half replaced — the description is
+ * carried through untouched.
+ *
+ * For the day-approval / day-detail הערות editor, which edits technician notes and
+ * must never touch the description. That matters because a calendar row arrives with
+ * customer_name NULL, so ongoingCustomerName() names it after task_description: rewrite
+ * the description there and you rename the job on the monthly board. The editor is
+ * seeded with `splitJobNotes(job.notes).notes` and re-joined here, so the description
+ * has no path back into the patch at all.
+ */
+export function withEditedNotes(
+  joined: string | undefined | null,
+  edited: string,
+): string {
+  return joinJobNotes(splitJobNotes(joined).description, edited);
+}

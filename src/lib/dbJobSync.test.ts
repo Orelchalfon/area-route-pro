@@ -93,10 +93,12 @@ describe('buildDbJobUpdatePatch — customer_name', () => {
     ).not.toHaveProperty('customer_name');
   });
 
-  // The bug this whole change exists for: editing the notes in the day-approval modal
-  // sends `description`, which lands in task_description. That must not carry an identity
-  // change with it, or the chip on the control panel gets renamed by a note.
-  it('leaves customer_name alone when only the notes are edited', () => {
+  // `description` still maps to task_description — that is what the תיאור field in
+  // PickerJobEditForm edits, and it stays. What changed is WHO sends it: the day-approval
+  // הערות box no longer does (useJobEditForm sends `notes` only), because on a calendar
+  // row with customer_name NULL the description is the chip's name and a note edit renamed
+  // the job. Whoever sends a description, it must never carry an identity change with it.
+  it('leaves customer_name alone when a description and notes are written', () => {
     const patch = buildDbJobUpdatePatch('ongoing_services', {
       description: 'תלת',
       notes: 'לתאם מראש',
