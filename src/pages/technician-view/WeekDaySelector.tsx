@@ -34,7 +34,7 @@ export function WeekDaySelector({
         <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0" aria-label="השבוע הבא" onClick={onNextWeek}>
           <ChevronRight className="w-4 h-4" />
         </Button>
-        <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+        <div className="flex flex-row-reverse gap-1.5 overflow-x-auto pb-1 flex-1">
           {weekDays.map(day => {
             const dayJobCount = getDayJobCount(day.date);
             const isSelected = day.date === selectedDay;
@@ -42,7 +42,7 @@ export function WeekDaySelector({
               <button
                 key={day.date}
                 onClick={() => onSelectDay(day.date)}
-                className={`flex-1 min-w-[60px] rounded-lg p-2 text-center transition-colors border ${
+                className={`flex-1 min-w-15 rounded-lg p-2 text-center transition-colors border ${
                   isSelected
                     ? 'bg-primary text-primary-foreground border-primary'
                     : day.isToday

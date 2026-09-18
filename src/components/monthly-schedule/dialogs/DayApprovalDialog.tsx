@@ -140,6 +140,7 @@ export function DayApprovalDialog({
     scheduledDate: string;
     scheduledTime: string;
     notes: string;
+    serviceDate?: string;
   }) => void | Promise<Job | undefined>;
   // Both only reach the printed day sheet: the areas the manager selected for the day,
   // and whose sheet this is.
@@ -767,19 +768,29 @@ export function DayApprovalDialog({
                             );
                           })()}
                         {/* Follow-up tasks (משימות להמשך) — only for a job the technician
-                            already reported as done. Creates the next annual service
-                            (שנה מהיום) and re-affirms the current job as done. */}
+                            already reported as done. Each task is dated from `dateStr`,
+                            the day the work was done, not from the day the manager
+                            approves it. */}
                         {job.completionStatus === "done" && onAddJob && (
                           <div className='mt-2 flex' onClick={(e) => e.stopPropagation()}>
                             <FollowUpTasksPopover
                               job={job}
+                              visitDate={dateStr}
                               customers={customers}
                               onAddJob={(data) => {
-                                markJobCompletion(
-                                  job.id,
-                                  "done",
-                                  job.completionNotes || "",
-                                );
+                                // Only re-affirm a job that isn't marked completed yet.
+                                // Re-sending status:'completed' made
+                                // buildDbJobUpdatePatch re-stamp completed_at with the
+                                // approval time, so a visit on the 15th ended up recorded
+                                // as done on the day the follow-ups were added, plus a
+                                // duplicate "דיווח טכנאי" log line per task.
+                                if (job.status !== "completed") {
+                                  markJobCompletion(
+                                    job.id,
+                                    "done",
+                                    job.completionNotes || "",
+                                  );
+                                }
                                 // Returned so the popover can offer to revert what it created.
                                 return onAddJob(data);
                               }}

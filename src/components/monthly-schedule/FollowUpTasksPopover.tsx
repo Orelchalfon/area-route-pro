@@ -19,12 +19,12 @@ import { useJobsContext } from "@/contexts/JobsContext";
 import {
   closesOnFollowUp,
   FOLLOW_UP_OPTIONS,
+  followUpDueDate,
   monthsLabel,
 } from "@/lib/followUpOptions";
 import { isOngoingJob } from "@/lib/idConventions";
 import { cn } from "@/lib/utils";
 import { Customer, Job, JobType } from "@/types";
-import { format } from "date-fns";
 import { CheckCircle, ListPlus, Undo2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -37,10 +37,14 @@ const FOLLOW_UP_MARKER = "המשך התקנה";
 // Follow-up tasks popover for installation jobs
 export function FollowUpTasksPopover({
   job,
+  visitDate,
   customers,
   onAddJob,
 }: {
   job: Job;
+  // The day the work was done — the board day this popover is opened from. Passed in
+  // rather than read off `job` so the anchor can't depend on how the job object got here.
+  visitDate: string;
   customers: Customer[];
   // Returns the created job (when it came from addJob) so we can offer an undo.
   onAddJob: (data: {
@@ -50,6 +54,7 @@ export function FollowUpTasksPopover({
     scheduledDate: string;
     scheduledTime: string;
     notes: string;
+    serviceDate?: string;
   }) => void | Promise<Job | undefined>;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
@@ -95,7 +100,6 @@ export function FollowUpTasksPopover({
 
   const handleConfirm = async () => {
     setCreating(true);
-    const now = new Date();
     // Each follow-up becomes a filter_replacement request. onAddJob (→ addJob)
     // persists it to ongoing_services, so it shows up in the service cycle and can be
     // scheduled — no separate insert needed. Awaited one at a time so we can collect
@@ -103,19 +107,18 @@ export function FollowUpTasksPopover({
     const created: Job[] = [];
     for (const optionId of selected) {
       const option = FOLLOW_UP_OPTIONS.find((o) => o.id === optionId)!;
-      const futureDate = new Date(now);
-      futureDate.setMonth(futureDate.getMonth() + option.monthsFromNow);
-      // Skip Friday (5) and Saturday (6) — move to next Sunday
-      while (futureDate.getDay() === 5 || futureDate.getDay() === 6) {
-        futureDate.setDate(futureDate.getDate() + 1);
-      }
-      const scheduledDate = format(futureDate, "yyyy-MM-dd");
+      // Counted from the day the job was done (its day on the board), not from today.
+      const dueDate = followUpDueDate(
+        visitDate || job.scheduledDate,
+        option.monthsFromNow,
+      );
       const taskDesc = `${option.label} — ${customer?.name || ""}`;
       const result = await onAddJob({
         type: "filter_replacement",
         customerId: job.customerId,
         technicianId: "",
-        scheduledDate,
+        scheduledDate: dueDate,
+        serviceDate: dueDate,
         scheduledTime: "",
         notes: `${taskDesc} — ${FOLLOW_UP_MARKER}`,
       });
@@ -229,7 +232,7 @@ export function FollowUpTasksPopover({
                 <div>
                   <span className='font-medium'>{option.label}</span>
                   <span className='text-muted-foreground mr-1'>
-                    ({monthsLabel(option.monthsFromNow)} מהיום)
+                    ({monthsLabel(option.monthsFromNow)} מיום הביקור)
                   </span>
                 </div>
               </label>

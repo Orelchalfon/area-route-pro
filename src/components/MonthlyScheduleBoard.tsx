@@ -124,6 +124,7 @@ interface MonthlyScheduleBoardProps {
     scheduledDate: string;
     scheduledTime: string;
     notes: string;
+    serviceDate?: string;
   }) => void | Promise<Job | undefined>;
 }
 

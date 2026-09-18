@@ -8,11 +8,12 @@
 // sites share one list — adding a task type here surfaces it in both.
 
 import { JobType } from "@/types";
+import { addMonths, format } from "date-fns";
 
 export interface FollowUpOption {
   id: string;
   label: string;
-  /** Default interval from today, in months. Drives the follow-up flow's dates. */
+  /** Interval in months. In the follow-up flow it counts from the visit date (see followUpDueDate). */
   monthsFromNow: number;
 }
 
@@ -45,6 +46,31 @@ export const FOLLOW_UP_OPTIONS: readonly FollowUpOption[] = [
  */
 export function closesOnFollowUp(type: JobType): boolean {
   return type === "malfunction" || type === "installation";
+}
+
+/**
+ * Due date (`yyyy-MM-dd`) of a follow-up task: `months` after the day the job was done.
+ *
+ * Anchored on the visit — the day the job sits on the board — and NOT on when the manager
+ * clicks: follow-ups are usually added days after the visit, at day approval, and counting from
+ * the click drifted every due date by that gap. Not the request's opened date either; that one
+ * stays on the request to show how long it waited. Falls back to `today` only when the job has
+ * no (valid) scheduled date.
+ */
+export function followUpDueDate(
+  visitDate: string | undefined,
+  months: number,
+  today: Date = new Date(),
+): string {
+  const visit = visitDate ? new Date(`${visitDate.slice(0, 10)}T00:00:00`) : null;
+  const anchor = visit && !Number.isNaN(visit.getTime()) ? visit : today;
+  // addMonths clamps at month end (Aug 31 + 6 → Feb 28); setMonth rolled over into March.
+  const due = addMonths(anchor, months);
+  // No work on Friday (5) or Saturday (6) — move to the next Sunday.
+  while (due.getDay() === 5 || due.getDay() === 6) {
+    due.setDate(due.getDate() + 1);
+  }
+  return format(due, "yyyy-MM-dd");
 }
 
 export function monthsLabel(months: number): string {
