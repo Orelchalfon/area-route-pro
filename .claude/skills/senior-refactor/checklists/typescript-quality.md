@@ -27,7 +27,9 @@
 
 ## Validation commands (this repo)
 
-- [ ] `pnpm exec tsc --noEmit` — full typecheck, no emit.
+- [ ] `pnpm exec tsc -p tsconfig.app.json --noEmit` — full typecheck, no emit. The bare
+      `tsc --noEmit` checks **nothing** here (root config is `"files": []` + references)
+      and exits 0 — never treat it as a green.
 - [ ] `pnpm lint` — eslint (typescript-eslint, react-hooks rules).
 
 ## Common fixes

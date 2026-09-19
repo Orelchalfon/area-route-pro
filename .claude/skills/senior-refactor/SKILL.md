@@ -24,7 +24,10 @@ There is **no Next.js** here, so skip Next-specific advice (server/client
 components, `use client`) unless the repo actually adopts it. Validation
 commands for this repo:
 
-- Typecheck: `pnpm exec tsc --noEmit`
+- Typecheck: `pnpm exec tsc -p tsconfig.app.json --noEmit`
+  (**not** plain `tsc --noEmit` — the root `tsconfig.json` has `"files": []` and only
+  project references, so the bare form compiles nothing and always exits 0. Count real
+  errors with `| grep -c "error TS"`, never `| tail`, which truncates and undercounts.)
 - Lint: `pnpm lint`
 - Test: `pnpm test`
 - Build: `pnpm build`

@@ -405,9 +405,6 @@ export function MonthlyScheduleBoard({
   const [extraFilterAssignments, setExtraFilterAssignments] = useState<
     Map<string, Job[]>
   >(new Map());
-  const [_removedFromAutoIds, setRemovedFromAutoIds] = useState<Set<string>>(
-    new Set(),
-  );
   const [dayAreaOverrides, setDayAreaOverrides] = useState<
     Map<string, string[]>
   >(new Map());
@@ -571,24 +568,6 @@ export function MonthlyScheduleBoard({
     });
     const selected = unique.filter((j) => jobIds.includes(j.id));
     const movedIds = new Set(jobIds.filter((id) => otherDayIdsSet.has(id)));
-
-    const autoMovedIds = new Set<string>();
-    if (movedIds.size > 0) {
-      filterDistribution.forEach((dayJobs, key) => {
-        if (key !== dateStr) {
-          dayJobs.forEach((j) => {
-            if (movedIds.has(j.id)) autoMovedIds.add(j.id);
-          });
-        }
-      });
-    }
-    if (autoMovedIds.size > 0) {
-      setRemovedFromAutoIds((prev) => {
-        const next = new Set(prev);
-        autoMovedIds.forEach((id) => next.add(id));
-        return next;
-      });
-    }
 
     withApprovedDayGuard(dateStr, selected, () => {
       setExtraFilterAssignments((prev) => {
@@ -799,9 +778,7 @@ export function MonthlyScheduleBoard({
       const isAuto = (filterDistribution.get(fromDateStr) || []).some(
         (j) => j.id === jobId,
       );
-      if (isAuto) {
-        setRemovedFromAutoIds((prev) => new Set(prev).add(jobId));
-      } else {
+      if (!isAuto) {
         setExtraFilterAssignments((prev) => {
           const next = new Map(prev);
           const dayJobs = next.get(fromDateStr) || [];
@@ -849,9 +826,7 @@ export function MonthlyScheduleBoard({
       const isAuto = (filterDistribution.get(fromDateStr) || []).some(
         (j) => j.id === jobId,
       );
-      if (isAuto) {
-        setRemovedFromAutoIds((prev) => new Set(prev).add(jobId));
-      } else {
+      if (!isAuto) {
         setExtraFilterAssignments((prev) => {
           const next = new Map(prev);
           const dayJobs = next.get(fromDateStr) || [];
@@ -926,9 +901,7 @@ export function MonthlyScheduleBoard({
       const isAuto = (filterDistribution.get(dateStr) || []).some(
         (f) => f.id === j.id,
       );
-      if (isAuto) {
-        setRemovedFromAutoIds((prev) => new Set(prev).add(j.id));
-      } else {
+      if (!isAuto) {
         setExtraFilterAssignments((prev) => {
           const next = new Map(prev);
           const dayJobs = (next.get(dateStr) || []).filter(
@@ -1278,7 +1251,6 @@ export function MonthlyScheduleBoard({
             onClick={() => {
               setSelectedTechId(tech.id);
               setExtraFilterAssignments(new Map());
-              setRemovedFromAutoIds(new Set());
               setDayAreaOverrides(new Map());
             }}>
             <div className='w-5 h-5 rounded-full bg-gradient-secondary flex items-center justify-center text-secondary-foreground font-bold text-xs ml-1.5'>
@@ -1322,9 +1294,10 @@ export function MonthlyScheduleBoard({
                   weeks.push(ws);
                   ws = addWeeks(ws, 1);
                 }
+                
                 return weeks.map((ws, i) => (
                   <Button
-                    key={i}
+                    key={format(ws, "yyyy-MM-dd")}
                     variant='outline'
                     size='sm'
                     onClick={() => {
@@ -1338,30 +1311,30 @@ export function MonthlyScheduleBoard({
                 ));
               })()}
             </div>
-          ) : (
+            ) : (
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setViewMode("month")}
+                className='gap-1.5'>
+                <ZoomOut className='w-3.5 h-3.5' />
+                תצוגת חודש
+              </Button>
+            )}
+          </div>
+          <div className='flex items-center gap-1'>
             <Button
-              variant='outline'
+              variant='ghost'
               size='sm'
-              onClick={() => setViewMode("month")}
-              className='gap-1.5'>
-              <ZoomOut className='w-3.5 h-3.5' />
-              תצוגת חודש
+              onClick={() => {
+                if (viewMode === "month")
+                  setCurrentMonth((prev) => addMonths(prev, 1));
+                else setCurrentWeekStart((prev) => addWeeks(prev, 1));
+              }}>
+              <ChevronLeft className='w-4 h-4' />
             </Button>
-          )}
+          </div>
         </div>
-        <div className='flex items-center gap-1'>
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={() => {
-              if (viewMode === "month")
-                setCurrentMonth((prev) => addMonths(prev, 1));
-              else setCurrentWeekStart((prev) => addWeeks(prev, 1));
-            }}>
-            <ChevronLeft className='w-4 h-4' />
-          </Button>
-        </div>
-      </div>
 
       {/* Stats */}
       <div className='grid grid-cols-3 gap-4'>
@@ -1406,7 +1379,7 @@ export function MonthlyScheduleBoard({
           <div className='grid grid-cols-7 border-b border-border min-w-175'>
             {DAY_HEADERS.map((d, i) => (
               <div
-                key={i}
+                key={d}
                 className={`text-center py-2.5 text-sm font-semibold ${i === 5 || i === 6 ? "text-muted-foreground/50" : "text-card-foreground"}`}>
                 {d}
               </div>
@@ -1444,7 +1417,7 @@ export function MonthlyScheduleBoard({
             <div className='grid grid-cols-7 border-b border-border min-w-175'>
               {DAY_HEADERS.map((d, i) => (
                 <div
-                  key={i}
+                  key={d}
                   className={`text-center py-2.5 text-sm font-semibold ${i === 5 || i === 6 ? "text-muted-foreground/50" : "text-card-foreground"}`}>
                   {d}
                 </div>
@@ -1654,9 +1627,9 @@ export function MonthlyScheduleBoard({
           if (!o) setPendingDelete(null);
         }}>
         <AlertDialogContent dir="rtl">
-          <AlertDialogHeader  >
+          <AlertDialogHeader>
             <AlertDialogTitle className='text-right'>הסרת משימה מהלו״ז</AlertDialogTitle>
-            <AlertDialogDescription className='text-right' >
+            <AlertDialogDescription className='text-right'>
               {(() => {
                 if (!pendingDelete) return "האם להסיר את המשימה מהלו״ז?";
                 const job =
