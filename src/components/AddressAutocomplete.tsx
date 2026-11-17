@@ -111,13 +111,30 @@ function AddressAutocompleteLoaded({
     // Enter: stash the current (pre-overwrite) input value so place_changed can keep the
     // house number, and stop the event bubbling to the surrounding Radix dialog (which
     // would otherwise treat Enter as a submit/close). Capture phase so we run first.
+    // IMPORTANT: this capture listener must NOT stop propagation — on the target element that
+    // would also suppress Google's own (bubble-phase) keydown handler, which is what implements
+    // ArrowUp/ArrowDown navigation and Enter selection.
     const handleEnter = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        lastTypedRef.current = input.value;
-        e.stopPropagation();
-      }
+      if (e.key === 'Enter') lastTypedRef.current = input.value;
     };
     input.addEventListener('keydown', handleEnter, true);
+
+    // Registered AFTER Google's listener (added in the Autocomplete constructor above), so
+    // Google handles the key first; we then keep it from reaching the surrounding dialog /
+    // drag-drop keyboard handlers (Enter would submit/close, arrows would move focus/drag).
+    const pacOpen = () =>
+      Array.from(document.querySelectorAll<HTMLElement>('.pac-container')).some(
+        el => el.style.display !== 'none' && el.childElementCount > 0,
+      );
+    const handleNavKeys = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.stopPropagation();
+      } else if (e.key === 'Enter') {
+        e.stopPropagation();
+        if (pacOpen()) e.preventDefault(); // never submit a form while picking a suggestion
+      }
+    };
+    input.addEventListener('keydown', handleNavKeys);
 
     // Clicking a suggestion in the portalled `.pac-container` (rendered on <body>) is
     // seen by Radix's bubble-phase document pointerdown listener as an "outside" click,
@@ -131,6 +148,7 @@ function AddressAutocompleteLoaded({
 
     return () => {
       input.removeEventListener('keydown', handleEnter, true);
+      input.removeEventListener('keydown', handleNavKeys);
       document.removeEventListener('pointerdown', stopPacDismiss, true);
     };
   }, [isLoaded]);
